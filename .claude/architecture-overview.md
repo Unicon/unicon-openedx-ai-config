@@ -336,7 +336,7 @@ applies only the **Language** tag. Full detail in the companion doc →
 
 Each folder's `index.rst` just globs the ADRs. Several ADRs carry a **Status** line
 (Proposed / Accepted / Superseded / Obsolete / Rejected) and a 2026-04-02 changelog —
-**always check Status before trusting an ADR as current.** Known status notes:
+**always check Status before trusting an ADR as current. But understand that sometimes the status line is outdated.** Known status notes:
 - `0004-app-label-prefix` (content): **Obsolete** (the `oel_` prefix is gone, replaced
   by `openedx_content` labels — though older tagging tables still use `oel_tagging_*`).
 - `0006-python-public-api-conventions` (content): **Superseded** by 0010.

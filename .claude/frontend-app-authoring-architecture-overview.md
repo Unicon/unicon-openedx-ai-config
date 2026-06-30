@@ -241,7 +241,7 @@ Query hook, and feature UI + i18n + tests.
 | [README.rst](../frontend-app-authoring/README.rst) | What the app is, install/dev/test, Tutor setup, legacy-page waffle flags. |
 | [docs/how_tos/](../frontend-app-authoring/docs/how_tos/) | `i18n.rst`, `override-external-urls.rst`. |
 
-**Always check an ADR's `Status:` line before trusting it as current.** Notable: ADR 0002
+**Always check an ADR's `Status:` line before trusting it as current; but understand sometimes the status line is outdated.** Notable: ADR 0002
 is *Proposed* (yet followed everywhere); editors ADR 0003 is *Adopted* but explicitly
 interim/incremental; none of the editors ADRs are superseded.
 
