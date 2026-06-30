@@ -83,6 +83,10 @@ Durable resources to consult when a ticket needs grounding:
 - `.claude/cbe-project-context.md` (CBE program background, read it for any
   competency/skills ticket), `.claude/architecture-overview.md`,
   `.claude/architecture-taxonomies-and-competencies.md`
+- `.claude/frontend-app-authoring-architecture-overview.md` for any ticket with a
+  frontend part: the Open edX authoring MFE's architecture and conventions, and how it
+  connects to this repo's APIs. The repo itself is at `../frontend-app-authoring`
+  (external to this workspace); investigate it via sub-agents, not inline.
 - ADRs under `docs/<package>/decisions/` (`openedx_core`, `openedx_content`,
   `openedx_tagging`, `openedx_learning`). Always read the ADR's `Status:` line first;
   some are Proposed, Obsolete, or Superseded, so do not trust one as current without it.

@@ -101,9 +101,11 @@ down to cheaper sub-agents and reason over their summaries. Pass `model` explici
 Verify claims against the repo (`file:line`) before asserting; downgrade an unverifiable
 claim to a question. Durable resources: `.claude/cbe-project-context.md` (CBE program
 background, read it for any competency/skills ticket), `.claude/architecture-overview.md`,
-`.claude/architecture-taxonomies-and-competencies.md`, `README.rst`, ADRs under
-`docs/<package>/decisions/` (check each ADR's `Status:` line), the relevant
-`src/openedx_*/` app, `CLAUDE.md`.
+`.claude/architecture-taxonomies-and-competencies.md`,
+`.claude/frontend-app-authoring-architecture-overview.md` (for any ticket with a frontend
+part: the authoring MFE at `../frontend-app-authoring`, external to this workspace),
+`README.rst`, ADRs under `docs/<package>/decisions/` (check each ADR's `Status:` line),
+the relevant `src/openedx_*/` app, `CLAUDE.md`.
 
 ## What you return
 
