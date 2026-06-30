@@ -6,10 +6,10 @@
 > frontend side of a change in line with its conventions.
 >
 > **The frontend repo is NOT in this workspace.** It lives on disk at:
-> **`/Users/jesperhodge/openedx/frontend-app-authoring`** (a sibling of this repo,
+> **`../frontend-app-authoring`** (a sibling of this repo,
 > i.e. `../frontend-app-authoring`). File paths below are relative to that repo's root
 > unless they start with `.claude/`. To verify anything here, dispatch a sub-agent into
-> that directory (see §10) rather than reading it into the main context.
+> that directory (see §10) rather than reading it into the main context. If the repo is not found at that path, just ask the user for its location.
 >
 > Synthesized from the repo's `README.rst`, its ADRs under `docs/decisions/` and
 > `src/editors/decisions/`, `package.json`, and the `src/` layout.
