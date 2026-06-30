@@ -8,7 +8,11 @@ Section ownership: the business-analyst owns Use Case, Description, Acceptance C
 and the non-code parts of Context. The software-architect owns Technical Details, Files
 to modify, and the code and prior-art parts of Context.
 
-A ticket has six sections, in this order.
+A ticket has seven sections, in this order.
+
+The most important section is "Open questions". If it's not 100% certain what parts of this
+ticket need to say exactly, just leave a "TBD". Add an open question to find out, and then later when the question
+has been answered another iteration can fill in the gaps in the ticket.
 
 ## Use Case
 
@@ -105,6 +109,8 @@ is empty.
     | --- | --- |
     | src/openedx_tagging/rest_api/v1/serializers.py | add taxonomy_type SerializerMethodField |
     | src/openedx_tagging/rest_api/v1/views.py | add select_related to get_queryset |
+
+
 
 ## What "awesome" looks like
 
