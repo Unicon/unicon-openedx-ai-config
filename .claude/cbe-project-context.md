@@ -21,7 +21,15 @@ Open edX is a large, multi-repo learning platform. The repos that matter for thi
   layer: `openedx-platform` imports its apps and calls their in-process public APIs.
   Code here never imports from `openedx-platform`. Database tables use the `oel_` prefix
   (Open edX Learning). Top-level packages under `src/`: `openedx_catalog`,
-  `openedx_content`, `openedx_core`, `openedx_django_lib`, `openedx_tagging`. The
+  `openedx_content`, `openedx_core`, `openedx_django_lib`, `openedx_tagging`, and
+  `openedx_learning` (planned — not yet on disk; see below).
+
+  > **Naming collision to watch out for:** the old PyPI package name was
+  > `openedx-learning` (hyphenated); it was renamed to `openedx-core`. The *new*
+  > Python package being introduced for CBE work is **`openedx_learning`**
+  > (underscored module name, a new top-level package inside this same library).
+  > They are different things. `openedx_learning` is not a separate repo or project —
+  > it will live at `src/openedx_learning/` inside this repo. The
   `.importlinter` contracts enforce the layering.
 - **`openedx-platform`** (edx-platform). The big LMS and Studio (CMS) application. It is
   the upper layer and depends on this repo. Grading lives here, and the CBE *evaluation

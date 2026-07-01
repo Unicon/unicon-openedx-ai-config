@@ -27,10 +27,19 @@ content reuse, flexible content structures, and adaptive learning.
 [0001-content-tagging.rst](docs/openedx_tagging/decisions/0001-content-tagging.rst)
 
 The hard rule ([0002-tagging-app.rst](docs/openedx_tagging/decisions/0002-tagging-app.rst)):
-**`openedx_tagging` is a STANDALONE library with NO dependencies on other Open edX
-projects.** Anything needing Open edX specifics (Organizations, CourseKey/UsageKey
+**`openedx_tagging` has NO dependencies on other Open edX projects** (i.e., nothing
+from `edx-platform`, `openedx-events`, or any other external Open edX project).
+Anything needing Open edX specifics (Organizations, CourseKey/UsageKey
 validation, course-creator permissions) lives in **`edx-platform`'s
 `openedx.core.djangoapps.content_tagging`** app instead, not here.
+
+> **`openedx_tagging` is a package inside `openedx-core`**, not a separate library
+> or project. "No Open edX project dependencies" means no deps *outside this repo*.
+> Intra-repo layering is enforced by `.importlinter`: `openedx_tagging` sits below
+> `openedx_content` and (once created) below `openedx_learning`. Code in higher layers
+> may import from `openedx_tagging`, but **`openedx_tagging` must never import from
+> `openedx_learning` or `openedx_content`** — that would be a layering violation
+> caught by `lint-imports`.
 
 - It was implemented as a pluggable Django app (rejected: building it into the Discovery
   service, or standing up a new IDA microservice).
