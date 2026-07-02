@@ -1,0 +1,791 @@
+UC ID,Use Case,Task,Primary Role,Community Involvement,Github Title,Github Description,Technical Notes,Questions,Labels,Type,Sprint Zero Target Week,Ready?,UX Designs Done?,Gherkin AC Done?,Story Points #,Dependencies?,Community Input Done?,Jenna?
+Competency Criteria Management (2.4 & 2.6)                     ,,,,,,,,,,,,,,,,,,
+1,"As a Platform Administrator, I need to be able to indicate that a Taxonomy is a Competency Taxonomy when I import it.",,Not Started,,,,,,,,,,,,,,,
+,1,Implement backend Competency Taxonomy model in place,Backend,,Implement backend model support for Competency Taxonomy usage type during import,"Use Case:
+As a Platform Administrator, I need the platform to store whether an imported taxonomy is being used as a Competency Taxonomy so that newly imported taxonomies can be distinguished from other taxonomy types and used appropriately in Open edX workflows.
+
+Description:
+This issue adds backend model support for identifying a newly imported taxonomy as a Competency Taxonomy. The model should support storing a taxonomy usage/type value, such as Competency Taxonomy, when the taxonomy is created through the import workflow. This value should be persisted and made available to related API, UI, and reporting workflows.
+
+Acceptance Criteria:
+Given that a new taxonomy is being imported
+And ""Competency Taxonomy"" is selected as the Taxonomy Type
+When the taxonomy is created through the import process
+Then the new taxonomy record stores the taxonomy type
+And the taxonomy type is saved as ""Competency Taxonomy""
+
+Given that a new taxonomy is being imported
+And ""Competency Taxonomy"" is not selected as the Taxonomy Type
+When the taxonomy is created through the import process
+Then the new taxonomy record remains valid
+And the taxonomy is not treated as a Competency Taxonomy
+
+Given that a new taxonomy was imported with Taxonomy Type set to ""Competency Taxonomy""
+When the import process is complete
+Then the taxonomy type is persisted on the new taxonomy record
+And backend services can identify the taxonomy as a Competency Taxonomy",Claude draft: https://docs.google.com/document/d/1ysRS1cD5PGp3uABdo2qfysxiN4Oi6m6hgqQvZFsJDQ4/edit?tab=t.0#heading=h.ks1kecxcqgx5 ,Ready for Community Review. Need to confirm folder structure (blocking question to start development).,,,06/29 - 07/03,FALSE,TRUE,TRUE,8,Answer about folder structure and anything additional needed for new Django app?,FALSE,FALSE
+,2,"Update Create endpoint to include ""Taxonomy Type""/""Taxonomy Use"" field to populate the model.",Backend,,Update taxonomy Create endpoint to accept Taxonomy Type,"Use Case:
+As a Platform Administrator, I need the taxonomy Create endpoint to accept a Taxonomy Type or Taxonomy Use field so that I can indicate when an imported taxonomy should be treated as a Competency Taxonomy.
+
+Description:
+This issue updates the taxonomy creation API to accept a taxonomy type value during creation or import. The value should populate the backend taxonomy model and be validated against the supported taxonomy type options.
+
+Acceptance Criteria:
+
+Given a new taxonomy is being created through the Create endpoint
+And the request includes Taxonomy Type set to ""Competency Taxonomy""
+When the Create endpoint processes the request
+Then the taxonomy is created successfully
+And the taxonomy type is saved as ""Competency Taxonomy""
+
+Given a new taxonomy is being created through the Create endpoint
+And the request does not include a Taxonomy Type value
+When the Create endpoint processes the request
+Then the taxonomy is created successfully
+And the taxonomy is not saved as a Competency Taxonomy
+
+Given a new taxonomy is being created through the Create endpoint
+And the request includes an unsupported Taxonomy Type value
+When the Create endpoint processes the request
+Then the taxonomy is not created
+And a validation error explains that the taxonomy type is not supported",https://docs.google.com/document/d/1ysRS1cD5PGp3uABdo2qfysxiN4Oi6m6hgqQvZFsJDQ4/edit?tab=t.x3c4pbbb1enf#heading=h.1b2rph81bbwp,"Share with Community in advance because of repo structure questions that are relevant now.
+In parallel, will continue looking at it internally.
+
+Confirm with community that the backend split is okay with PR review and Postman testing as the only way to validate AC until the frontend tickets are complete.
+
+Split into 2 tickets/sub-tickets after community review.",,,06/29 - 07/03,FALSE,TRUE,FALSE,,Dependent on 1.1,FALSE,FALSE
+,3,Update Get endpoint to return Taxonomy Type.,Backend,,Update taxonomy Get endpoint to return Taxonomy Type,"Use Case:
+As a Platform Administrator, I need the taxonomy Get endpoint to return the Taxonomy Type so that platform interfaces and integrations can identify which taxonomies are Competency Taxonomies.
+
+Description:
+This issue updates the taxonomy retrieval API response to include the taxonomy type value for individual taxonomy records and, if applicable, taxonomy list responses.
+
+Acceptance Criteria:
+Given that a taxonomy has been marked as a Competency Taxonomy
+When I retrieve the taxonomy using the GET endpoint
+Then the response includes the Taxonomy Type field
+And the Taxonomy Type value is ""Competency Taxonomy""
+
+Given that a taxonomy has not been marked as a Competency Taxonomy
+When I retrieve the taxonomy using the GET endpoint
+Then the response includes the Taxonomy Type field
+And the taxonomy is not identified as a Competency Taxonomy
+
+Given that multiple taxonomies exist in the platform
+When I retrieve the taxonomy list
+Then each taxonomy includes its Taxonomy Type value",https://docs.google.com/document/d/1ysRS1cD5PGp3uABdo2qfysxiN4Oi6m6hgqQvZFsJDQ4/edit?tab=t.xeaaiujoioob#heading=h.se5orisa06xs,Ready for Community Review.,,,06/29 - 07/03,FALSE,TRUE,FALSE,3,Dependent on 1.1 & 1.2.,FALSE,FALSE
+,4,Update the import UI flow to include Taxonomy Type dropdown.,Frontend,,Add Taxonomy Type dropdown to taxonomy import flow,"Use Case:
+As a Platform Administrator, I need to select a Taxonomy Type when importing a taxonomy so that the imported taxonomy can be identified as a Competency Taxonomy during the import process.
+
+Description:
+This issue updates the taxonomy import UI to include a Taxonomy Type dropdown. The dropdown should include the supported taxonomy type options and send the selected value to the Create endpoint during import.
+
+Acceptance Criteria:
+Given the taxonomy import window is open
+When the import workflow is displayed
+Then a Taxonomy Type dropdown is visible
+And the dropdown includes ""Competency Taxonomy"" as an option
+
+Given that a new taxonomy is being imported
+And ""Competency Taxonomy"" is selected from the Taxonomy Type dropdown
+When the import is completed
+Then the taxonomy is imported successfully
+And the taxonomy is saved as a Competency Taxonomy
+
+Given a new taxonomy is being imported
+And no Taxonomy Type is selected
+When the import is completed
+Then the import follows the defined default behavior
+And the taxonomy is not incorrectly marked as a Competency Taxonomy",https://docs.google.com/document/d/1ysRS1cD5PGp3uABdo2qfysxiN4Oi6m6hgqQvZFsJDQ4/edit?tab=t.3wfwu8racjql#heading=h.tovil296xxy3,,,,06/29 - 07/03,FALSE,TRUE,FALSE,2,Dependent on 1.1 & 1.2.,FALSE,FALSE
+,5,Update the Taxonomies page to include taxonomy type badge,Frontend,,Add taxonomy type badge to Taxonomies page,"As a Platform Administrator, I need to see which taxonomies are Competency Taxonomies on the Taxonomies page so that competency-related taxonomies can be quickly distinguished from other taxonomy types.
+
+This issue updates the Taxonomies page to display a badge or visual indicator for taxonomy type.
+
+Acceptance Criteria:
+
+Given that a taxonomy has been imported as a Competency Taxonomy
+When the Taxonomies page is viewed
+Then the taxonomy displays a ""Competency Taxonomy"" badge
+
+Given that a taxonomy has not been imported as a Competency Taxonomy
+When the Taxonomies page is viewed
+Then the taxonomy does not display the ""Competency Taxonomy"" badge
+
+Given that a taxonomy has been created via the API with a taxonomy type set to Competency Taxonomy
+When the Taxonomies page is viewed
+Then the taxonomy displays a ""Competency Taxonomy"" badge
+
+Given that a taxonomy has been created via the API without a taxonomy type set to Competency Taxonomy
+When the Taxonomies page is viewed
+Then the taxonomy does not display the ""Competency Taxonomy"" badge",https://docs.google.com/document/d/1ysRS1cD5PGp3uABdo2qfysxiN4Oi6m6hgqQvZFsJDQ4/edit?tab=t.1txf4dpko68q#heading=h.a8afveyhk56t,Are we sure we want the Competency badge to be a different color than the others or is this an accessibility issue?,,,06/29 - 07/03,FALSE,TRUE,FALSE,2,Dependent on 1.1 & 1.3,FALSE,FALSE
+,6,Determine workflow for Taxonomies dropdown in design,BA/Design,Yes,Define workflow for Taxonomies dropdown in Studio design,"## Use Case
+
+As a Platform Administrator, I need a clear and intuitive way to navigate to and manage Competency Taxonomies and tag taxonomies from the Studio home page so that I can quickly access the taxonomies I care about without confusion about what each option does.
+
+---
+
+## Description
+
+The UX Designer has proposed a dropdown on the Taxonomies tab of the Studio home page with two options: ""Competency"" and ""Tags"". In the current design, clicking either option launches the taxonomy import wizard with the corresponding Taxonomy Type pre-selected.
+
+Two concerns have been raised with this design:
+
+1. **Labeling:** Nothing in the current design indicates that clicking an option starts an import/creation flow. A user clicking ""Competency"" will likely expect to see their competency taxonomies — not be taken into an import wizard. This is a significant discoverability risk.  
+     
+2. **Use case frequency:** Platform Administrators will far more often want to view and manage existing taxonomies than to create new ones from the home page. The import wizard is already accessible via the Import button on the Taxonomies page itself.
+
+Three directions are on the table for the designer to evaluate:
+
+**Option A — Navigation only:** Dropdown options navigate to the Taxonomies page pre-filtered by type (""Competency Taxonomies"", ""Tag Taxonomies""). Import stays on the Taxonomies page as it currently is. Note: this requires filter/tab functionality on the Taxonomies page, which would expand the scope of ticket 7\.
+
+**Option B — Navigation \+ creation:** Four options — ""View Competency Taxonomies"", ""View Tag Taxonomies"", ""Add Competency Taxonomy"", ""Add Tag Taxonomy"". Covers both the management and creation use cases, at the cost of a more complex dropdown.
+
+**Option C — Label fix only:** Retain the current import-only behavior but update the labels to make the action unambiguous — for example, ""Add Competency Taxonomy"" and ""Add Tag Taxonomy"", or prefix each with ""+"". Lowest-effort change; does not address the frequency-of-use concern.
+
+The designer should evaluate these options (and any alternatives) and produce a revised design. The chosen direction feeds directly into ticket 7\.
+
+---
+
+## Acceptance Criteria
+
+This is a design spike. The deliverable is design artifacts and documented decisions, not working code. There is no Gherkin and no QA path.
+
+- [ ] The three options above (and any designer alternatives) have been reviewed with the team and a direction has been chosen with documented rationale  
+- [ ] The revised design clearly communicates to the user what action each dropdown option performs before they click it  
+- [ ] Figma or design file is updated to reflect the agreed-upon approach  
+- [ ] If Option A or B is chosen, the design specifies how filtering behaves on the Taxonomies page and notes are added to ticket 7 to expand its scope accordingly  
+- [ ] Notes for ticket 7 are written capturing the agreed workflow, interaction details, and any new filtering or navigation requirements the implementation will need
+
+---
+
+## Context for the Designer
+
+**Current import workflow** (from ticket 4 — what the existing design routes users into):
+
+1. Click Import on the Taxonomies page  
+2. Upload a JSON or CSV file  
+3. Click Continue  
+4. Fill in Taxonomy Name, Taxonomy Description, and Taxonomy Type (dropdown: Tags default, Competency option)  
+5. Click Import
+
+**Taxonomy types available to users:** ""Competency"" and ""Tags"" only. System-level taxonomies exist but cannot be user-created and should not appear as dropdown options.
+
+**Filtering capability:** The Taxonomies page does not currently have filter or tab functionality. If Option A or B is chosen, this will need to be built as part of ticket 7 — budget accordingly.
+
+**Related tickets:**
+
+- Ticket 4: Import flow with Taxonomy Type dropdown (the flow the current design leads into)  
+- Ticket 5: Taxonomy type badge on taxonomy cards (the visual that makes filtering meaningful)  
+- Ticket 7: Implementation of whichever design this ticket produces  
+- \[Link to current Figma design\]",N/A,"Ready for community review (pending comment from Phil in ticket). Does Jenna want to move forward with Option B or Option D (remove from scope). If Option D, do we also want to remove filtering taxonomies by Competency vs Tags from scope as well?",Backlog Nice-to-have,,06/29 - 07/03,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,7,Update Studio Home page to support Taxonomies dropdown,Frontend,,Add Taxonomies dropdown support to Studio Home page,"As a Platform Administrator, I need the Studio Home page to support a Taxonomies dropdown so that taxonomy management workflows can be accessed from Studio.
+
+This issue implements the Taxonomies dropdown on the Studio Home page based on the approved design workflow. The dropdown should provide access to taxonomy-related pages and respect any applicable permissions.
+
+Acceptance Criteria:
+
+Given that a user has permission to manage taxonomies
+When the Studio Home page is viewed
+Then the Taxonomies dropdown is visible
+
+Given that the Studio Home page is displayed
+And the Taxonomies dropdown is opened
+When the taxonomy management option is selected
+Then the appropriate Taxonomies page is displayed
+
+Given that a user does not have permission to manage taxonomies
+When the Studio Home page is viewed
+Then taxonomy management options the user cannot access are not displayed",Blocked by 1.6,,Backlog Nice-to-have,,06/29 - 07/03,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,8,Docs & Release Notes for Competency Taxonomy usage type,Backend,,Add documentation and release notes for Competency Taxonomy usage type,"This issue adds user-facing documentation and release notes for the new Competency Taxonomy usage type. Documentation should explain what the taxonomy type means, when to use it, how to select it during import, and how it appears in the platform.",N/A,,,,06/29 - 07/03,FALSE,TRUE,FALSE,,,FALSE,FALSE
+2,"As a Platform Administrator, I need to be able to view the Competency Criteria screen separate from the Taxonomy Editing screen.",,Not Started,,,,,,,,,,,,,,,
+,1,"Create UX Designs: Vertical Ellipses (…) Menu to select ""Apply Competencies"" and ""Edit Taxonomy"".",BA/Design,Yes,Create UX designs for taxonomy actions menu with Apply Competencies and Edit Taxonomy options,"This issue creates UX designs for a vertical ellipses menu on the Taxonomies page. The menu should allow users to choose between “Apply Competencies” and “Edit Taxonomy.” “Apply Competencies” should take users to the Competency Criteria screen, while “Edit Taxonomy” should take users to the Taxonomy Editing screen.",N/A,,,,06/29 - 07/03,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,2,Implement UX Design Vertical Ellipses Menu and rough TreeView display shown on Apply Competencies page.,Frontend,,Implement taxonomy actions menu and Apply Competencies page TreeView display,"NOTE: This may need to change based on any UX Designs created.
+
+As a Platform Administrator, I need to select “Apply Competencies” from the taxonomy actions menu so that the Competency Criteria screen can be viewed separately from the Taxonomy Editing screen.
+
+This issue implements the approved vertical ellipses menu on the Taxonomies page and adds the rough TreeView display shown on the Apply Competencies page. The menu should include separate actions for “Apply Competencies” and “Edit Taxonomy.” Selecting “Apply Competencies” should route to the Competency Criteria screen, while selecting “Edit Taxonomy” should route to the Taxonomy Editing screen.
+
+Acceptance Criteria:
+
+Given that a taxonomy is displayed on the Taxonomies page
+When the Taxonomies page is viewed
+Then a vertical ellipses menu is available for the taxonomy
+
+Given that the vertical ellipses menu is available for a taxonomy
+When the menu is opened
+Then the menu displays an ""Apply Competencies"" option
+And the menu displays an ""Edit Taxonomy"" option
+
+Given that the vertical ellipses menu is opened for a taxonomy
+When the ""Apply Competencies"" option is selected
+Then the Apply Competencies page is displayed
+And the page shows the Competency Criteria screen for the selected taxonomy
+
+Given that the vertical ellipses menu is opened for a taxonomy
+When the ""Edit Taxonomy"" option is selected
+Then the Taxonomy Editing screen is displayed
+And the Taxonomy Editing screen is separate from the Apply Competencies page
+
+Given that the Apply Competencies page is displayed for a taxonomy
+When the taxonomy data is loaded
+Then a TreeView display is shown
+And the TreeView represents the taxonomy hierarchy available for competency management
+
+Given that a user is working with a taxonomy
+When the user selects either ""Apply Competencies"" or ""Edit Taxonomy""
+Then competency criteria management and taxonomy editing are handled on separate screens",Blocked by 2.1,,,,06/29 - 07/03,FALSE,TRUE,FALSE,,,FALSE,FALSE
+,3,Docs & Release Notes for selecting Competency Management vs Taxonomy Editing screens,Frontend,,Add documentation and release notes for separate Competency Management and Taxonomy Editing screens,"This issue adds documentation and release notes for the new workflow that separates the Competency Criteria screen from the Taxonomy Editing screen. The documentation should explain how to access each screen from the vertical ellipses menu, when to select “Apply Competencies,” and when to select “Edit Taxonomy.”",N/A,,,,06/29 - 07/03,FALSE,TRUE,FALSE,,,FALSE,FALSE
+4,"As a Platform Administrator, I need to be able to view a Competency ID for each competency on the Competency Management page.",,Not Started,,,,,,,,,,,,,,,
+,,Assumes custom competency ordering is out of scope for MVP.,Assumption,,,,,,,,-,-,-,-,-,-,-,-
+,1,"Determine what and how many ID fields, if any, should be added to the Taxonomy data model.",Architect,Yes,Determine Competency ID field strategy for taxonomy competency data,"Use Case:
+As a Platform Administrator, I need to view the Competency ID for each competency on the Competency Management page.
+
+Description:
+Determine whether a new Competency ID field should be added to the taxonomy data model, whether multiple ID fields are needed, or whether an existing field should be used as the displayed Competency ID.
+
+This issue should produce a technical recommendation that specifies which field(s) to use, how they should map to imported taxonomy data, and which field should be displayed in the Competency Management UI.
+
+Expected Outcomes:
+- A recommended approach is documented for representing Competency ID.
+- The recommendation clarifies whether to use an existing field or add one or more new fields.
+- The recommendation explains how the selected field should behave during import, export, API retrieval, and UI display.
+- Any data migration or backward compatibility considerations are documented.",https://github.com/openedx/openedx-core/issues/625,,,,06/29 - 07/03,FALSE,TRUE,FALSE,,,FALSE,FALSE
+,2,Add ID fields to Taxonomy data model unless choosing to use the external_id field for the displayed Competency ID.,Backend,,Add Competency ID field to taxonomy data model,"Use Case:
+As a Platform Administrator, I need to view the Competency ID for each competency on the Competency Management page.
+
+Description:
+Add the necessary Competency ID field(s) to the taxonomy data model unless the technical recommendation indicates that an existing field should be used.
+
+The field should support storing the identifier that will be displayed for each competency on the Competency Management page.
+
+Expected Outcomes:
+- Any required Competency ID field(s) are added to the taxonomy data model.
+- The selected data model approach supports API retrieval, import, export, and Competency Management UI display.",Blocked by 4.1,,,,06/29 - 07/03,FALSE,TRUE,FALSE,,,FALSE,FALSE
+,3,Update GET endpoints to return the field(s),Backend,,Update competency GET endpoints to return Competency ID,"Use Case:
+As a Platform Administrator, I need to view the Competency ID for each competency on the Competency Management page.
+
+Description:
+Update the relevant GET endpoint responses to include Competency ID data for competencies. The field should be returned for individual competency records responses used by the Competency Management page.
+
+Acceptance Criteria:
+Given that a competency has a Competency ID
+When the competency is retrieved through a GET endpoint
+Then the response includes the Competency ID field
+And the field contains the identifier associated with the competency
+
+Given that a competency does not have a Competency ID
+When the competency is retrieved through a GET endpoint
+Then the response includes the Competency ID field
+And the response indicates that no Competency ID is available
+
+Given that the Competency Management page requests competency hierarchy data
+When the GET endpoint returns the competency hierarchy
+Then each competency in the response includes its Competency ID field",Blocked by 4.1,,,,06/29 - 07/03,FALSE,TRUE,FALSE,,,FALSE,FALSE
+,4,Update import process to include this data,Backend,,Update competency import process to include Competency ID,"Use Case:
+As a Platform Administrator, I need to view the Competency ID for each competency on the Competency Management page.
+
+Description:
+Update the import process to recognize, validate, and save Competency ID data from the imported file or payload. Imported Competency ID values should be associated with the correct competency and persisted in the database.
+
+Acceptance Criteria:
+Given that an import file includes Competency ID data for a competency
+When the import process is completed
+Then the competency is created or updated successfully
+And the Competency ID is saved with the correct competency
+
+Given that an import file does not include Competency ID data for a competency
+When the import process is completed
+Then the competency is created or updated successfully
+And the missing Competency ID does not block the import
+
+Given that an import file includes Competency ID data
+When the import process validates the data
+Then the Competency ID is accepted when it meets the defined requirements
+And a validation message is returned when the Competency ID does not meet the defined requirements
+",Blocked by 4.1,,,,06/29 - 07/03,FALSE,TRUE,FALSE,,,FALSE,FALSE
+,5,Update export process to include this data,Backend,,Update competency export process to include Competency ID,"Use Case:
+As a Platform Administrator, I need to view the Competency ID for each competency on the Competency Management page.
+
+Description:
+Update the export process to include the Competency ID field for each competency. The exported data should support re-importing the Competency ID without data loss when the import process supports the same field.
+
+Acceptance Criteria:
+Given that a competency has a Competency ID
+When competency data is exported
+Then the export includes the Competency ID field
+And the field contains the identifier associated with the competency
+
+Given that a competency does not have a Competency ID
+When competency data is exported
+Then the export includes the Competency ID field
+And the field is empty or null according to the defined export format
+
+Given that the exported competency data includes Competency ID values
+When the exported data is re-imported
+Then the Competency ID values can be imported without data loss",Blocked by 4.1,,,,06/29 - 07/03,FALSE,TRUE,FALSE,,,FALSE,FALSE
+,6,Update the Competency Management UI to display this data,Frontend,,Display Competency ID on the Competency Management page,"Use Case:
+As a Platform Administrator, I need to view the Competency ID for each competency on the Competency Management page.
+
+Description:
+Update the Competency Management page to display the Competency ID for each competency. The ID should be clearly associated with the correct competency and should use the field defined by the approved technical approach.
+
+Acceptance Criteria:
+Given that the API returns Competency ID data for a competency
+When the Competency Management page loads the competency data
+Then the Competency ID is displayed for the competency
+And the displayed ID matches the value returned by the API
+
+Given that the API returns a competency without a Competency ID
+When the Competency Management page loads the competency data
+Then the page displays the defined empty state or no ID content
+And the page does not display incorrect ID data
+
+Given that the Competency Management page displays competencies in a hierarchy
+When Competency ID values are displayed
+Then the hierarchy remains readable
+And each ID is clearly associated with the correct competency",Blocked by 4.1 and also blocked by needing a ticket to get a starter Competency Management page in place,,,,07/06 - 07/10,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,7,Docs & Release Notes for Competency ID,Backend,,Add documentation and release notes for Competency ID,"Use Case:
+As a Platform Administrator, I need to view the Competency ID for each competency on the Competency Management page.
+
+Description:
+Add documentation and release notes explaining Competency ID support. Documentation should explain what the Competency ID represents, how it is included in import and export workflows, where it appears in API responses, and where it is displayed on the Competency Management page.
+
+The release note should mention the relevant data model, API, import, export, and UI changes.",,,,,07/06 - 07/10,FALSE,TRUE,FALSE,,,FALSE,FALSE
+5,"As a Platform Administrator, I need to be able to configure Competency Criteria associations to courses gradeable subsection assignments.",,Not Started,,,,,,,,,,,,,,,
+,,Assumes that Course Search already exists on the backend sufficiently for our use case.,Assumption,,,,,,,,-,-,-,-,-,-,-,-
+,1,Implement Competency Criteria data model described in ADR 0023 and ADR 0024.,Backend,,Implement Competency Criteria data model described in ADR 0023 and ADR 0024,"Use Case:
+As a Platform Administrator, I need to configure Competency Criteria associations for courses.
+
+Description:
+Implement the Competency Criteria data model described in ADR 0023 and ADR 0024 to support authoring, storing, retrieving, evaluating, and auditing competency achievement criteria in Open edX.
+
+The implementation should include the core authoring models needed to represent a full Competency Achievement Criteria expression tree:
+
+- CompetencyTaxonomy, using Django multi-table inheritance from Taxonomy, to identify taxonomies that are enabled for competency-related workflows.
+- CompetencyCriteriaGroup, representing internal nodes in a competency criteria tree. Groups should support parent-child relationships, competency tag association, optional course scope, name, ordering, and AND / OR logic.
+- CompetencyCriteria, representing leaf criteria in the tree. Each criterion should belong to a CompetencyCriteriaGroup, reference an oel_tagging_objecttag association, optionally reference a CompetencyRuleProfile, and support rule type and payload overrides.
+- CompetencyRuleProfile, representing reusable default evaluation rules scoped to organization, course, and/or competency taxonomy.
+
+The implementation should also include the learner status models needed to materialize and preserve competency evaluation results:
+
+- CompetencyMasteryStatuses, seeded with the supported mastery status values.
+- StudentCompetencyCriteriaStatus, storing learner status at the individual criterion level.
+- StudentCompetencyCriteriaGroupStatus, storing learner status at the criteria group level.
+- StudentCompetencyStatus, storing learner status at the overall competency level.
+
+The data model should support nested criteria trees, deterministic evaluation ordering, course-scoped criteria, default and override rule behavior, and efficient lookup patterns through the indexes described in the ADRs.
+
+The implementation should also follow the lifecycle and traceability decisions from ADR 0024:
+
+- Apply django-simple-history to CompetencyCriteriaGroup, CompetencyCriteria, and CompetencyRuleProfile.
+- Do not apply django-simple-history to oel_tagging_tag, oel_tagging_taxonomy, or CompetencyTaxonomy in this phase.
+- Treat learner status models as append-only history.
+- Protect or archive competency definition records after related learner status exists, according to the ADR-defined delete and archive rules.",,,,,07/06 - 07/10,FALSE,TRUE,FALSE,,,FALSE,FALSE
+,2,Build an endpoint to fetch all courses that the current user has access to within a specified time range.,Backend,Yes,Build endpoint to fetch courses the current user can access within a specified time range,"Use Case:
+As a Platform Administrator, I need to configure Competency Criteria associations for courses.
+
+Description:
+Build an endpoint that returns courses the current user has permission to access within a specified time range. This endpoint will support Course Search during Competency Criteria association configuration.
+
+Acceptance Criteria:
+Given that a user has access to courses within the specified time range
+When the accessible courses endpoint is requested
+Then the response includes courses the user can access
+And the response does not include courses the user cannot access
+
+Given that courses exist both inside and outside the specified time range
+When the accessible courses endpoint is requested with a time range
+Then the response includes courses within the specified time range
+And the response excludes courses outside the specified time range
+
+Given that no accessible courses exist within the specified time range
+When the accessible courses endpoint is requested
+Then the response returns an empty course list",,,,,07/06 - 07/10,FALSE,TRUE,FALSE,,,FALSE,FALSE
+,3,Determine technical approach for Course Search,Architect,Yes,Determine technical approach for Course Search in Competency Criteria Associations,"Use Case:
+As a Platform Administrator, I need to configure Competency Criteria associations for courses.
+
+Description:
+Determine the technical approach for Course Search used in the Competency Criteria Associations workflow. The recommendation should account for permissions, time range filtering, search performance, large course catalogs, and how results will be displayed on the frontend.
+
+Expected Outcomes:
+- A recommended Course Search approach is documented.
+- The recommendation defines backend filtering expectations.
+- The recommendation defines frontend search behavior.
+- The recommendation addresses large result sets.
+- The recommendation identifies any required pagination, filtering, sorting, or result limits.",,,,,07/06 - 07/10,FALSE,TRUE,FALSE,,,FALSE,FALSE
+,4,Build Course Search on the frontend,Frontend,,Build frontend Course Search for Competency Criteria Associations,"Use Case:
+As a Platform Administrator, I need to configure Competency Criteria associations for courses.
+
+Description:
+Build the frontend Course Search experience used when configuring Competency Criteria associations. The UI should allow users to search for courses they have access to and select courses for competency criteria association.
+
+Acceptance Criteria:
+Given that the Competency Criteria Associations page is displayed
+When a course search term is entered
+Then matching courses are displayed
+And the results are limited to courses that the user can access
+
+Given that the Course Search supports time range filtering
+When a time range is selected
+Then the search results are limited to courses within that time range
+
+Given that the course search results are displayed
+When a course is selected
+Then the selected course is available for the Competency Criteria association",,,,,07/06 - 07/10,FALSE,TRUE,FALSE,,,FALSE,FALSE
+,5,Build endpoint for Creating Competency Criteria Group,Backend,,Build endpoint for creating Competency Criteria Group,"Use Case:
+As a Platform Administrator, I need to configure Competency Criteria associations for courses.
+
+Description:
+Build an endpoint that creates a Competency Criteria Group for a specific competency. This group will organize one or more Competency Criteria associations.
+
+Acceptance Criteria:
+Given that valid Competency Criteria Group data is submitted
+When the create group endpoint processes the request
+Then a Competency Criteria Group is created
+And the group is associated with the correct competency
+
+Given that invalid Competency Criteria Group data is submitted
+When the create group endpoint processes the request
+Then the group is not created
+And a validation error explains why the request is invalid
+
+Given that a user does not have permission to configure criteria for the competency
+When the create group endpoint processes the request
+Then the group is not created
+And an authorization error is returned",,,,,07/06 - 07/10,FALSE,TRUE,FALSE,,,FALSE,FALSE
+,6,Build endpoint for creating Competency Criteria when user makes association,Backend,,Build endpoint for creating Competency Criteria when a course association is selected,"Use Case:
+As a Platform Administrator, I need to configure Competency Criteria associations for courses.
+
+Description:
+Build an endpoint that creates Competency Criteria when a user associates a competency with a course-related entity. The endpoint should store the association in the correct Competency Criteria Group.
+
+Acceptance Criteria:
+Given that a valid course association is submitted for a competency
+When the create Competency Criteria endpoint processes the request
+Then Competency Criteria is created
+And the criteria is associated with the selected course
+And the criteria is associated with the correct Competency Criteria Group
+
+Given that an invalid course association is submitted
+When the create Competency Criteria endpoint processes the request
+Then Competency Criteria is not created
+And a validation error explains why the association is invalid
+
+Given that a user does not have permission to configure criteria for the selected course or competency
+When the create Competency Criteria endpoint processes the request
+Then Competency Criteria is not created
+And an authorization error is returned","Tammie: We'll need to think about validation rules because the TD says there are constraints: 
+- No overlap in containment paths: A competency cannot appear twice along the same LMS path in a group.
+- Parent competencies dominate scope: Associating a parent competency blocks all of its children in that course branch.
+- Groups and courses are isolation boundaries: Rules do not cross AC groups or courses.
+Should the validation rules be a separate ticket or included in this one?",,,,07/06 - 07/10,FALSE,TRUE,FALSE,,,FALSE,FALSE
+,7,Build GET endpoint to fetch all Competency Criteria Groups and Competency Criteria associated with a specific Competency,Backend,,Build GET endpoint to fetch Competency Criteria Groups and Criteria for a competency,"Use Case:
+As a Platform Administrator, I need to configure Competency Criteria associations for courses.
+
+Description:
+Build a GET endpoint that returns all Competency Criteria Groups and Competency Criteria associated with a specific competency. This endpoint will support the Competency Criteria Associations UI.
+
+Acceptance Criteria:
+Given that a competency has associated Competency Criteria Groups and Competency Criteria
+When the GET endpoint is requested for the competency
+Then the response includes the associated groups
+And each group includes its associated criteria
+
+Given that a competency has no associated Competency Criteria Groups or Competency Criteria
+When the GET endpoint is requested for the competency
+Then the response returns an empty group list
+
+Given that a user does not have permission to view the criteria for the competency
+When the GET endpoint is requested
+Then the criteria data is not returned
+And an authorization error is returned",,,,,07/06 - 07/10,FALSE,TRUE,FALSE,,,FALSE,FALSE
+,8,Build Update/Delete endpoint to handle a user de-selecting a Competency Criteria association.,Backend,Yes,Build update/delete endpoint for removing a Competency Criteria association,"Use Case:
+As a Platform Administrator, I need to configure Competency Criteria associations for courses.
+
+Description:
+Build an endpoint that handles removing or de-selecting an existing Competency Criteria association. The endpoint should update or delete the association according to the agreed data model behavior.
+
+Acceptance Criteria:
+Given that a Competency Criteria association exists
+When the association is removed through the endpoint
+Then the association is no longer active for the competency
+And the association is not returned
+
+Given that a Competency Criteria association does not exist
+When the association removal endpoint is requested
+Then the endpoint returns an error response
+
+Given that a user does not have permission to remove the Competency Criteria association
+When the association removal endpoint is requested
+Then the association is not removed
+And an authorization error is returned",,,,,07/06 - 07/10,FALSE,TRUE,FALSE,,,FALSE,FALSE
+,9,Build Update/Delete endpoint to handle a user removing a Competency Criteria Group.,Backend,,Build update/delete endpoint for removing a Competency Criteria Group,"Use Case:
+As a Platform Administrator, I need to configure Competency Criteria associations for courses.
+
+Description:
+Build an endpoint that handles removing an existing Competency Criteria Group. The endpoint should define and enforce what happens to any Competency Criteria contained within the group.
+
+Acceptance Criteria:
+Given that a Competency Criteria Group exists
+When the group is removed through the endpoint
+Then the group is no longer active for the competency
+And the group is not returned as an active criteria group
+
+Given that a Competency Criteria Group contains Competency Criteria
+When the group is removed
+Then the contained criteria are handled according to the defined data model behavior
+And the response confirms the result of the removal
+
+Given that a user does not have permission to remove the Competency Criteria Group
+When the group removal endpoint is requested
+Then the group is not removed
+And an authorization error is returned",,,,,07/06 - 07/10,FALSE,TRUE,FALSE,,,FALSE,FALSE
+,10,Build the UI for Competency Criteria Associations (can this be broken down into smaller tasks? With & Without Course Search? Other divisions?),Frontend,,Build Competency Criteria Associations UI shell,"Use Case:
+As a Platform Administrator, I need to configure Competency Criteria associations for courses.
+
+Description:
+Build the initial UI shell for managing Competency Criteria Associations. The page should provide the structure needed to view a selected competency, display existing criteria groups, and support additional interaction patterns added in follow-up tickets.
+
+Acceptance Criteria:
+Given that a competency is selected for criteria management
+When the Competency Criteria Associations page is viewed
+Then the page displays the selected competency context
+And the page provides an area for Competency Criteria Groups
+
+Given that a competency has no Competency Criteria Groups
+When the Competency Criteria Associations page is viewed
+Then the page displays the defined empty state
+And the empty state indicates that no criteria associations have been configured
+
+Given that the API returns Competency Criteria Groups and Criteria for a competency
+When the Competency Criteria Associations page loads
+Then the groups and criteria are displayed on the page",,,,,07/06 - 07/10,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,,,,,Build UI for creating and removing Competency Criteria Groups,"Use Case:
+As a Platform Administrator, I need to configure Competency Criteria associations for courses.
+
+Description:
+Build the frontend interactions to create and remove Competency Criteria Groups on the Competency Criteria Associations page.
+
+Acceptance Criteria:
+Given that the Competency Criteria Associations page is displayed
+When a new Competency Criteria Group is created
+Then the group appears on the page
+And the group persists through the API
+
+Given that a Competency Criteria Group is displayed on the page
+When the group is removed
+Then the group is removed from the page
+And the removal persists through the API
+
+Given that a group create or remove action fails
+When the API returns an error
+Then the page displays a clear error message
+And the page does not show an incorrect saved state",,,,,,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,,,,,Build UI for selecting and de-selecting course associations for Competency Criteria,"Use Case:
+As a Platform Administrator, I need to configure Competency Criteria associations for courses.
+
+Description:
+Build the frontend interactions for selecting courses as Competency Criteria associations and deselecting existing course associations.
+
+Acceptance Criteria:
+Given that the course results are available for association
+When a course is selected for a Competency Criteria Group
+Then the course association is displayed
+And the association persists through the API
+
+Given that a course is already associated with Competency Criteria
+When the course association is deselected
+Then the association is removed from the page
+And the removal persists through the API
+
+Given that a course association create or remove action fails
+When the API returns an error
+Then the page displays a clear error message
+And the page does not show an incorrect saved state",,,,,,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,11,"Ensure there is a plan to handle large quantities of competency criteria associations, particularly for instances that have new course runs for each term and short term periods.",Architect,Yes,Define plan for handling large quantities of Competency Criteria associations,"Use Case:
+As a Platform Administrator, I need to configure Competency Criteria associations for courses.
+
+Description:
+Define a plan for handling large quantities of Competency Criteria associations, especially for instances that create new course runs each term or use short-term course periods.
+
+The plan should define backend and frontend expectations for performance, pagination, filtering, sorting, result limits, and user cues.
+
+Expected Outcomes:
+- A documented plan exists for handling large numbers of Competency Criteria associations.
+- The plan identifies backend requirements for pagination, filtering, and query performance.
+- The plan identifies frontend requirements for pagination, filtering, user feedback/cues.
+- The plan defines expected behavior for users working with many course runs or criteria associations.",,,,,07/06 - 07/10,FALSE,TRUE,FALSE,,,FALSE,FALSE
+,12,"Implement the plan to handle large quantities of competency criteria associations (pagination, filtering, cues to user, other?) on the backend",Backend,,Implement backend pagination and filtering for large quantities of Competency Criteria associations,"Use Case:
+As a Platform Administrator, I need to configure Competency Criteria associations for courses.
+
+Description:
+Implement the backend portion of the plan to handle large volumes of Competency Criteria associations. This may include pagination, filtering, sorting, query optimization, and response metadata.
+
+Acceptance Criteria:
+Given that a competency has more criteria associations than the page size
+When the criteria associations endpoint is requested
+Then the response returns a paginated result set
+And the response includes pagination metadata
+
+Given that a competency has many criteria associations
+When filter parameters are included in the request
+Then the response includes only matching associations
+And the response excludes associations that do not match the filter
+
+Given that a competency has a large number of criteria associations
+When the criteria associations endpoint is requested
+Then the response is returned within acceptable performance limits",,,,,07/06 - 07/10,FALSE,TRUE,FALSE,,,FALSE,FALSE
+,13,"Implement the plan to handle large quantities of competency criteria associations (pagination, filtering, cues to user, other?) on the frontend",Frontend,,Implement frontend pagination and filtering for large quantities of Competency Criteria associations,"Use Case:
+As a Platform Administrator, I need to configure Competency Criteria associations for courses.
+
+Description:
+Implement the frontend portion of the plan to handle large volumes of Competency Criteria associations. This may include pagination, filtering, sorting, loading states, and cues to help users understand large result sets.
+
+Acceptance Criteria:
+Given that the API returns paginated criteria association data
+When the Competency Criteria Associations page is viewed
+Then the page displays the current page of results
+And pagination controls are available when additional results exist
+
+Given that many criteria associations are available
+When a filter is applied
+Then the page displays matching associations
+And the page provides feedback when no matching associations are found
+
+Given that the criteria association data is loading or filtered
+When the page updates the displayed results
+Then the page provides clear loading or result count feedback",,,,,07/06 - 07/10,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,14,Docs & Release Notes for competency criteria associations to courses,Backend,,Add documentation and release notes for Competency Criteria associations to courses,"Use Case:
+As a Platform Administrator, I need to configure Competency Criteria associations for courses.
+
+Description:
+Add documentation and release notes explaining how Platform Administrators configure Competency Criteria associations to courses.
+
+Documentation should explain how to access the Competency Criteria Associations workflow, how to search for courses, how to create groups, how to associate and remove courses, and how large result sets are handled.
+
+The release note should summarize the new ability to associate Competency Criteria with courses and mention relevant data model, API, and UI changes.",,,,,07/06 - 07/10,FALSE,TRUE,FALSE,,,FALSE,FALSE
+6,"As a Platform Administrator, I need to be able to configure a Competency Rule Profile scoped to an Organization, Course, or Taxonomy. (e.g. ""All associations for this [Org/Course/Taxonomy] should by default have the threshold of 75% or higher to demonstrate mastery"".)",,Not Started,,,,,,,,,,,,,,,
+,,"Assumes Competency Criteria data model is in place. If not, then there will be a prerequisite to add this.",Assumption,,,,,,,,-,-,-,-,-,-,-,-
+,1,Build Create endpoint for Competency Rule Profile scoped to user's permissions,Backend,,,,,,,,07/13 - 7/17,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,2,Build Update/Delete endpoint for Competency Rule Profile scoped to user's permissions,Backend,,,,,,,,07/13 - 7/17,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,3,Build Get endpoint for Competency Rule Profile scoped to user's permissions,Backend,,,,,,,,07/13 - 7/17,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,4,"Create UX Design for managing Competency Rule Profiles at Organization, Course, or Taxonomy levels.",BA/Design,Yes,,,,,,,07/13 - 7/17,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,5,Build UX for Competency Rule Profiles,Frontend,,,,,,,,07/13 - 7/17,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,6,Docs & Release Notes for configuring a Competency Rule Profile,Backend,,,,,,,,07/13 - 7/17,FALSE,FALSE,FALSE,,,FALSE,FALSE
+10,"As a Platform Administrator, I need there to be warnings and/or guardrails to prevent me from doing something that could impact learners who have already had mastery statuses set (see Competency ADRs).",,Not Started,,,,,,,,,,,,,,,
+,,Assumes that for MVP we just want to prohibit deletion of competency taxonomy data associated to student statuses and not build out features for archiving at this time.,Assumption,,,,,,,,-,-,-,-,-,-,-,-
+,1,Agree on technical approach with the community to ensure no performance concerns.,Architect,Yes,,,,,,,07/13 - 7/17,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,2,Update the Get endpoint for Competency Criteria to determine whether each is deletable and include this metadata in the returned payload.,Backend,,,,,,,,07/13 - 7/17,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,3,Update the Get endpoint for Competency Criteria Groups to determine whether each is deletable and include this metadata in the returned payload.,Backend,,,,,,,,07/13 - 7/17,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,4,Update the Get endpoint for Competency Rule Profiles to determine whether each is deletable and include this metadata in the returned payload.,Backend,,,,,,,,07/13 - 7/17,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,5,Update the Get endpoint for Object Tag associations to determine whether each is deletable and include this metadata in the returned payload.,Backend,,,,,,,,07/13 - 7/17,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,6,Update the Get endpoint for Tags to determine whether each is deletable and include this metadata in the returned payload.,Backend,,,,,,,,07/13 - 7/17,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,7,Update the Get endpoint for Taxonomies to determine whether each is deletable and include this metadata in the returned payload.,Backend,,,,,,,,07/13 - 7/17,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,8,"Update the Competency Management pages to disable removal of indicated competency criteria, competency criteria groups, and competency rule profiles when indicated",Frontend,,,,,,,,07/13 - 7/17,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,9,Update the Taxonomy Editing pages to disable removal of tags and taxonomies when indicated.,Frontend,,,,,,,,07/13 - 7/17,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,10,Update the Course Outline page to disable removal of Object Tag associations when indicated,Frontend,,,,,,,,07/13 - 7/17,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,11,Docs & Release Notes for removing delete button when this action is prohibited,Backend,,,,,,,,07/20 - 07/24,FALSE,FALSE,FALSE,,,FALSE,FALSE
+11,"As a Platform Administrator, when I copy course content in any of the possible ways (new course run, course export/import, copy to/from library), any related competency criteria should be copied as well.",,Not Started,,,,,,,,,,,,,,,
+,,"Assumes that new course run, course import/export, and copy to/from library are the only content copy workflows that need to be considered for our use case.",Assumption,,,,,,,,-,-,-,-,-,-,-,-
+,,"Assumes that indications of competency criteria copy processes on the frontend are handled separately. (Per ""Open Questions Requirements & Design Investigation"" below.)",Assumption,,,,,,,,-,-,-,-,-,-,-,-
+,1,Update process for new course run to ensure competency criteria are copied when a new course run is created.,Backend,,,,,,,,07/20 - 07/24,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,2,Determine technical approach and expectations for exporting a course from one instance that uses a specific taxonomy and competency criteria and then importing it into a new instance that may or may not contain a version of the exported taxonomy.,Architect,Yes,,,,,,,07/20 - 07/24,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,3,Update course export process to contain data necessary to copy competency criteria as decided in technical approach.,Backend,,,,,,,,07/20 - 07/24,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,4,Update course import process to contain data necessary to copy competency criteria as decided in technical approach.,Backend,,,,,,,,07/20 - 07/24,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,5,Update process for copying content to a library to also copy competency criteria.,Backend,,,,,,,,07/20 - 07/24,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,6,Update process for copying content from a library to also copy competency criteria.,Backend,,,,,,,,07/20 - 07/24,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,7,Docs & Release Notes for handling competency criteria on course copy,Backend,,,,,,,,07/20 - 07/24,FALSE,FALSE,FALSE,,,FALSE,FALSE
+13,"As a Learner, when I complete an assignment or course that is associated to a Competency Criteria, I need my competency mastery status to be evaluated and saved to the platform.",,Not Started,,,,,,,,,,,,,,,
+,,Assumes event/signal for assignment grade changed already exists and is sufficient for our use case.,Assumption,,,,,,,,-,-,-,-,-,-,-,-
+,,Assumes event/signal for course completion already exists and is sufficient for our use case.,Assumption,,,,,,,,-,-,-,-,-,-,-,-
+,,Assumes that the frontend for competency mastery statuses will be handled in a separate engagement.,Assumption,,,,,,,,-,-,-,-,-,-,-,-
+,1,"Build listener that checks when an assignment or course is completed and upon completion if there is a competency criteria associated with it, then calculate and update the learner's competency statuses.",Backend,,Build asynchronous listener to evaluate learner competency statuses from grade persistence events,"Use Case:
+As a Learner, when an assignment or course associated to Competency Criteria is completed, the learner’s competency mastery status should be evaluated and saved to the platform.
+
+Description:
+Build a listener that responds to grade persistence events for assignments, courses, or other supported graded objects that may be associated with Competency Criteria.
+
+When a grade is persisted for an object associated with Competency Criteria, the system should retrieve the relevant criteria, asynchronously evaluate the learner’s status, update criterion-level status, recompute group-level status, and update the overall competency status.
+
+The listener should support the mastery rules defined by the relevant Competency Criteria and Competency Rule Profile behavior.
+
+Acceptance Criteria:
+Given an assignment is associated with Competency Criteria
+And a learner completes the assignment
+When the completion event is processed
+Then the learner's competency mastery status is evaluated
+And the updated status is saved to the platform
+
+Given a course is associated with Competency Criteria
+And a learner completes the course
+When the completion event is processed
+Then the learner's competency mastery status is evaluated
+And the updated status is saved to the platform
+
+Given an assignment or course is not associated with Competency Criteria
+When the learner completes the assignment or course
+Then no competency mastery status calculation is triggered
+
+Given Competency Criteria and applicable rule profile data exist
+When the learner's competency mastery status is evaluated
+Then the calculation uses the relevant criteria and rule profile values
+And the saved status reflects the calculation result
+
+Given a learner's competency mastery status is updated
+When the updated status is saved
+Then the platform stores the status according to the defined data model
+And the update can be retrieved for learner progress workflows
+
+Given a grade persists for content associated with Competency Criteria
+When the asynchronous evaluation process handles the event
+Then the relevant Competency Criteria are retrieved
+And the learner's criterion, criteria group, and competency statuses are evaluated and saved",,,,,07/20 - 07/24,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,2,Docs & Release Notes for saving learner competency statuses,Backend,,Docs and Release Notes for saving learner competency statuses,"Use Case:
+As a Learner, when an assignment or course associated to Competency Criteria is completed, the learner’s competency mastery status should be evaluated and saved to the platform.
+
+Description:
+Add documentation and release notes explaining how learner competency statuses are evaluated and saved when assignments or courses associated with Competency Criteria are completed.
+
+Documentation should explain what triggers the evaluation, how Competency Criteria and Competency Rule Profiles are used in the calculation, where saved learner competency statuses are used, and any known limitations or timing expectations.
+
+The release note should summarize the new learner competency status evaluation behavior and mention relevant listener, calculation, and persistence changes.",,,,,07/20 - 07/24,FALSE,FALSE,FALSE,,,FALSE,FALSE
+Student Progress (2.5 & 2.7)                       ,,,,,,,,,,,,,,,,,,
+2,"As a Learner, on the Progress tab in a Course, I need to be able to view what gradable subsections (assignments) are associated with each competency in a course along with the competency criteria info (mastery threshold and combination logic).",,Not Started,,,,,,,,,,,,,,,
+,,Assume that Competency Criteria data model and creation mechanism already exist.,Assumption,,,,,,,,-,-,-,-,-,-,-,-
+,1,Document all acceptable/valid competency criteria combinations that need to be displayed.,Architect,Yes,,,,,,,07/20 - 07/24,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,2,UX Designs that support all acceptable/valid competency criteria combinations.,BA/Design,Yes,,,,,,,07/20 - 07/24,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,3,Build GET endpoint that fetches the Competency Criteria for a given course,Backend,,,,,,,,07/20 - 07/24,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,4,Build collapsable table display of Competency Criteria on the Course Progress page,Frontend,,,,,,,,07/20 - 07/24,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,5,Docs & Release Notes for Competency Criteria table display on the Course Progress page,BA/Design,,,,,,,,07/20 - 07/24,FALSE,FALSE,FALSE,,,FALSE,FALSE
+3,"As a Learner, on the Progress tab in a Course, I need to be able to view my competency status for each gradeable subsection assignment along with my percentage score.",,Not Started,,,,,,,,,,,,,,,
+,1,"Confirm what the Competency Status values should be, how they will be determined, and what iconography or other accessible means will be used with their display.",BA/Design,Yes,,,,,,,07/20 - 07/24,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,2,Build GET endpoint that fetches the Competency Status for all competency criteria and parent competencies in a given course for a given learner,Backend,,,,,,,,07/27 - 07/31,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,3,Build a display of Competency Status for each subsection assignment in the table on the Course Progress page,Frontend,,,,,,,,07/27 - 07/31,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,4,Build a display of Competency Status for each Competency/Sub-competency in the table on the Course Progress page,Frontend,,,,,,,,07/27 - 07/31,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,5,Docs & Release Notes for Competency Statuses in display table on the Course Progress page,BA/Design,,,,,,,,07/27 - 07/31,FALSE,FALSE,FALSE,,,FALSE,FALSE
+4,"As a Learner, on the Progress tab in a Course, I need to be able to view a summary of the top level competency statuses.",,Not Started,,,,,,,,,,,,,,,
+,,Assume that GET endpoint that fetchs the Competency Status for all Competency criteria and parent competencies in a given course for a given learner already exists.,Assumption,,,,,,,,-,-,-,-,-,-,-,-
+,,"Assume that what the Competency Status values should be, how they will be determined, and what iconography or other accessible means will be used with their display has already been confirmed.",Assumption,,,,,,,,-,-,-,-,-,-,-,-
+,1,"Build a right sidebar (or central) display of top level competencies (""Focus Areas"") with their Competency status displayed.",Frontend,,,,,,,,07/27 - 07/31,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,2,Docs & Release Notes for top level competency status summary,BA/Design,,,,,,,,07/27 - 07/31,FALSE,FALSE,FALSE,,,FALSE,FALSE
+7,"As a Learner, I need to be able to view a sunburst diagram that summarizes the competencies in the course, their sub-competencies, and associated gradeable subsection assignments.",,Not Started,,,,,,,,,,,,,,,
+,,Assume that GET endpoint that fetchs the Competency Status for all Competency criteria and parent competencies in a given course for a given learner already exists.,Assumption,,,,,,,,-,-,-,-,-,-,-,-
+,,"Assume that what the Competency Status values should be, how they will be determined, and what iconography or other accessible means will be used with their display has already been confirmed.",Assumption,,,,,,,,-,-,-,-,-,-,-,-
+,1,Document edge case depth and criteria associations and create UX designs for how this will be handled.,BA/Design,,,,,,,,07/27 - 07/31,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,2,Build static sunburst frontend that displays the learner's competency criteria results,Frontend,,,,,,,,07/27 - 07/31,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,3,Docs & Release Notes for static sunburst functionality,BA/Design,,,,,,,,07/27 - 07/31,FALSE,FALSE,FALSE,,,FALSE,FALSE
+8,"As a Learner, when I hover over part of the suburst diagram, I need to be able to see more information about the segment.",,Not Started,,,,,,,,,,,,,,,
+,,Assume that GET endpoint that fetches the Competency Status for all Competency criteria and parent competencies in a given course for a given learner already exists.,Assumption,,,,,,,,-,-,-,-,-,-,-,-
+,1,"Confirm what information is available to include in the sunburst hover tooltip, document this, and update the UX designs accordingly (e.g. Are competency statements in MVP?)",BA/Design,,,,,,,,07/27 - 07/31,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,2,Build sunburst tooltip functionality to have faded overlay and info display according to UX Designs,Frontend,,,,,,,,07/27 - 07/31,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,3,Docs & Release Notes for sunburst hover tooltip functionality,BA/Design,,,,,,,,07/27 - 07/31,FALSE,FALSE,FALSE,,,FALSE,FALSE
+10,"As a Learner, on the Progress tab in a Course, I need to be able to view my Recommended Next Action, whether this is retaking an assignment where mastery was not demonstrated or resuming material progress.",,Not Started,,,,,,,,,,,,,,,
+,1,Document how we will calculate what the recommended next action is and investigate what it will take to implement these calculations. Also document what data about the recommended next action should be returned and displayed.,Architect,Yes,,,,,,,07/27 - 07/31,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,2,"Build endpoint and service that calculate the recommended next action for a given learner in a given course. Currently looking at it returning:
+- Name of assignment
+- Name of competency
+- Competency threshold
+- Direct link to assignment
+- Number of attempts remaining (probably not possible)",Backend,,,,,,,,07/27 - 07/31,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,3,Build display of recommended next action in right hand CBE progress panel.,Frontend,,,,,,,,07/27 - 07/31,FALSE,FALSE,FALSE,,,FALSE,FALSE
+,4,Docs & Release Notes for course section and sub-competency count,BA/Design,,,,,,,,07/27 - 07/31,FALSE,FALSE,FALSE,,,FALSE,FALSE
