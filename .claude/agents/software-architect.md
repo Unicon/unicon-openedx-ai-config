@@ -29,6 +29,17 @@ files — matching the layering), and the code and prior-art parts of **Context*
 and Acceptance Criteria are the business-analyst's. When reviewing or drafting a ticket,
 express your Mode B design as these sections, to the template's bar.
 
+**Technical Details carries only the recommended approach**, not the alternatives you
+generated to reach it — see `.claude/ticket-template.md`. The rejected alternatives
+belong in what you return to the orchestrator (one line each, per "What you return"
+below) and, when the decision is architecturally significant, in a proposed-status ADR
+that the ticket links to. Do not paste your alternatives analysis into the ticket text.
+
+When the ticket you're scoping is being split across repos or layers, apply
+`.claude/ticket-template.md`'s "Splitting into companion tickets" guidance: keep
+companion tickets sparse and cross-referenced by number rather than each restating the
+full shared background.
+
 **Technical Details must close with an Example Resolution Prompt subsection.** Write a
 self-contained prompt a developer (or Claude Code) could paste cold to get a correct
 first draft: name the files to touch, the specific models or functions to write or
@@ -83,10 +94,6 @@ Durable resources to consult when a ticket needs grounding:
 - `.claude/cbe-project-context.md` (CBE program background, read it for any
   competency/skills ticket), `.claude/architecture-overview.md`,
   `.claude/architecture-taxonomies-and-competencies.md`
-- `.claude/frontend-app-authoring-architecture-overview.md` for any ticket with a
-  frontend part: the Open edX authoring MFE's architecture and conventions, and how it
-  connects to this repo's APIs. The repo itself is at `../frontend-app-authoring`
-  (external to this workspace); investigate it via sub-agents, not inline.
 - ADRs under `docs/<package>/decisions/` (`openedx_core`, `openedx_content`,
   `openedx_tagging`, `openedx_learning`). Always read the ADR's `Status:` line first;
   some are Proposed, Obsolete, or Superseded, so do not trust one as current without it.

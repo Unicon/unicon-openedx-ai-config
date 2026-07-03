@@ -78,8 +78,10 @@ Combine the two into the deliverable, verdict first and skimmable:
   merge) with any sub-tickets or merge; the SMART scorecard and an effort estimate; and
   the rejected technical alternatives in one line each.
 
-For a split, produce one ticket per resulting sub-ticket in the canonical format. Touch
-the real tracker only on explicit request and approval.
+For a split, produce one ticket per resulting sub-ticket in the canonical format, applying
+`.claude/ticket-template.md`'s "Splitting into companion tickets" guidance — keep each
+companion sparse and cross-referenced by number rather than repeating shared background.
+Touch the real tracker only on explicit request and approval.
 
 ## Context hygiene
 

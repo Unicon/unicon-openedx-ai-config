@@ -60,19 +60,6 @@ orchestration, planning, and final review.
 - To understand current architecture decisions, refer to ADRs (docs/decisions).
 - Document impactful architecture decisions in new ADRs in proposed status.
 
-## Frontend (authoring MFE)
-
-Many features here surface to authors through the Open edX **authoring micro-frontend**,
-a separate React repo. It is **not in this workspace**: it lives on disk at
-`../frontend-app-authoring` - if it's not found there, just ask the user for its location.
-
-- For any ticket with a frontend part, read
-  [.claude/frontend-app-authoring-architecture-overview.md](.claude/frontend-app-authoring-architecture-overview.md)
-  first: it describes the MFE's architecture, conventions, and how it connects back to
-  this repo's APIs, and how to design the frontend side of a change.
-- Investigate that repo via sub-agents (it is large and external); don't read it into the
-  main context. The overview's §10 gives the dispatch recipe.
-
 ## Comments and docstrings
 
 - Comment why, not what. No change narration ("updated X", "as requested", "was Y").

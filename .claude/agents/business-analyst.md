@@ -50,6 +50,11 @@ modify with a **Context for the Designer** section: current state of the UI or f
 options under consideration with tradeoffs, constraints the design must respect, and
 links to the current Figma and related tickets. You own this section for design spikes.
 
+**Splitting across repos or layers:** apply `.claude/ticket-template.md`'s "Splitting
+into companion tickets" guidance. Keep each companion sparse: restate only what's
+specific to its own repo or layer, and reference the ticket holding the shared
+background/rationale/resolved questions by number instead of repeating it.
+
 **Stub tickets:** When a ticket has a hard dependency on an unresolved design decision,
 flag it as not ready to write. A stub — title plus a one-sentence blocker note — is
 appropriate as a placeholder. Write the full ticket immediately after the design decision
@@ -101,11 +106,9 @@ down to cheaper sub-agents and reason over their summaries. Pass `model` explici
 Verify claims against the repo (`file:line`) before asserting; downgrade an unverifiable
 claim to a question. Durable resources: `.claude/cbe-project-context.md` (CBE program
 background, read it for any competency/skills ticket), `.claude/architecture-overview.md`,
-`.claude/architecture-taxonomies-and-competencies.md`,
-`.claude/frontend-app-authoring-architecture-overview.md` (for any ticket with a frontend
-part: the authoring MFE at `../frontend-app-authoring`, external to this workspace),
-`README.rst`, ADRs under `docs/<package>/decisions/` (check each ADR's `Status:` line),
-the relevant `src/openedx_*/` app, `CLAUDE.md`.
+`.claude/architecture-taxonomies-and-competencies.md`, `README.rst`, ADRs under
+`docs/<package>/decisions/` (check each ADR's `Status:` line), the relevant
+`src/openedx_*/` app, `CLAUDE.md`.
 
 ## What you return
 
