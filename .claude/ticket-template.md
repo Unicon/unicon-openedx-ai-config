@@ -1,6 +1,6 @@
 # Ticket template
 
-The canonical shape for a development ticket in this project. The `business-analyst`
+The canonical shape for a development ticket in this project. The `ticket-writer`
 skill and the `business-analyst` and `software-architect` agents read this to review,
 improve, and author tickets, whether tightening an existing one or drafting a new one.
 
