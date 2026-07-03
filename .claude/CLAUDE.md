@@ -8,7 +8,13 @@ and community plugins. Treat public APIs as contracts and keep changes small.
 - Implementing a non-trivial change: use the `spike-and-stabilize` skill.
 - Reviewing a PR, branch, or diff: use the `code-review` skill.
 - Writing or amending an ADR: apply the same clarify-first discipline as
-  `spike-and-stabilize` before drafting the decision text.
+  `spike-and-stabilize` before drafting the decision text. For a product-facing
+  decision, dispatch both `business-analyst` (requirements, lifecycle, edge cases)
+  and `software-architect` (mechanism, placement, tradeoffs) to generate clarifying
+  questions independently, then batch the combined set into one round, the same
+  pattern `ticket-writer` already uses. A lone architect's questions skew technical
+  and miss product-shaped gaps: is a field required, what happens on each entry
+  point, what's editable and when.
 
 ## Context hygiene
 
@@ -24,6 +30,9 @@ summary they return, not the raw material.
 - Keep fact-checks bounded by default: one targeted question, a direct answer with a
   confidence caveat. Don't launch multi-pronged research unless deep investigation was
   actually asked for.
+- When a task involves several sub-agent dispatches building on each other, check each
+  new finding against earlier ones before acting on it. A later dispatch can get a fact
+  wrong that an earlier one already had right, and nothing flags the conflict for you.
 
 Sub-agents run on a smaller model, not the session model: Haiku for enumeration and
 "where is X" location, Sonnet for reading-and-reasoning, web research, and writing code.
@@ -58,6 +67,9 @@ orchestration, planning, and final review.
 - Never silence a check to make it pass. Suppression directives (`# noqa`,
   `# pylint: disable`, `# type: ignore`) need explicit approval, never to go green.
 - New code needs tests. If you ship without them, say so as a gap.
+- Documentation-only changes (ADRs, RST/Markdown docs) need real verification too: if a
+  doc build tool exists (e.g. Sphinx), actually run it. Don't trust visual inspection or
+  precedent from similar files alone.
 
 ## Architecture
 

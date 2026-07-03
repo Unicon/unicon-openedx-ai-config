@@ -104,7 +104,14 @@ skill on the diff. Fix anything it flags as wrong before the change is done.
 
 If this increment produced or amended an ADR, run one more pass before calling it
 done: re-read it against the "ADR grain and voice" note in step 2 and trim anything
-that crept past it.
+that crept past it. Then, ideally via a fresh sub-agent dispatch rather than the same
+context that drafted it, review the whole ADR for: factual claims checked against
+their actual cited sources (another ADR, a model's code) directly, not trusted from
+an earlier sub-agent's summary; internal contradictions introduced across edits; and
+language that assumes framework knowledge the developer doesn't have. For a long or
+heavily-revised ADR, offer a compact table summary of its current content before
+asking the developer to read the whole thing; catching gaps at that scale is faster
+than catching them after a full read.
 
 ## Expand
 

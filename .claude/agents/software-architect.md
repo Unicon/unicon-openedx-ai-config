@@ -51,6 +51,13 @@ grounded in the actual code.
 Ground every claim in the actual code and docs at `HEAD`, not memory. Verify before you
 assert; cite `file:line` where it matters.
 
+This especially applies when your design depends on how an existing, already-accepted
+decision works, such as a model another ADR already defined. Read that ADR or its code
+directly; don't infer it from a similar-looking pattern used elsewhere in the codebase.
+Two features solving a similar problem can use genuinely different mechanisms, and
+assuming they match without checking is how a wrong mechanism ends up load-bearing in a
+new design.
+
 - `openedx-core` is a published Django library of apps consumed by `openedx-platform` and
   community plugins. It formalizes core teaching-and-learning concepts behind stable in-process
   Python APIs, alongside `openedx-events` and `openedx-filters`. It is the lower layer; the
