@@ -7,6 +7,8 @@ and community plugins. Treat public APIs as contracts and keep changes small.
 
 - Implementing a non-trivial change: use the `spike-and-stabilize` skill.
 - Reviewing a PR, branch, or diff: use the `code-review` skill.
+- Writing or amending an ADR: apply the same clarify-first discipline as
+  `spike-and-stabilize` before drafting the decision text.
 
 ## Context hygiene
 
@@ -19,6 +21,9 @@ summary they return, not the raw material.
 - Reading any large document or other high-context material: in a sub-agent.
 - Read into your own context only the few files the task actually touches. Start from a
   high-level overview and narrow down; don't pull in everything nearby.
+- Keep fact-checks bounded by default: one targeted question, a direct answer with a
+  confidence caveat. Don't launch multi-pronged research unless deep investigation was
+  actually asked for.
 
 Sub-agents run on a smaller model, not the session model: Haiku for enumeration and
 "where is X" location, Sonnet for reading-and-reasoning, web research, and writing code.
@@ -39,6 +44,13 @@ orchestration, planning, and final review.
   existing style. Every changed line should trace to the request.
 - Don't extract shared code until three callers need it. DRY is about knowledge, not
   code that happens to look alike.
+- Separate confirmed fact from inference or proposal, and say which is which. When
+  unsure, flag it rather than asserting it.
+- For ambiguous, multi-part design or scoping questions, batch the open questions into
+  one round before drafting into a durable artifact (ADR, ticket, PR description). Don't
+  draft prose and let a reviewer catch problems in it afterward.
+- For a decision with a few distinct options, use a comparison table over paragraphs; it
+  verifies faster.
 
 ## Verify before done
 
