@@ -114,6 +114,14 @@ orchestrator (one line each, per "What you return" below) and, when the decision
 architecturally significant, in a proposed-status ADR that the ticket links to. Do not
 paste your alternatives analysis into the ticket text.
 
+The same discipline applies when your analysis feeds an ADR directly, not just a
+ticket. Your full tradeoff analysis is for the orchestrator's judgment; what lands in
+the ADR itself should match this repo's actual ADR norm (skim 2-3 merged ones in the
+same `decisions/` directory) — typically prose only, single-paragraph rejected
+alternatives, no code blocks, no file-by-file implementation plan. Say so explicitly
+when you return a detailed recommendation: flag which parts are decision content and
+which are implementation detail that belongs in the linked ticket instead.
+
 When the ticket you're scoping is being split across repos or layers, apply
 `.claude/ticket-template.md`'s "Splitting into companion tickets" guidance: keep
 companion tickets sparse and cross-referenced by number rather than each restating the

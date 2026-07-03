@@ -57,6 +57,22 @@ run the gates, judge results, and do the final review; don't write the code your
   change, new boundary), draft an ADR in proposed status under
   `docs/openedx_content/decisions/` and name it in the plan. See CLAUDE.md.
 
+### ADR grain and voice
+
+Match the repo's existing ADRs, not a design doc. Before drafting, skim 2-3 merged
+ADRs in the same `decisions/` directory for length and tone, and hold the draft to
+the same bar. The norm across this codebase's ADRs is 40-110 lines: prose decision
+statements, single-paragraph rejected alternatives, occasional field/class names
+only where they aid clarity. No code blocks, no exhaustive file-by-file
+implementation plans, no dependency/merge-order negotiation with other ticket
+numbers, no "Open Questions" section — none of the merged ADRs sampled use one.
+Length over ~150 lines is only justified when the ADR itself introduces a wholly
+new schema or subsystem, not for an addition to existing code.
+
+Content that doesn't fit that grain still needs a home — don't just delete it. Put
+implementation plans, dependency coordination with other issues, and open questions
+in a comment on the originating ticket instead of in the ADR body.
+
 ## 3. Spike
 
 Have the implementation sub-agent write the thinnest vertical slice that does something
@@ -85,6 +101,10 @@ via `SendMessage` so it keeps context) these steps in order:
 
 As the final step, you (the strong main model, not the sub-agent) run the `code-review`
 skill on the diff. Fix anything it flags as wrong before the change is done.
+
+If this increment produced or amended an ADR, run one more pass before calling it
+done: re-read it against the "ADR grain and voice" note in step 2 and trim anything
+that crept past it.
 
 ## Expand
 
