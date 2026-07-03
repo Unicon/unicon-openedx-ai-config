@@ -16,13 +16,13 @@ core teaching-&-learning concepts of the Open edX platform. It was formerly call
 **"Learning Core" / `openedx-learning`** and was renamed (see
 [0002-openedx-core.rst](docs/openedx_core/decisions/0002-openedx-core.rst)).
 
-The library is installed *into* `edx-platform` (the giant Open edX monolith — see
+The library is installed *into* `openedx-platform` (the giant Open edX monolith — see
 Glossary). Its mission is to be a **small, extensible, easy-to-reason-about core**
 that platform code and community plugins can build on, gradually extracting core
-concepts out of the half-million-line `edx-platform` repo.
+concepts out of the half-million-line `openedx-platform` repo.
 
-- **Replacing `edx-platform` is explicitly NOT a goal.** Only a small fraction of
-  the platform's concepts belong here. `edx-platform` will `import` these apps and
+- **Replacing `openedx-platform` is explicitly NOT a goal.** Only a small fraction of
+  the platform's concepts belong here. `openedx-platform` will `import` these apps and
   call their in-process Python APIs.
 - Rationale and history: [0001-purpose-of-this-repo.rst](docs/openedx_core/decisions/0001-purpose-of-this-repo.rst).
 - This is the "third leg" of in-process extension, alongside `openedx-events`
@@ -34,7 +34,7 @@ concepts out of the half-million-line `edx-platform` repo.
 These show up across nearly every ADR and are enforced mechanically:
 
 1. **Dependencies go ONE WAY.** `openedx-core` code must **never** import from
-   `edx-platform`. The platform depends on us, not the reverse. This also means our
+   `openedx-platform`. The platform depends on us, not the reverse. This also means our
    migrations must never depend on platform migrations (we run in CI and local dev
    without the platform).
 2. **`.importlinter` is law.** [.importlinter](.importlinter) defines the allowed
@@ -278,14 +278,14 @@ for a Mermaid diagram of its relationships. Notable points:
 - The competency model (companion doc) FKs `course_id` to
   `openedx_catalog_courserun`.
 
-## 8. How edx-platform consumes openedx-core (integration map)
+## 8. How openedx-platform consumes openedx-core (integration map)
 
-This repo is a library; the wiring lives in `edx-platform`. Two integration points have
+This repo is a library; the wiring lives in `openedx-platform`. Two integration points have
 been verified against platform code:
 
 ### 8.1 v2 Content Libraries → `openedx_content`
 
-`edx-platform`'s `openedx/core/djangoapps/content_libraries` app treats `openedx_content`
+`openedx-platform`'s `openedx/core/djangoapps/content_libraries` app treats `openedx_content`
 (Learning Core) as the **single source of truth for content**. The Studio-side
 `ContentLibrary` model holds only instance-local settings (org, slug, permissions,
 license) and links to the content via a **`OneToOneField` to `LearningPackage`**
@@ -317,7 +317,7 @@ old `oel_*`/blockstore models to `openedx_content`.)
 
 ### 8.2 Tagging → `openedx_tagging`
 
-`edx-platform`'s `openedx/core/djangoapps/content_tagging` is a thin layer adding
+`openedx-platform`'s `openedx/core/djangoapps/content_tagging` is a thin layer adding
 org-scoping, edx-aware permissions, and auto-tagging on top of the standalone library. The
 headline: it **reuses (does not subclass)** `Taxonomy`/`ObjectTag`, adds a `TaxonomyOrg`
 join model for org-scoping, re-binds `openedx_tagging`'s `django-rules` permissions to
@@ -347,10 +347,12 @@ Each folder's `index.rst` just globs the ADRs. Several ADRs carry a **Status** l
 
 ## 10. Glossary — wider Open edX context
 
-> These terms come from `edx-platform` and the broader platform; they are *not* defined
-> in this repo's code. Summaries below were gathered from `edx-platform`'s own ADRs.
+> These terms come from `openedx-platform` and the broader platform; they are *not* defined
+> in this repo's code. Summaries below were gathered from `openedx-platform`'s own ADRs.
 
-- **edx-platform** — the original Open edX monolith (~500k lines of Python). Contains
+- **openedx-platform** (formerly `edx-platform` -- still commonly called that in issues,
+  PRs, and discussion; recognize both) — the original Open edX monolith (~500k lines of
+  Python). Contains
   two Django projects: **CMS/Studio** and **LMS**, usually deployed as separate services.
 - **Studio (a.k.a. CMS)** — the **authoring** application: create, version, and publish
   course content. "CMS" is the web service; "Studio" is the product it powers (other
@@ -359,14 +361,14 @@ Each folder's `index.rst` just globs the ADRs. Several ADRs carry a **Status** l
   courses.
 - **XBlock** — Open edX's **plugin framework for course content components**. Each
   XBlock bundles its own rendering, state, and behavior. The current direction
-  (edx-platform ADR "role of XBlock") **narrows XBlocks to leaf content** (a `Video`, a
+  (openedx-platform ADR "role of XBlock") **narrows XBlocks to leaf content** (a `Video`, a
   `Problem`, an `HTML` block) and to the Unit level, moving structural/navigational
   levels (Sequence, Section, Course) to dedicated, XBlock-agnostic apps. In this repo, a
   **Component ≈ a single leaf XBlock**.
 - **XBlock runtime** — the host environment (in LMS/CMS) that executes XBlock code,
   mediating field storage, services, and rendering. Being constrained over time so an
   XBlock only sees its own Unit/siblings.
-- **Modulestore** — `edx-platform`'s legacy course-content store, historically backed by
+- **Modulestore** — `openedx-platform`'s legacy course-content store, historically backed by
   **MongoDB**, storing content as a graph of XBlocks in opaque key/value documents. Known
   pain points: opaque DB-layer storage (hard to join/query), non-atomic publish, plugin
   coupling. The "Split Modulestore" is being migrated off MongoDB. This repo's

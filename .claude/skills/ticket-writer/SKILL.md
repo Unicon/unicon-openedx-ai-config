@@ -61,12 +61,13 @@ strong-model context stays lean.
   **Sonnet** with a narrow question against a small, specific set of files there. Never read
   the repo into the main context.
 
-- **edx-platform** (the monolith, external at `../edx-platform`). It is huge, so protect
-  context aggressively. Start from `.claude/architecture-overview.md`, which covers how
-  edx-platform integrates this library (the `content_libraries` and `content_tagging` layers).
-  Prefer that overview to opening the monolith at all. Only where strictly necessary, dispatch
-  a **Sonnet** sub-agent with a very narrow question pointed at a very small, specific selection
-  of files in `../edx-platform`, and instruct it to be protective of its own context: read
+- **openedx-platform** (the monolith, formerly `edx-platform` -- still commonly called that in
+  issues, PRs, and discussion; recognize both, external at `../openedx-platform`). It is huge,
+  so protect context aggressively. Start from `.claude/architecture-overview.md`, which covers
+  how it integrates this library (the `content_libraries` and `content_tagging` layers). Prefer
+  that overview to opening the monolith at all. Only where strictly necessary, dispatch a
+  **Sonnet** sub-agent with a very narrow question pointed at a very small, specific selection
+  of files in `../openedx-platform`, and instruct it to be protective of its own context: read
   excerpts, not whole files, and return only the answer.
 
 ## 1. Intake
