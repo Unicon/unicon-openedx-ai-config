@@ -27,14 +27,23 @@ content reuse, flexible content structures, and adaptive learning.
 [0001-content-tagging.rst](docs/openedx_tagging/decisions/0001-content-tagging.rst)
 
 The hard rule ([0002-tagging-app.rst](docs/openedx_tagging/decisions/0002-tagging-app.rst)):
-**`openedx_tagging` is a STANDALONE library with NO dependencies on other Open edX
-projects.** Anything needing Open edX specifics (Organizations, CourseKey/UsageKey
-validation, course-creator permissions) lives in **`edx-platform`'s
+**`openedx_tagging` has NO dependencies on other Open edX projects** (i.e., nothing
+from `openedx-platform`, `openedx-events`, or any other external Open edX project).
+Anything needing Open edX specifics (Organizations, CourseKey/UsageKey
+validation, course-creator permissions) lives in **`openedx-platform`'s
 `openedx.core.djangoapps.content_tagging`** app instead, not here.
+
+> **`openedx_tagging` is a package inside `openedx-core`**, not a separate library
+> or project. "No Open edX project dependencies" means no deps *outside this repo*.
+> Intra-repo layering is enforced by `.importlinter`: `openedx_tagging` sits below
+> `openedx_content` and (once created) below `openedx_learning`. Code in higher layers
+> may import from `openedx_tagging`, but **`openedx_tagging` must never import from
+> `openedx_learning` or `openedx_content`** — that would be a layering violation
+> caught by `lint-imports`.
 
 - It was implemented as a pluggable Django app (rejected: building it into the Discovery
   service, or standing up a new IDA microservice).
-- Rejected: embedding tagging logic directly in `edx-platform` (we want reuse beyond
+- Rejected: embedding tagging logic directly in `openedx-platform` (we want reuse beyond
   content — e.g. tagging People, marketing contexts).
 
 ### A.2 Core models
@@ -76,7 +85,7 @@ these (you can't enumerate every user); UIs list only the *applied* `ObjectTag` 
 **System-defined auto-tagging.**
 [0008-system-taxonomy-auto-tagging.rst](docs/openedx_tagging/decisions/0008-system-taxonomy-auto-tagging.rst)
 Content creation/edit fires **`openedx-events`** signals; **receivers live in
-`edx-platform`'s `content_tagging` app** (`handlers.py` → Celery tasks) — *not* the
+`openedx-platform`'s `content_tagging` app** (`handlers.py` → Celery tasks) — *not* the
 `openedx.features.tagging` path the ADR originally proposed (that location does not exist).
 Chose events over Django signals (some content lives in Mongo, not Django models) and over
 `openedx-filters` (filters are for blocking/altering flow; not needed here). See §A.6 for
@@ -102,7 +111,7 @@ An `ObjectTag` stores **both** a FK to its `Taxonomy`/`Tag` **and a cached copy*
   call the API without a logged-in user — **use the API with care.**
 - **Taxonomy Administrators** in Studio = a modified "course creator" concept: global
   staff/superusers (enforceable in this app), plus org-scoped course creators (requires
-  `edx-platform`'s `CourseCreator` model, so enforced in `content_tagging`).
+  `openedx-platform`'s `CourseCreator` model, so enforced in `content_tagging`).
 
 **Org scoping** ([0005](docs/openedx_tagging/decisions/0005-taxonomy-enable-context.rst) is
 **REJECTED/superseded**): the described "enable all taxonomies" course advanced-setting and
@@ -145,9 +154,9 @@ src/openedx_tagging/
 > (e.g. `oel_tagging_taxonomy`, `oel_tagging_tag`, `oel_tagging_objecttag`). The CBE ADRs
 > reference these names directly.
 
-### A.6 How edx-platform's `content_tagging` extends this (verified against code)
+### A.6 How openedx-platform's `content_tagging` extends this (verified against code)
 
-`edx-platform`'s `openedx/core/djangoapps/content_tagging` is the integration layer
+`openedx-platform`'s `openedx/core/djangoapps/content_tagging` is the integration layer
 (it imports the library as `oel_tagging`). Confirmed in platform source:
 
 - **Reuse, not subclass.** It imports `openedx_tagging`'s `Taxonomy`/`ObjectTag` directly
@@ -281,7 +290,7 @@ Why not elsewhere (rejected alternatives):
 - **Not the `openedx_content` authoring app** — learner-status models FK to
   `settings.AUTH_USER_MODEL` (a runtime/learner concern); putting them in authoring would
   force an authoring-only package to carry learner/runtime deps.
-- **Not `edx-platform`** — the whole point is to extract core concepts out of the monolith.
+- **Not `openedx-platform`** — the whole point is to extract core concepts out of the monolith.
 - **Not a separate repo** — too much packaging/CI/migration overhead for a tightly-coupled
   core feature; applets give a clean split-later path.
 

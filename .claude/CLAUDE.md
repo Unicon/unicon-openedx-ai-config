@@ -7,6 +7,14 @@ and community plugins. Treat public APIs as contracts and keep changes small.
 
 - Implementing a non-trivial change: use the `spike-and-stabilize` skill.
 - Reviewing a PR, branch, or diff: use the `code-review` skill.
+- Writing or amending an ADR: apply the same clarify-first discipline as
+  `spike-and-stabilize` before drafting the decision text. For a product-facing
+  decision, dispatch both `business-analyst` (requirements, lifecycle, edge cases)
+  and `software-architect` (mechanism, placement, tradeoffs) to generate clarifying
+  questions independently, then batch the combined set into one round, the same
+  pattern `ticket-writer` already uses. A lone architect's questions skew technical
+  and miss product-shaped gaps: is a field required, what happens on each entry
+  point, what's editable and when.
 
 ## Context hygiene
 
@@ -19,6 +27,12 @@ summary they return, not the raw material.
 - Reading any large document or other high-context material: in a sub-agent.
 - Read into your own context only the few files the task actually touches. Start from a
   high-level overview and narrow down; don't pull in everything nearby.
+- Keep fact-checks bounded by default: one targeted question, a direct answer with a
+  confidence caveat. Don't launch multi-pronged research unless deep investigation was
+  actually asked for.
+- When a task involves several sub-agent dispatches building on each other, check each
+  new finding against earlier ones before acting on it. A later dispatch can get a fact
+  wrong that an earlier one already had right, and nothing flags the conflict for you.
 
 Sub-agents run on a smaller model, not the session model: Haiku for enumeration and
 "where is X" location, Sonnet for reading-and-reasoning, web research, and writing code.
@@ -39,6 +53,13 @@ orchestration, planning, and final review.
   existing style. Every changed line should trace to the request.
 - Don't extract shared code until three callers need it. DRY is about knowledge, not
   code that happens to look alike.
+- Separate confirmed fact from inference or proposal, and say which is which. When
+  unsure, flag it rather than asserting it.
+- For ambiguous, multi-part design or scoping questions, batch the open questions into
+  one round before drafting into a durable artifact (ADR, ticket, PR description). Don't
+  draft prose and let a reviewer catch problems in it afterward.
+- For a decision with a few distinct options, use a comparison table over paragraphs; it
+  verifies faster.
 
 ## Verify before done
 
@@ -46,6 +67,9 @@ orchestration, planning, and final review.
 - Never silence a check to make it pass. Suppression directives (`# noqa`,
   `# pylint: disable`, `# type: ignore`) need explicit approval, never to go green.
 - New code needs tests. If you ship without them, say so as a gap.
+- Documentation-only changes (ADRs, RST/Markdown docs) need real verification too: if a
+  doc build tool exists (e.g. Sphinx), actually run it. Don't trust visual inspection or
+  precedent from similar files alone.
 
 ## Architecture
 
@@ -59,19 +83,6 @@ orchestration, planning, and final review.
 - New Django models need PII annotations (`make pii_check`).
 - To understand current architecture decisions, refer to ADRs (docs/decisions).
 - Document impactful architecture decisions in new ADRs in proposed status.
-
-## Frontend (authoring MFE)
-
-Many features here surface to authors through the Open edX **authoring micro-frontend**,
-a separate React repo. It is **not in this workspace**: it lives on disk at
-`../frontend-app-authoring` - if it's not found there, just ask the user for its location.
-
-- For any ticket with a frontend part, read
-  [.claude/frontend-app-authoring-architecture-overview.md](.claude/frontend-app-authoring-architecture-overview.md)
-  first: it describes the MFE's architecture, conventions, and how it connects back to
-  this repo's APIs, and how to design the frontend side of a change.
-- Investigate that repo via sub-agents (it is large and external); don't read it into the
-  main context. The overview's §10 gives the dispatch recipe.
 
 ## Comments and docstrings
 

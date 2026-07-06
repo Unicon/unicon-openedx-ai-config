@@ -21,9 +21,18 @@ Open edX is a large, multi-repo learning platform. The repos that matter for thi
   layer: `openedx-platform` imports its apps and calls their in-process public APIs.
   Code here never imports from `openedx-platform`. Database tables use the `oel_` prefix
   (Open edX Learning). Top-level packages under `src/`: `openedx_catalog`,
-  `openedx_content`, `openedx_core`, `openedx_django_lib`, `openedx_tagging`. The
+  `openedx_content`, `openedx_core`, `openedx_django_lib`, `openedx_tagging`, and
+  `openedx_learning` (planned — not yet on disk; see below).
+
+  > **Naming collision to watch out for:** the old PyPI package name was
+  > `openedx-learning` (hyphenated); it was renamed to `openedx-core`. The *new*
+  > Python package being introduced for CBE work is **`openedx_learning`**
+  > (underscored module name, a new top-level package inside this same library).
+  > They are different things. `openedx_learning` is not a separate repo or project —
+  > it will live at `src/openedx_learning/` inside this repo. The
   `.importlinter` contracts enforce the layering.
-- **`openedx-platform`** (edx-platform). The big LMS and Studio (CMS) application. It is
+- **`openedx-platform`** (formerly `edx-platform` -- still commonly called that in issues,
+  PRs, and discussion; recognize both). The big LMS and Studio (CMS) application. It is
   the upper layer and depends on this repo. Grading lives here, and the CBE *evaluation
   logic* (the grade-signal handler that computes mastery) is planned to live in an app
   here, calling into this repo.
@@ -56,7 +65,7 @@ tagging stack, not a parallel system.
 
 The CBE program is large and spans multiple epics and repositories: instance-wide
 competency authoring (CMS side), learner progress views (LMS side), the criteria data
-model and evaluation (this repo plus edx-platform), and pathway/program work led with
+model and evaluation (this repo plus openedx-platform), and pathway/program work led with
 OpenCraft.
 
 **Our current epic is "sprint-0".** Its only goal is to produce a **backlog of roughly 80
@@ -117,7 +126,7 @@ Keep these separate; they are easy to confuse.
 Evaluation is asynchronous and triggered by **grade-persistence events**. When a grade is
 awarded for a content object associated with a competency tag, the related criteria,
 groups, and competency statuses are recomputed. This logic is planned to live in an
-**app inside `edx-platform`** that receives the grade signal, computes the result, and
+**app inside `openedx-platform`** that receives the grade signal, computes the result, and
 pushes it into `openedx-core` via a function call. Grading data stays the authoritative
 source for grades; criteria compare against it. Re-evaluation on criteria changes
 (recalculate from all time / from a date / forward only, and whether to lower a status)
