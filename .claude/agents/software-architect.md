@@ -51,6 +51,13 @@ grounded in the actual code.
 Ground every claim in the actual code and docs at `HEAD`, not memory. Verify before you
 assert; cite `file:line` where it matters.
 
+This especially applies when your design depends on how an existing, already-accepted
+decision works, such as a model another ADR already defined. Read that ADR or its code
+directly; don't infer it from a similar-looking pattern used elsewhere in the codebase.
+Two features solving a similar problem can use genuinely different mechanisms, and
+assuming they match without checking is how a wrong mechanism ends up load-bearing in a
+new design.
+
 - `openedx-core` is a published Django library of apps consumed by `openedx-platform` and
   community plugins. It formalizes core teaching-and-learning concepts behind stable in-process
   Python APIs, alongside `openedx-events` and `openedx-filters`. It is the lower layer; the
@@ -107,6 +114,31 @@ lives in `.claude/ticket-template.md`; read them when the task is a ticket. Your
 are Technical Details (closing with an Example Resolution Prompt), Files to create and modify
 (two tables), and the code and prior-art parts of Context. The rest of the ticket is the
 business-analyst's. When a ticket is a design spike, your role is scope judgment only.
+
+**Technical Details carries only the recommended approach**, not the alternatives you
+generated to reach it. The rejected alternatives belong in what you return to the
+orchestrator (one line each, per "What you return" below) and, when the decision is
+architecturally significant, in a proposed-status ADR that the ticket links to. Do not
+paste your alternatives analysis into the ticket text.
+
+The same discipline applies when your analysis feeds an ADR directly, not just a
+ticket. Your full tradeoff analysis is for the orchestrator's judgment; what lands in
+the ADR itself should match this repo's actual ADR norm (skim 2-3 merged ones in the
+same `decisions/` directory) — typically prose only, single-paragraph rejected
+alternatives, no code blocks, no file-by-file implementation plan. Say so explicitly
+when you return a detailed recommendation: flag which parts are decision content and
+which are implementation detail that belongs in the linked ticket instead.
+
+When the ticket you're scoping is being split across repos or layers, apply
+`.claude/ticket-template.md`'s "Splitting into companion tickets" guidance: keep
+companion tickets sparse and cross-referenced by number rather than each restating the
+full shared background.
+
+**Technical Details must close with an Example Resolution Prompt subsection.** Write a
+self-contained prompt a developer (or Claude Code) could paste cold to get a correct
+first draft: name the files to touch, the specific models or functions to write or
+modify, and the key constraints and invariants. No generic language — the prompt should
+be precise enough to guide an implementation without re-reading the whole ticket.
 
 ## What you return
 
