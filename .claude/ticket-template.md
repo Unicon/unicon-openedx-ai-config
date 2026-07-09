@@ -86,11 +86,26 @@ remove the question from this section.
 
 ## Technical Details
 
-How to build it, at the design level: the recommended approach, the data model and
-migrations, the public-API and contract impact, the layer it sits in (respect
-`.importlinter`), performance and backward-compatibility notes, and the test strategy.
-Note any ADR that is warranted. This is the software-architect's recommended approach,
-not a code dump.
+The recommended approach at the design level, written as pair-programming guidance a
+junior engineer can evaluate for correctness: name the major pieces and what each is
+responsible for and why, pin the required parts and how they fit, and leave exact
+variables, code locations, and line-by-line choices to the implementer. Describe intent
+and contract, not implementation.
+
+Structure it as two parts (a data-only or migration ticket may fold them together):
+
+- **Data Structures**: the signature of each major type or piece, with a terse note on
+  what it and its fields are for. Favor the signatures over prose. Verify they do not
+  conflict with the DB data model, but do not restate the schema; fold anything essential
+  into a sentence.
+- **Logic**: the flow and rules over those structures, with call order and data flow made
+  unambiguous. When the ticket is one of a split, name what a companion ticket does where
+  it touches this flow and mark it out of scope.
+
+Keep it accurate, complete, and short: self-explanatory over explanatory, DRY. Note the
+public-API and contract impact, the layer it sits in (respect `.importlinter`),
+backward-compatibility and test strategy, and any ADR that is warranted. This is the
+recommended approach, not a code dump.
 
 State only the recommended approach here, not the rejected alternatives. A ticket is
 instructions for a developer, not a design-review record; a list of options considered
@@ -100,10 +115,11 @@ when the choice is architecturally significant enough to matter to future reader
 proposed-status ADR that this section links to.
 
 Close this section with an **Example Resolution Prompt** subsection: a self-contained
-prompt a developer (or Claude Code) could use to implement the ticket. It must name the
-specific files to touch, the models or functions to write or modify, and the key
-constraints and invariants. No generic "implement this ticket" language — if a developer
-pasted it cold into an AI assistant, they should get a correct first draft.
+prompt a developer (or Claude Code) could use to implement the ticket. This is the one
+place to get concrete: name the specific files to touch, the models or functions to write
+or modify, and the key constraints and invariants. No generic "implement this ticket"
+language; if a developer pasted it cold into an AI assistant, they should get a correct
+first draft.
 
 **Exception — design spike tickets:** Replace Technical Details and Files to create and
 modify with a single **Context for the Designer** section. It covers: the current state
@@ -168,8 +184,9 @@ others depend on — and keep the rest sparse:
 - The Use Case names a real role and a real outcome; the "so that" is not hand-waved.
 - Scope is bounded: the Description says what is out of scope.
 - Every acceptance criterion is observable and could fail; unhappy paths are covered.
-- Technical Details pick one approach and justify it, respecting the layering and
-  contracts.
+- Technical Details read as pair-programming guidance a junior can evaluate: one approach
+  at intent altitude, Data Structures then Logic, short and DRY, respecting the layering
+  and contracts.
 - Context and Files to modify are concrete, with real paths, so a developer can start
   cold.
 - The whole thing is a 1-2 developer-day unit of work, or it is split and says so.

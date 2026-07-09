@@ -121,6 +121,18 @@ orchestrator (one line each, per "What you return" below) and, when the decision
 architecturally significant, in a proposed-status ADR that the ticket links to. Do not
 paste your alternatives analysis into the ticket text.
 
+**Pitch Technical Details as pair-programming guidance, not a spec.** Write it at the
+altitude of intent and contract: name the major pieces (a dataclass, a function, a
+service) and what each is responsible for and why, pin the required parts and how they fit,
+and leave exact variables, code locations, and line-by-line choices to the implementer.
+The test is whether a junior engineer could implement it with room to make their own calls,
+and whether the developer reviewing it can judge correctness without re-deriving your
+reasoning. Structure it as Data Structures then Logic per `.claude/ticket-template.md`:
+signatures with terse per-field notes over prose, data and control flow made unambiguous,
+companion-ticket work named and marked out of scope. Keep it aggressively short and DRY,
+and do not restate the DB schema. The Example Resolution Prompt is the one place you get
+concrete.
+
 The same discipline applies when your analysis feeds an ADR directly, not just a
 ticket. Your full tradeoff analysis is for the orchestrator's judgment; what lands in
 the ADR itself should match this repo's actual ADR norm (skim 2-3 merged ones in the
