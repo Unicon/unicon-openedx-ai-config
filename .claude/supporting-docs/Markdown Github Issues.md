@@ -736,4 +736,424 @@ This is an architecture spike. The deliverable is a documented technical recomme
 
 The Competency ID should be an internal identifier. CASE IDs and CTDL IDs, if added, are separate fields — conflating them (as has been suggested in the past) mixes internal and external identifier semantics and will cause problems when institutions want both.
 
-The natural auto-generation scheme is: initials of each word in the competency name plus a hierarchical depth/position suffix. However, Option B (user-entered only) is likely simpler and avoids name-change invalidation. This is the core design question the spike should resolve with team and community input.  
+The natural auto-generation scheme is: initials of each word in the competency name plus a hierarchical depth/position suffix. However, Option B (user-entered only) is likely simpler and avoids name-change invalidation. This is the core design question the spike should resolve with team and community input.
+
+# 6.1
+
+## Use Case
+
+As an operator responsible for a given organization, course, or competency taxonomy, I need to create a reusable Competency Rule Profile (a default mastery rule such as ">= 75%") scoped to that organization, course, and/or competency taxonomy, or as an instance-wide default, so that the Competency Criteria authored under that scope inherit a consistent default rule instead of each author re-entering the same threshold by hand.
+
+*Role note: the CBE backlog names "Platform Administrator." The full permission model for scope-bearing profiles is unresolved and tracked in Open Questions. One rule is fixed: creating the instance-wide default (all scope fields null) is restricted to global staff (`is_staff`).*
+
+---
+
+## Description
+
+Build a REST Create endpoint (`POST`) in the CBE applet (`src/openedx_learning/applets/cbe/`, per ADR-0001) that creates a `CompetencyRuleProfile` as defined in ADR-0002 (`docs/openedx_learning/decisions/0002-competency-criteria-model.rst`). The request accepts the scope fields (`organization`, `course`, `competency_taxonomy` — each independently optional), a `rule_type`, and a `rule_payload`.
+
+A profile may set any subset of the three scope fields, including none. A profile with all three scope fields null is the **instance-wide default** and may be created only by global staff (`is_staff`); a non-staff request to create an all-null profile is rejected with a 403. **At most one all-null instance-wide default may exist**: a second all-null create is rejected with a 409 (an application-level check in the create path, not a database unique constraint and not an ADR-0002 change), so that "the" instance-wide default is unambiguous. Duplicate *scoped* profiles at the same `(competency_taxonomy, course, organization)` are allowed (ADR-0002 defines only an index there, no unique constraint).
+
+For the MVP only `rule_type == "Grade"` is accepted; `"View"` and `"MasteryLevel"` are rejected with a 400 even though the model enumerates them (out of MVP per `cbe-project-context.md`). The `Grade` `rule_payload` is validated against the ADR's typed contract (operator from `>, >=, <, <=, =`; a threshold value; a scale); a malformed payload returns a 400 identifying the offending field. Because DRF's `ModelSerializer` does not call `Model.clean()`, the create path must call `full_clean()` (or the shared validator) before saving so an invalid payload surfaces as a 400, not a 500.
+
+This ticket is the foundation of a consistent CRUD set with 6.2 (Update/Delete) and 6.3 (Get/List): it lands the `rest_api/` package, the shared serializer, the permission class, the `rules.py` predicates, and the router registration that 6.2 and 6.3 extend. The new REST surface and the new `api.py` functions are marked **UNSTABLE**, so the identifier and permission model can still change before stabilization without DEPR. The external handle is the integer `id` for MVP (matching final ADR-0002 and the `openedx_tagging` REST precedent).
+
+**Depends on** the data-model ticket (Markdown Github Issues.md 1.1 / ADR-0002), which creates the CBE applet and the `CompetencyRuleProfile` model.
+
+**Out of scope:**
+- Any `rule_type` other than `Grade`.
+- A uniqueness/duplicate-conflict rule for *scoped* profiles (ADR-0002 has an index only; adding a unique constraint is an ADR-0002 change, not this ticket).
+- The full org/course/taxonomy permission model beyond the fixed all-null-is-staff rule (see Open Questions).
+- Update, Delete, Get, and any UI (6.2, 6.3, 6.4/6.5).
+- Mounting these endpoints into a served edx-platform URL (separate sibling ticket, see Context) — until that lands, the acceptance criteria are exercised through openedx-core's own test client.
+
+---
+
+## Acceptance Criteria
+
+These scenarios are verifiable via Postman against a local or dev environment (once the platform URL-mount sibling ticket has landed; before that, via openedx-core's API test client).
+
+**Scenario 1: Creating a Grade-rule profile at a valid scope**
+```
+Given a POST request to the competency rule profile endpoint
+And the body sets rule_type to "Grade" and a valid Grade rule_payload
+And the body sets at least one of organization, course, competency_taxonomy
+When the endpoint processes the request
+Then the response returns 201
+And the response body includes the new profile's id
+And the response echoes the submitted rule_type, rule_payload, and scope fields
+```
+
+**Scenario 2: Creating the instance-wide default as global staff**
+```
+Given an authenticated request from a global staff user (is_staff)
+And a POST body with rule_type "Grade", a valid Grade rule_payload, and all scope fields omitted or null
+And no all-null instance-wide default profile exists yet
+When the endpoint processes the request
+Then the response returns 201
+And organization, course, and competency_taxonomy are all null in the response body
+```
+
+**Scenario 3: Rejecting the instance-wide default from a non-staff user**
+```
+Given an authenticated request from a user who is not global staff
+And a POST body with all scope fields omitted or null
+When the endpoint processes the request
+Then the response returns 403
+And the profile is not created
+```
+
+**Scenario 4: Rejecting a second instance-wide default (pending confirmation, see Open Questions)**
+```
+Given an all-null instance-wide default profile already exists
+And a global staff user sends a POST body with all scope fields omitted or null
+When the endpoint processes the request
+Then the response returns 409
+And no second all-null profile is created
+```
+
+**Scenario 5: Rejecting a non-MVP rule_type**
+```
+Given a POST request to the competency rule profile endpoint
+And the body sets rule_type to "View" or "MasteryLevel"
+When the endpoint processes the request
+Then the response returns 400
+And the validation error identifies rule_type as the invalid field
+```
+
+**Scenario 6: Rejecting a malformed Grade payload**
+```
+Given a POST request to the competency rule profile endpoint
+And rule_type is "Grade" but rule_payload is missing a required key or uses an unsupported operator
+When the endpoint processes the request
+Then the response returns 400
+And the validation error identifies rule_payload as the invalid field
+```
+
+**Scenario 7: Referencing a non-existent scope entity**
+```
+Given a POST request to the competency rule profile endpoint
+And competency_taxonomy refers to a taxonomy that does not exist
+When the endpoint processes the request
+Then the response returns 400
+And the validation error identifies the scope field as invalid
+```
+
+**Scenario 8: Unauthorized create of a scoped profile (TBD, see Open Questions)**
+```
+Given a user who does not have permission to configure rule profiles for the requested scope
+When the endpoint processes the request
+Then the profile is not created
+And an authorization error is returned
+```
+
+---
+
+## Technical Notes
+
+Assumed app label from the data-model ticket's `apps.py` is `oel_cbe`; permission strings are built as `f"{app_label}.{action}_competencyruleprofile"`. Adjust to whatever 1.1 actually sets. Auth is reused from `openedx_tagging.rest_api.utils` (the `@view_auth_classes` decorator: JWT + `SessionAuthenticationAllowInactiveUser`); CBE → `openedx_tagging` is an allowed import direction.
+
+### Files to Create
+
+| File | Purpose |
+| :---- | :---- |
+| `src/openedx_learning/applets/cbe/rest_api/__init__.py` | package marker |
+| `src/openedx_learning/applets/cbe/rest_api/urls.py` | `path("v1/", include(v1_urls))` |
+| `src/openedx_learning/applets/cbe/rest_api/v1/__init__.py` | empty (mirrors tagging) |
+| `src/openedx_learning/applets/cbe/rest_api/v1/serializers.py` | `CompetencyRuleProfileSerializer` (shared across 6.1/6.2/6.3) |
+| `src/openedx_learning/applets/cbe/rest_api/v1/views.py` | `CompetencyRuleProfileViewSet` (create only in this ticket) |
+| `src/openedx_learning/applets/cbe/rest_api/v1/permissions.py` | `CompetencyRuleProfileObjectPermissions` |
+| `src/openedx_learning/applets/cbe/rest_api/v1/urls.py` | `DefaultRouter` registration |
+| `src/openedx_learning/applets/cbe/rules.py` | `is_staff` default predicates + `rules.add_perm` |
+| `src/openedx_learning/applets/cbe/rest_api/v1/tests/test_views_create.py` | APIClient tests |
+
+### Modified Files
+
+| File | Nature of modification |
+| :---- | :---- |
+| `src/openedx_learning/applets/cbe/api.py` | Add `create_competency_rule_profile()`; create the module if the data-model ticket has not |
+| `src/openedx_learning/applets/cbe/apps.py` | `ready()`: `from . import rules` so the predicates register at startup |
+
+### Implementation Notes
+
+- **REST structure (single viewset, mixins added per ticket).** Use a `GenericViewSet` composed with only the mixins each ticket owns — 6.1 adds `CreateModelMixin`, 6.3 adds `Retrieve`/`ListModelMixin`, 6.2 adds `Update`/`DestroyModelMixin`. The final class equals a `ModelViewSet` but no untested operation ships early. This mirrors `ObjectTagView` in `src/openedx_tagging/rest_api/v1/views.py`.
+- **Serializer.** `CompetencyRuleProfileSerializer(serializers.ModelSerializer)` with fields `["id", <organization>, <course>, <competency_taxonomy>, "rule_type", "rule_payload"]` (use the exact scope field names 1.1 defines; `id` read-only). Constrain input with `rule_type = serializers.ChoiceField(choices=[("Grade", "Grade")])` so `View`/`MasteryLevel` yield 400 automatically. All scope fields optional. Do **not** add a uniqueness validator for scoped profiles.
+- **All-null uniqueness.** Enforce "at most one all-null default" in the create path (`api.create_competency_rule_profile`): if all scope fields are null and an all-null row already exists, raise a domain error the view maps to 409. This is deliberately application-level, so no DB constraint and no ADR-0002 amendment.
+- **Permissions.** `CompetencyRuleProfileObjectPermissions(DjangoObjectPermissions)` copies the `perms_map` from `src/openedx_tagging/rest_api/v1/permissions.py` (GET/HEAD→`view`, POST→`add`, PUT/PATCH→`change`, DELETE→`delete`). In `rules.py`, register the safe MVP default `rules.add_perm("oel_cbe.add_competencyruleprofile", rules.is_staff)` and the same for `view`/`change`/`delete` (matching `is_taxonomy_admin = rules.is_staff` in tagging). Document inline that edx-platform overrides these via `rules.set_perm` (see Context — sibling ticket). This keeps the permission *seam* identical under all three permission options in Open Questions; only the registered predicate differs, and that override lives platform-side.
+- **Domain delegation.** `perform_create` calls `cbe.api.create_competency_rule_profile(**serializer.validated_data)`, which builds the instance, calls `full_clean()`, and saves under `transaction.atomic()`. The library's product is its in-process `api.py`, not the REST layer (same pattern as `TaxonomyView.perform_create` → `create_taxonomy`).
+- **Router.** `router.register("competency-rule-profiles", views.CompetencyRuleProfileViewSet, basename="competency-rule-profile")`. This URL registration is shared with 6.2/6.3.
+
+### Example Resolution Prompt
+
+Create the CBE REST package at `src/openedx_learning/applets/cbe/rest_api/` mirroring `src/openedx_tagging/rest_api/`. In `rest_api/v1/serializers.py`, add `CompetencyRuleProfileSerializer(serializers.ModelSerializer)` over `openedx_learning.applets.cbe.models.CompetencyRuleProfile` with `id` read-only, all scope fields optional, and `rule_type = serializers.ChoiceField(choices=[("Grade", "Grade")])` so `View`/`MasteryLevel` return 400; do not add uniqueness validation for scoped profiles. In `rest_api/v1/permissions.py`, add `CompetencyRuleProfileObjectPermissions(DjangoObjectPermissions)` copying the `perms_map` from `src/openedx_tagging/rest_api/v1/permissions.py`. In `src/openedx_learning/applets/cbe/rules.py`, register `rules.add_perm("oel_cbe.add_competencyruleprofile", rules.is_staff)` plus `view`/`change`/`delete`, and add `from . import rules` to `apps.py` `ready()`. In `rest_api/v1/views.py`, add `@view_auth_classes` (imported from `openedx_tagging.rest_api.utils`) on `CompetencyRuleProfileViewSet(mixins.CreateModelMixin, GenericViewSet)` with `serializer_class`, `permission_classes = [CompetencyRuleProfileObjectPermissions]`, `get_queryset` returning `CompetencyRuleProfile.objects.all()`, and a `perform_create` that delegates to `cbe.api.create_competency_rule_profile(**serializer.validated_data)`. In `api.py`, implement that function to build the instance, call `full_clean()`, enforce "at most one all-null profile" (raise a domain error → 409 if a second all-null is attempted), save under `transaction.atomic()`, and return it. In `rest_api/v1/urls.py`, register the viewset on a `DefaultRouter` at `"competency-rule-profiles"` (basename `"competency-rule-profile"`); in `rest_api/urls.py`, `path("v1/", include(v1_urls))`. Mark the serializer, viewset, and `api.py` functions UNSTABLE. Do not mount anything into edx-platform (separate ticket). Add APIClient tests for 201 (scoped and all-null-as-staff), 409 (second all-null), 400 (non-Grade type, bad payload, non-existent scope), 403 (all-null as non-staff), 401 (anonymous).
+
+---
+
+## Context
+
+Prior art to mirror file-for-file:
+- `src/openedx_tagging/rest_api/utils.py` — `view_auth_classes`, `UserPermissionsHelper`.
+- `src/openedx_tagging/rest_api/v1/permissions.py` — `TaxonomyObjectPermissions.perms_map` (copy verbatim).
+- `src/openedx_tagging/rest_api/v1/urls.py` — `DefaultRouter` registration.
+- `src/openedx_tagging/rules.py` — `is_taxonomy_admin = rules.is_staff` and the `add_perm` block; the `set_perm` override point is demonstrated in `tests/openedx_tagging/test_rules.py`.
+- `src/openedx_tagging/apps.py` — `ready()` import pattern and the `label` convention (tagging uses `oel_tagging`).
+- `src/openedx_tagging/rest_api/v1/views.py` `TaxonomyView.perform_create` → `create_taxonomy` — the REST-adapter-over-domain-function pattern.
+
+Authoritative model: `docs/openedx_learning/decisions/0002-competency-criteria-model.rst`. Blocking dependency: data-model ticket (Markdown Github Issues.md 1.1). Layering: `.importlinter` (CBE → `openedx_tagging` allowed; never import `openedx-platform`).
+
+**Related sibling tickets (edx-platform, tracked separately per the "platform work is its own ticket" rule):**
+- **[PLAT-1 — MVP, verification-blocking] Mount CBE Competency Rule Profile REST URLs in edx-platform.** openedx-core defines these URLs but does not mount them into a served app; edx-platform does (as it exposes `/api/content_tagging/v1/taxonomies/` over openedx-core's `/api/tagging/v1/taxonomies/`). Without this, Postman/MFE cannot reach the endpoints, so the Postman-verifiable acceptance criteria on 6.1/6.2/6.3 pass only through openedx-core's test client. This is the most important sibling ticket; it blocks *acceptance*, not the code, of all three.
+- **[PLAT-2 — non-MVP, only if permission Option B or C is chosen] Register scoped permission predicates for CompetencyRuleProfile in edx-platform** via `rules.set_perm("oel_cbe.{add,change,delete,view}_competencyruleprofile", <scoped predicate>)` at app-ready, keeping the all-null instance-wide default `is_staff`-only.
+
+---
+
+## Open Questions
+
+- `[BLOCKING] What permission model governs a scope-bearing (org/course/taxonomy) Competency Rule Profile? To be resolved before dev; resolve once for the whole 6.1/6.2/6.3 set. (why it matters: sets the permission class and the wording/status of the "unauthorized" scenarios, and whether management is delegable below global staff.) Options: A) Global-staff-only for MVP (is_staff), same as the instance-wide default [recommended: A] B) A pluggable permission hook the consuming platform overrides via rules.set_perm, mirroring oel_tagging's *_objectid deny-by-default predicates, so org/course scoping is enforced platform-side (sibling ticket PLAT-2) C) Hybrid: taxonomy-scoped profiles use the existing oel_tagging.* predicates; org- and course-scoped profiles are global-staff-only for MVP.`
+- `[non-blocking] Confirm the "at most one instance-wide default" interpretation. (why it matters: reconciles two prior decisions — "all-null = the instance-wide default" (singular) vs "no uniqueness constraint" — and drives Scenario 4. Current best-judgment: allow at most one all-null profile via an application-level 409.) Options: A) At most one all-null default; second all-null create returns 409; scoped duplicates still allowed [recommended: A] B) Allow multiple all-null profiles (then downstream resolution must disambiguate them) C) Defer, treating the instance-wide default as a logical concept resolved outside the table.`
+- `[non-blocking] External handle: id vs uuid. (why it matters: ADR-0002 is final and gives only id; adding uuid is a deliberate ADR amendment plus a migration, and switching after stabilization is DEPR-governed.) Options: A) Use id for MVP, matching the final ADR and the tagging precedent, with the API marked UNSTABLE so uuid can be added before stabilization if judged necessary [recommended: A] B) Amend ADR-0002 now to add uuid and use it as the lookup field.`
+
+# 6.2
+
+## Use Case
+
+As an operator responsible for a given organization, course, or competency taxonomy, I need to update or delete an existing Competency Rule Profile, so that when mastery policy changes I can revise the shared default in one place, or retire a profile that is no longer in use, without leaving Competency Criteria pointing at a rule that no longer applies.
+
+*Role note: same permission caveat as 6.1 (see Open Questions). Management of the instance-wide default (all-null profile) is assumed global-staff-only, mirroring its create rule.*
+
+---
+
+## Description
+
+Build the REST Update (`PATCH`/`PUT`) and Delete (`DELETE`) endpoints for `CompetencyRuleProfile`, extending the viewset and reusing the serializer, URL collection, and permission class established in 6.1. Update may change the `rule_payload` and, within MVP, must keep `rule_type == "Grade"`; the same payload validation as 6.1 applies (the create serializer is reused, so `View`/`MasteryLevel` are rejected with 400 and a malformed payload with 400 via `full_clean()`).
+
+Delete is **protected**: if the profile is still referenced by any `CompetencyCriteria` (via the `competency_rule_profile` FK, ADR-0002), the delete is blocked with a 409, the profile is not deleted, and the referencing criteria are unchanged. This mirrors the ADR-0002 delete-protection pattern that the data-model ticket already applies for learner-status rows (definition rows cannot be hard-deleted while dependents exist). An unreferenced profile deletes normally (204).
+
+**"Referenced" means an explicit FK reference** (`competency_rule_profile_id = <this profile>`). A profile consumed only via the *fallback* scope path (criteria with a null FK that resolve to it by org/course/taxonomy) is **not** protected and can be deleted; broadening protection to fallback usage is out of MVP scope.
+
+Update and Delete are kept in one ticket deliberately: with the shared viewset, Update is `UpdateModelMixin` reusing the create serializer and Delete is `DestroyModelMixin` plus one `ProtectedError` → 409 translation, together comfortably ~1 developer-day. Splitting Delete out would isolate under half a day of work behind full ticket/review overhead.
+
+**Depends on** the data-model ticket (1.1 / ADR-0002) and on 6.1 (shared serializer, URL collection, permission class, viewset shell).
+
+> **Coordination addendum (delete-protection hook — do not edit ticket 1.1's description; fold this in with the 1.1 author):** The Protect-409 behavior requires the data-model layer to actually block the delete. Ticket 1.1 today protects only against learner-status rows, not against referencing `CompetencyCriteria`. This ticket needs `CompetencyCriteria.competency_rule_profile` to be declared `on_delete=models.PROTECT` so that deleting a referenced profile raises `django.db.models.ProtectedError`. Set this in the data-model ticket; enforcing it at the ORM boundary protects admin/shell callers too and lets one exception handler compose both protections. If 1.1 cannot be extended, the fallback is a `.exists()` guard inside `cbe.api.delete_competency_rule_profile` — accepted only as a fallback, since it protects just the API path.
+
+**Out of scope:**
+- Non-`Grade` rule types.
+- Cascade or soft-delete of referencing criteria (the delete is protected, not cascading; changing this is an ADR-0002 change).
+- Protecting against fallback-scope usage (explicit FK references only).
+- The full org/course/taxonomy permission model beyond the fixed all-null-is-staff rule (see Open Questions).
+- Create, Get, and UI; the edx-platform URL mount (sibling ticket PLAT-1).
+
+---
+
+## Acceptance Criteria
+
+These scenarios are verifiable via Postman against a local or dev environment (once PLAT-1 lands; before that, via openedx-core's API test client).
+
+**Scenario 1: Updating a profile's rule payload**
+```
+Given an existing Competency Rule Profile
+And a PATCH request that sets a new valid Grade rule_payload
+When the endpoint processes the request
+Then the response returns 200
+And the response body reflects the updated rule_payload
+```
+
+**Scenario 2: Rejecting an invalid update**
+```
+Given an existing Competency Rule Profile
+And a PATCH request with a malformed Grade rule_payload or a non-MVP rule_type
+When the endpoint processes the request
+Then the response returns 400
+And the validation error identifies the invalid field
+```
+
+**Scenario 3: Deleting an unreferenced profile**
+```
+Given an existing Competency Rule Profile that is not referenced by any Competency Criteria
+When a DELETE request is sent for that profile
+Then the response returns 204
+And a subsequent GET for that profile returns 404
+```
+
+**Scenario 4: Blocking deletion of a referenced profile**
+```
+Given a Competency Rule Profile referenced by one or more Competency Criteria via the explicit FK
+When a DELETE request is sent for that profile
+Then the response returns 409
+And the profile is not deleted
+And the referencing Competency Criteria are unchanged
+```
+
+**Scenario 5: Updating or deleting a non-existent profile**
+```
+Given a profile id that does not exist
+When a PATCH or DELETE request is sent for that id
+Then the response returns 404
+```
+
+**Scenario 6: Unauthorized update or delete (TBD, see Open Questions)**
+```
+Given a user who does not have permission to modify rule profiles for the profile's scope
+When a PATCH or DELETE request is sent
+Then the profile is not modified or deleted
+And an authorization error is returned
+```
+
+---
+
+## Technical Notes
+
+### Files to Create
+
+| File | Purpose |
+| :---- | :---- |
+| `src/openedx_learning/applets/cbe/rest_api/v1/exceptions.py` | `Conflict(APIException)` with `status_code = 409` (optional; may inline in views.py) |
+| `src/openedx_learning/applets/cbe/rest_api/v1/tests/test_views_update_delete.py` | APIClient tests incl. the 409 protection |
+
+### Modified Files
+
+| File | Nature of modification |
+| :---- | :---- |
+| `src/openedx_learning/applets/cbe/rest_api/v1/views.py` | Add `UpdateModelMixin`/`DestroyModelMixin`; `perform_update`; `perform_destroy` catching `ProtectedError` → 409 |
+| `src/openedx_learning/applets/cbe/api.py` | Add `update_competency_rule_profile()` and `delete_competency_rule_profile()` |
+
+*(The FK change `on_delete=models.PROTECT` on `CompetencyCriteria.competency_rule_profile` is made in the data-model ticket per the coordination addendum above, not in this ticket's files.)*
+
+### Implementation Notes
+
+- **Update.** Add `mixins.UpdateModelMixin`; `perform_update` delegates to `cbe.api.update_competency_rule_profile(...)`, which calls `full_clean()` before save. The create serializer is reused, so the Grade-only `rule_type` and payload validation apply to PUT/PATCH automatically.
+- **Delete protection.** Add `mixins.DestroyModelMixin`. `cbe.api.delete_competency_rule_profile(profile)` calls `profile.delete()` and lets `django.db.models.ProtectedError` propagate (raised by the `on_delete=PROTECT` FK from 1.1). Override `perform_destroy` to catch `ProtectedError` and raise a `Conflict(APIException)` with `status_code = 409` and a message naming the blocking dependents. This one handler composes both the criteria-reference protection and ADR-0002's learner-status protection (both surface as `ProtectedError`). On a blocked delete the transaction rolls back, so the profile is not deleted and criteria are unchanged.
+- **No existing precedent for 409 in tagging.** `src/openedx_tagging/rest_api/v1/exception_handlers.py` shows how `APIException` subclasses pass through DRF's handler; follow that so the `Conflict` renders as a clean 409 body.
+
+### Example Resolution Prompt
+
+In `src/openedx_learning/applets/cbe/rest_api/v1/views.py`, add `mixins.UpdateModelMixin` and `mixins.DestroyModelMixin` to `CompetencyRuleProfileViewSet`. Add `perform_update` delegating to `cbe.api.update_competency_rule_profile(...)` (reusing `CompetencyRuleProfileSerializer`, so `View`/`MasteryLevel` still 400). Define `class Conflict(APIException): status_code = 409` (in `rest_api/v1/views.py` or a new `rest_api/v1/exceptions.py`) and override `perform_destroy` to `try: cbe.api.delete_competency_rule_profile(instance)` and `except django.db.models.ProtectedError: raise Conflict(...)` with a message listing the referencing criteria. In `api.py`, add `update_competency_rule_profile` (calls `full_clean()` then saves under `transaction.atomic()`) and `delete_competency_rule_profile` (calls `profile.delete()`, lets `ProtectedError` propagate). Coordinate with the data-model ticket to set `on_delete=models.PROTECT` on `CompetencyCriteria.competency_rule_profile`; if that FK is not PROTECT, instead guard in `delete_competency_rule_profile` with `CompetencyCriteria.objects.filter(competency_rule_profile=profile).exists()`. Do not use SET_NULL and do not touch referencing criteria. Add APIClient tests for 200 update, 400 bad type/payload via update, 409 on referenced delete (assert the profile still exists and the criterion is unchanged), 204 on unreferenced delete, 403 non-staff, 404 unknown id.
+
+---
+
+## Context
+
+Prior art:
+- `src/openedx_tagging/rest_api/v1/views.py` `ObjectTagView` — mixin composition (`RetrieveModelMixin, UpdateModelMixin, ListModelMixin, GenericViewSet`) and the `MethodNotAllowed` pattern if PATCH is to be constrained.
+- `src/openedx_tagging/rest_api/v1/exception_handlers.py` `TaggingExceptionHandlerMixin` — how an `APIException` subclass renders through DRF's handler.
+
+Delete-protection design: ADR-0002 (learner-status protection) and the data-model ticket's `delete()`-override / `PROTECT` notes. Dependencies: 6.1 (viewset scaffolding) and 1.1 (the `on_delete=PROTECT` FK, per the coordination addendum). Layering: `.importlinter`. Sibling ticket: PLAT-1 (URL mount) blocks Postman verification.
+
+---
+
+## Open Questions
+
+- `[BLOCKING] Permission model for updating/deleting a scope-bearing profile — same question as 6.1; resolve once for the set. (why it matters: sets the permission class and the wording/status of Scenario 6.) Options: A) Global-staff-only for MVP (is_staff) [recommended: A] B) Pluggable permission hook the platform overrides (PLAT-2) C) Hybrid taxonomy-via-oel_tagging / org+course staff-only.`
+- `[non-blocking] Who may update or delete the instance-wide default (all-null) profile? (why it matters: only its create rule was fixed as staff-only; update/delete should match.) Options: A) Global-staff-only, mirroring create [recommended: A] B) Fold into whatever the general permission model resolves to.`
+
+# 6.3
+
+## Use Case
+
+As an operator or authoring UI configuring Competency Criteria, I need to retrieve a single Competency Rule Profile by id and list the profiles recorded at a given scope, so that the criteria editor and the profile-management UI (6.4/6.5) can show which default rule applies at a scope and let an operator choose one.
+
+*Role note: same permission caveat as 6.1 (see Open Questions). Whether list results are filtered to the requesting user's permitted scopes depends on the unresolved permission model.*
+
+---
+
+## Description
+
+Build the REST retrieve (`GET /{id}/`) and list (`GET /`) endpoints for `CompetencyRuleProfile`, extending the viewset and reusing the 6.1 serializer, URL collection, and permission class. List supports filtering by scope query params (`organization`, `course`, `competency_taxonomy`) so a caller can ask "which profiles are recorded at this scope." A response row returns the profile's `id`, scope fields, `rule_type`, and `rule_payload`.
+
+List returns the rows matching the filter literally, including the instance-wide default (all-null) row in an unfiltered list. **Resolving the single *effective* default for a criterion** when several profiles match (scope precedence and, since scoped duplicates are allowed, tie-breaking) is criteria-resolution logic used by evaluation and by the UC-5 criteria editor — it is not this endpoint's job and is out of scope here (see Open Questions).
+
+For MVP, with the safe `is_staff`-only default, staff see all profiles and no per-user scope filtering of results is required. Whether the list is additionally filtered to only the scopes the requesting user may see depends on the permission model (Open Questions). This ticket is the read half of the CRUD set; it is read-only and changes no write behavior or authorization of the other endpoints.
+
+**Depends on** the data-model ticket (1.1 / ADR-0002) and on 6.1 (shared serializer, URL collection, permission class, viewset shell).
+
+**Out of scope:**
+- Create, Update, Delete, and UI; the edx-platform URL mount (sibling ticket PLAT-1).
+- Resolving the effective/winning profile for a criterion (scope precedence, the ADR-0002 fallback lookup order) — criteria-resolution logic, not this endpoint.
+
+---
+
+## Acceptance Criteria
+
+These scenarios are verifiable via Postman against a local or dev environment (once PLAT-1 lands; before that, via openedx-core's API test client).
+
+**Scenario 1: Retrieving a profile by id**
+```
+Given an existing Competency Rule Profile
+When I send GET for that profile's id
+Then the response returns 200
+And the body includes id, rule_type, rule_payload, and the scope fields
+```
+
+**Scenario 2: Listing profiles filtered by scope**
+```
+Given profiles exist scoped to different organizations, courses, and taxonomies
+When I send GET to the list endpoint with a competency_taxonomy filter
+Then the response returns 200
+And every profile in the response has that competency_taxonomy value
+```
+
+**Scenario 3: Listing when no profiles match the filter**
+```
+Given no profile is scoped to the requested organization
+When I send GET to the list endpoint with that organization filter
+Then the response returns 200
+And the results list is empty
+```
+
+**Scenario 4: Retrieving a non-existent profile**
+```
+Given a profile id that does not exist
+When I send GET for that id
+Then the response returns 404
+```
+
+**Scenario 5: Unauthorized read (TBD, see Open Questions)**
+```
+Given a user who does not have permission to view rule profiles for the requested scope
+When I send GET for a profile or the list
+Then the profile data is not returned
+And an authorization error is returned
+```
+
+---
+
+## Technical Notes
+
+### Files to Create
+
+| File | Purpose |
+| :---- | :---- |
+| `src/openedx_learning/applets/cbe/rest_api/v1/tests/test_views_get.py` | APIClient retrieve/list tests |
+
+### Modified Files
+
+| File | Nature of modification |
+| :---- | :---- |
+| `src/openedx_learning/applets/cbe/rest_api/v1/views.py` | Add `RetrieveModelMixin`/`ListModelMixin`; `get_queryset` + `select_related`; `pagination_class` |
+| `src/openedx_learning/applets/cbe/api.py` | Add `get_competency_rule_profile()` and `get_competency_rule_profiles()` |
+
+### Implementation Notes
+
+- **Mixins.** Add `mixins.RetrieveModelMixin` and `mixins.ListModelMixin`, reusing `CompetencyRuleProfileSerializer` for both. `retrieve` returns one profile by `id` (URL `.../competency-rule-profiles/<int:pk>/`, already registered by 6.1's router). `list` returns the profiles the user may view.
+- **N+1.** Set `get_queryset` to `CompetencyRuleProfile.objects.all()` with `.select_related(<competency_taxonomy>)` if the serializer reads the related taxonomy, mirroring the `select_related` note in ticket 1.3.
+- **Pagination.** Add a `PageNumberPagination` subclass as `pagination_class`, mirroring `TaxonomyPagination`; an empty match returns a paginated empty result.
+- **Scope filtering.** Filter the queryset by the `organization`/`course`/`competency_taxonomy` query params literally. Do not attempt effective-default resolution here.
+
+### Example Resolution Prompt
+
+In `src/openedx_learning/applets/cbe/rest_api/v1/views.py`, add `mixins.RetrieveModelMixin` and `mixins.ListModelMixin` to `CompetencyRuleProfileViewSet`, reusing `CompetencyRuleProfileSerializer`. Set `get_queryset` to `CompetencyRuleProfile.objects.all()`, add `.select_related(...)` for the taxonomy scope FK if the serializer reads it, and filter by the `organization`/`course`/`competency_taxonomy` query params. Add a `PageNumberPagination` subclass as `pagination_class` (mirror `TaxonomyPagination`). In `api.py`, add `get_competency_rule_profile(pk)` (raising the model `DoesNotExist` for a 404) and `get_competency_rule_profiles(**filters)` returning the queryset. The URL is already registered by 6.1's router, so `GET /.../competency-rule-profiles/` and `GET /.../competency-rule-profiles/<int:pk>/` come for free. Add APIClient tests for 200 retrieve, 404 unknown id, 200 list, empty-list, 403 non-staff, 401 anonymous, asserting `id`/scope/`rule_type`/`rule_payload` in the body.
+
+---
+
+## Context
+
+Prior art: `src/openedx_tagging/rest_api/v1/views.py` `TaxonomyView.get_queryset` (query-param handling and `select_related`/annotation pattern) and `TaxonomyPagination` for the pagination class; ticket 1.3's `select_related` N+1 note. Dependencies: 6.1 (viewset + router) and 1.1 (model). Layering: `.importlinter`. Sibling ticket: PLAT-1 (URL mount) blocks Postman verification.
+
+---
+
+## Open Questions
+
+- `[BLOCKING] Permission model for viewing/listing scope-bearing profiles, and whether list results are filtered to the user's permitted scopes — same question as 6.1/6.2; resolve once for the set. (why it matters: sets the permission class, whether Scenario 5 fires, and whether list results are scope-filtered per user.) Options: A) Global-staff-only for MVP (staff see all; no per-user scope filtering) [recommended: A] B) Pluggable permission hook the platform overrides (PLAT-2), filtering list results to the caller's permitted scopes C) Hybrid taxonomy-via-oel_tagging / org+course staff-only.`
+- `[non-blocking, blocking for the evaluation/resolution work] Precedence when multiple profiles match a criterion's scope (an org-, a course-, and the all-null default all apply, or duplicates at one scope). (why it matters: 6.1-6.3 return rows literally and do not need this, but UC-5 criteria default-resolution and evaluation cannot compute a single effective rule without it.) Options: A) Most-specific-scope-wins with a defined tiebreak (e.g. most recently updated) among duplicates [recommended: A] B) Extend ADR-0002's fallback lookup order to cover multi-match and duplicates explicitly C) Disallow the ambiguity at write time via a uniqueness rule.`
+- `[non-blocking] External handle: id vs uuid (as in 6.1). Options: A) id for MVP [recommended: A] B) add uuid via an ADR-0002 amendment.`  
