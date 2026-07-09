@@ -22,15 +22,15 @@
 `frontend-app-authoring` (npm package `@edx/frontend-app-authoring`, formerly
 `frontend-app-course-authoring`) is the **React micro-frontend (MFE) that implements
 most of Open edX Studio** — the course- and library-**authoring** UI (the CMS). It is
-the modern replacement for the server-rendered Studio pages that `edx-platform`'s CMS
+the modern replacement for the server-rendered Studio pages that `openedx-platform`'s CMS
 used to serve.
 
-- It is a **standalone single-page app**, not part of `edx-platform` and not part of
-  this repo. It talks to the **CMS REST APIs** that `edx-platform` exposes.
+- It is a **standalone single-page app**, not part of `openedx-platform` and not part of
+  this repo. It talks to the **CMS REST APIs** that `openedx-platform` exposes.
 - **License:** AGPLv3.
-- A handful of **legacy Studio pages** still render from `edx-platform` directly and are
+- A handful of **legacy Studio pages** still render from `openedx-platform` directly and are
   "rapidly being deprecated"; per-feature `legacy_studio.*` waffle flags in
-  `edx-platform` can re-enable them (e.g. `text_editor`, `video_editor`,
+  `openedx-platform` can re-enable them (e.g. `text_editor`, `video_editor`,
   `problem_editor`, `advanced_settings`, `updates`, `export`, `import`, `files_uploads`,
   `exam_settings`).
 - Some authoring features defer to **other IDAs/MFEs**: `edx-exams` (proctoring),
@@ -40,7 +40,7 @@ used to serve.
 ### How it relates to `openedx-core`
 
 This MFE is a **consumer of the same backend stack** that `openedx-core` underpins. The
-chain is: **this MFE → `edx-platform` CMS REST APIs → (for libraries/content) the
+chain is: **this MFE → `openedx-platform` CMS REST APIs → (for libraries/content) the
 `content_libraries` app → `openedx_content` (this repo)**. So a content-library feature
 you build in `openedx_content` surfaces to authors through this MFE's
 `library-authoring` feature. There is **no direct import or code dependency** between the
@@ -219,12 +219,12 @@ When a feature needs operator-customizable UI, add a slot rather than a hard-cod
 - **Transport:** REST over `getAuthenticatedHttpClient()` to `getConfig().STUDIO_BASE_URL`
   (the CMS). JWT auth is handled by frontend-platform.
 - **Libraries & content:** `library-authoring` and content features ultimately exercise
-  `edx-platform`'s `content_libraries` app, which is backed by **`openedx_content`** in
+  `openedx-platform`'s `content_libraries` app, which is backed by **`openedx_content`** in
   this repo. A new content capability typically needs: a model/API change in
   `openedx_content` → a CMS REST endpoint in `content_libraries` → an `api.ts` +
   `apiHooks.ts` + UI in the matching MFE feature.
 - **Tagging/taxonomies:** the `taxonomy` and `content-tags-drawer` features back onto
-  `edx-platform`'s `content_tagging`, which builds on **`openedx_tagging`** here.
+  `openedx-platform`'s `content_tagging`, which builds on **`openedx_tagging`** here.
 - **Search:** content search uses Meilisearch via the `search-manager`/`search-modal`
   features.
 
@@ -280,4 +280,4 @@ The frontend repo is large and **outside this workspace**. Keep the main context
 - **XBlock** — Open edX's plugin framework for course-content components; the editors
   subsystem provides the React editing UI for XBlock content types.
 - **Legacy Studio pages** — server-rendered CMS pages this MFE is replacing; still
-  toggleable per-feature via `legacy_studio.*` waffle flags in `edx-platform`.
+  toggleable per-feature via `legacy_studio.*` waffle flags in `openedx-platform`.

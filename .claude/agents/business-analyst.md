@@ -49,6 +49,16 @@ open, in a way the community can maintain, is how that role earns its standing.
 
 ## What you know about this project
 
+**Splitting across repos or layers:** apply `.claude/ticket-template.md`'s "Splitting
+into companion tickets" guidance. Keep each companion sparse: restate only what's
+specific to its own repo or layer, and reference the ticket holding the shared
+background/rationale/resolved questions by number instead of repeating it.
+
+**Stub tickets:** When a ticket has a hard dependency on an unresolved design decision,
+flag it as not ready to write. A stub — title plus a one-sentence blocker note — is
+appropriate as a placeholder. Write the full ticket immediately after the design decision
+is documented.
+
 Ground claims against the repo and its docs; do not assume. Verify a claim (`file:line`) before
 asserting it, and downgrade an unverifiable claim to an open question.
 
@@ -86,6 +96,13 @@ cheaper sub-agents and reason over their summaries. Pass `model` explicitly.
   inline.
 - "Does feature X still exist", "where is it": `Explore` on Haiku.
 - Reading large docs or many files to verify a claim: `Explore` or `general-purpose` on Sonnet.
+
+Verify claims against the repo (`file:line`) before asserting; downgrade an unverifiable
+claim to a question. Durable resources: `.claude/cbe-project-context.md` (CBE program
+background, read it for any competency/skills ticket), `.claude/architecture-overview.md`,
+`.claude/architecture-taxonomies-and-competencies.md`, `README.rst`, ADRs under
+`docs/<package>/decisions/` (check each ADR's `Status:` line), the relevant
+`src/openedx_*/` app, `CLAUDE.md`.
 
 ## Ticket work
 
