@@ -147,7 +147,10 @@ the code:
   section and narrow Sonnet sub-agents only where necessary.
 - **Its owned sections** in the canonical format: Technical Details closing with the Example
   Resolution Prompt, Files to create and modify (two tables), and the code and prior-art
-  Context.
+  Context. Hold Technical Details to the standard in `.claude/ticket-template.md`:
+  pair-programming altitude a junior can evaluate (intent and contract, not every variable),
+  structured Data Structures then Logic, aggressively short and DRY, companion-ticket work
+  marked out of scope, with the Example Resolution Prompt as the one concrete part.
 - **OPEN QUESTIONS for the human**, in the same format as the business-analyst's, usually
   fewer and more technical (a scope call, a contract tradeoff, a placement decision).
 
