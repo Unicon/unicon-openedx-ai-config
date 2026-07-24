@@ -165,7 +165,8 @@ and defer the unresolvable to TBD.
 
 ## 6. Synthesize
 
-Combine the two into the deliverable, verdict first and skimmable:
+Combine the two into a complete draft ticket, verdict first and skimmable (step 7
+finalizes it):
 
 - The assembled ticket in the canonical format (`.claude/ticket-template.md`): all six
   sections, BA-owned and architect-owned merged into one coherent ticket, with the answers you
@@ -175,5 +176,27 @@ Combine the two into the deliverable, verdict first and skimmable:
   were answered and how they shaped the ticket; any remaining open questions or TBDs, blocking
   ones first; the scope verdict with any split or merge; the SMART scorecard and an effort
   estimate; and the rejected technical alternatives in one line each.
+
+## 7. Editorial cleanup and fidelity check
+
+The step 6 draft is not the deliverable yet. Run one editorial pass over it, then verify
+the pass changed only the writing.
+
+1. Dispatch a sub-agent (`Agent`, **no `model` override** so it runs on your model) and
+   have it invoke the `clean-up-ticket` skill on the draft: pass the ticket text or its
+   file path, and ask it to return the cleaned rewrite plus its "what changed and why"
+   changelog. That skill tightens structure, removes redundancy and line numbers, leads
+   with the change, and rewrites toward the template, without touching scope.
+2. **Verify fidelity yourself** (a final-review job, keep it on the strong model). Compare
+   the cleaned version against the step 6 draft, using the changelog as a guide. Confirm
+   every change is editorial (structure, order, deduplication, wording, dropped line
+   numbers, a BLUF lead) and that nothing material was lost or invented: every requirement,
+   acceptance-criterion behavior, constraint, out-of-scope item, file reference, and
+   factual claim must survive with its meaning intact. The cleanup preserves scope by
+   design; this step confirms it actually did.
+3. If the pass dropped, altered, or invented any content, restore it (or re-run the cleanup
+   with a correction) before delivering. Do not ship a cleaner but subtly wrong ticket.
+4. Deliver the cleaned, verified version as the final ticket; the step 6 draft is
+   scaffolding.
 
 Touch the real tracker only on explicit request and approval.

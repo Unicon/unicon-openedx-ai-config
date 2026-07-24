@@ -20,8 +20,10 @@ state it, the ticket is not ready.
 
 ## Description
 
-Prose context: the problem, the current behavior, the desired behavior, and what is
-explicitly out of scope. One or two tight paragraphs. State assumptions and constraints,
+Open with a single sentence stating the actual change, bottom line up front, so a reader
+knows the shape of the work before any detail. Then give prose context: the problem, the
+current behavior, the desired behavior, and what is explicitly out of scope. One or two
+tight paragraphs. State assumptions and constraints,
 and call out what this ticket does NOT do, to hold the scope line.
 
 When the ticket modifies an existing UI flow or user-visible behavior, structure the
@@ -114,12 +116,17 @@ belong in the architect's returned analysis (for the human synthesizing the tick
 when the choice is architecturally significant enough to matter to future readers, in a
 proposed-status ADR that this section links to.
 
-Close this section with an **Example Resolution Prompt** subsection: a self-contained
-prompt a developer (or Claude Code) could use to implement the ticket. This is the one
-place to get concrete: name the specific files to touch, the models or functions to write
-or modify, and the key constraints and invariants. No generic "implement this ticket"
-language; if a developer pasted it cold into an AI assistant, they should get a correct
-first draft.
+Close this section with an **Example Resolution Prompt** subsection: a prompt a developer
+(or Claude Code) could use to start implementing the ticket. Its job is to orient the
+implementer toward the right approach, not to hand them a plan: state the goal, point at
+Technical Details and the Acceptance Criteria as the source of truth, and name the scope,
+the key constraints and invariants, where the relevant code lives, and how to verify. It
+is **not** an implementation plan and is **not** where technical decisions are made: every
+technical decision lives in Technical Details above, and the prompt lets the implementer
+(human or AI) form its own plan to satisfy that design. The implementer has the whole
+ticket in context, so the prompt references its sections rather than restating them. No
+generic "implement this ticket" language; a developer pasting it into an AI assistant
+should get it working on the right approach rather than a wrong one.
 
 **Exception — design spike tickets:** Replace Technical Details and Files to create and
 modify with a single **Context for the Designer** section. It covers: the current state
@@ -133,9 +140,10 @@ of closing the ticket.
 ## Context
 
 What a developer should read before starting: relevant code files (with paths), prior
-art and similar features, docs and ADRs, and related or blocking tickets. This is the
-on-ramp; a good Context section saves the developer the discovery the analyst and
-architect already did.
+art and similar features, docs and ADRs, and related or blocking tickets. Reference files
+and functions by path and name, not by line number: line numbers rot on the next change
+and read as false precision. This is the on-ramp; a good Context section saves the
+developer the discovery the analyst and architect already did.
 
 ## Files to create and modify
 
@@ -182,11 +190,20 @@ others depend on — and keep the rest sparse:
 ## What "awesome" looks like
 
 - The Use Case names a real role and a real outcome; the "so that" is not hand-waved.
+- The change is stated up front: a reader learns the shape of the work in the first
+  sentence, not after three paragraphs.
 - Scope is bounded: the Description says what is out of scope.
+- Each rule or invariant appears once, in its canonical section. The same constraint
+  restated across Description, Out of scope, Files, and Technical Details drifts into
+  contradiction the moment one copy is edited.
 - Every acceptance criterion is observable and could fail; unhappy paths are covered.
 - Technical Details read as pair-programming guidance a junior can evaluate: one approach
   at intent altitude, Data Structures then Logic, short and DRY, respecting the layering
   and contracts.
+- Every technical decision lives in Technical Details; the Files table and the Example
+  Resolution Prompt reference the approach but are not where a decision is made.
+- The Example Resolution Prompt orients the implementer toward the right approach and lets
+  them plan; it is not a file-by-file implementation plan.
 - Context and Files to modify are concrete, with real paths, so a developer can start
   cold.
 - The whole thing is a 1-2 developer-day unit of work, or it is split and says so.
