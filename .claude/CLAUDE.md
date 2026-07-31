@@ -103,3 +103,10 @@ orchestration, planning, and final review.
 - Avoid em dashes; use commas, colons, or periods. Use bold sparingly.
 - US spelling. Inclusive terms (allow list / deny list, `main`, primary/replica).
 - Write the current state, not its history. History lives in `git log`.
+- When authoring a GitHub issue, never mention or reference a local markdown filename
+  (e.g. "see ucid-5.10c.md"). A reader of the issue only has other GitHub issues to draw
+  on, not local scratch files; if something from one is load-bearing, restate it inline.
+- When a ticket references another ticket, use its GitHub Issue ID (e.g. `#674`), not an
+  internal spreadsheet ID (e.g. `5.6`). If the GitHub Issue ID isn't known, ask the human
+  for it before drafting rather than guessing; fall back to the internal ID only when no
+  GitHub Issue exists yet for that work.
