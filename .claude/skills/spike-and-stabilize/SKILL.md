@@ -40,14 +40,17 @@ Use the findings to answer your own questions before asking the developer.
 ## 2. Clarify and plan
 
 Do the clarify-and-plan work in plan mode (`EnterPlanMode`). Ask focused questions with
-`AskUserQuestion` (2-4 options each), then present a short plan. Do not write any
+`AskUserQuestion` (2-4 options each), then present a detailed implementation plan. Do not write any
 implementation code, including illustrative snippets, until the developer approves the
 plan via `ExitPlanMode`.
 
 On plan approval, delegate the implementation (the spike and stabilize coding) to a
 `general-purpose` sub-agent on Sonnet via the Agent tool. Brief it with the approved
-plan, the target files, and the conventions to follow. You stay on the strong model to
-run the gates, judge results, and do the final review; don't write the code yourself.
+plan, the target files, and the conventions to follow, and per the Delegation rule in
+`CLAUDE.md`, that it must not itself dispatch a sub-agent — if it needs a lookup it
+wasn't briefed on, it stops and reports back to you rather than trying to spawn one. You
+stay on the strong model to run the gates, judge results, and do the final review; don't
+write the code yourself.
 
 - Enumerate edge cases yourself and propose handling; don't ask the developer to list
   them. Time/timezones, parsing, and concurrency are the usual traps.
@@ -59,6 +62,7 @@ run the gates, judge results, and do the final review; don't write the code your
 
 ### ADR grain and voice
 
+For writing ADRs:
 Match the repo's existing ADRs, not a design doc. Before drafting, skim 2-3 merged
 ADRs in the same `decisions/` directory for length and tone, and hold the draft to
 the same bar. The norm across this codebase's ADRs is 40-110 lines: prose decision

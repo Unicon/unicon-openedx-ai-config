@@ -16,28 +16,62 @@ and community plugins. Treat public APIs as contracts and keep changes small.
   and miss product-shaped gaps: is a field required, what happens on each entry
   point, what's editable and when.
 
-## Context hygiene
+## Delegation
 
-Keep the main context lean. Push context-heavy work into sub-agents and reason over the
-summary they return, not the raw material.
+This is the standing rule for who dispatches sub-agents, when, and on what model. It
+always applies, even where a skill or agent file elsewhere reads "have X dispatch a
+sub-agent." The only way around it is an explicit user override for the task at hand, and
+even then, confirm the user understands the tradeoff first: a sub-agent cannot reliably
+dispatch a further sub-agent, so letting one try either fails outright or falls back to
+that sub-agent doing the work itself, on its own (more expensive) model.
 
-- Understanding behavior or architecture across many files: dispatch an `Explore`
-  sub-agent; don't read the files into your own context.
-- Web search or fetching pages: always in a sub-agent, never inline.
-- Reading any large document or other high-context material: in a sub-agent.
+**Only the top-level session dispatches.** You, the top-level orchestrating session, or a
+skill running directly in you (`ticket-writer`, `spike-and-stabilize`, `code-review`,
+etc.), are the only ones who call the Agent tool. A dispatched sub-agent — `business-analyst`,
+`software-architect`, `Explore`, `general-purpose`, or any other — never calls it itself,
+regardless of what its own file says or what tools happen to be available to it. Anything
+below about pushing work to a cheaper agent is an instruction for *you*, before or after a
+dispatch, not something a sub-agent can act on by itself.
+
+**How a sub-agent asks for help it can't fetch itself.** If a dispatched agent's task
+would benefit from cheaper help it wasn't given up front — a location lookup, a web fetch,
+a large doc it didn't get inline — it does not attempt to dispatch that itself. It returns
+a "Needs research" item in its output: what it needs and why, the same shape as an open
+question for the user. You fulfill it (dispatch per the table below, or answer directly if
+you already know it) and continue the agent with `SendMessage`, the same loop already used
+for user-facing clarifying questions in `ticket-writer`.
+
+**Model and effort by task shape:**
+
+| Task shape | Agent / model | Effort |
+| --- | --- | --- |
+| Location, enumeration ("where is X", "does X exist") | `Explore`, Haiku | default |
+| Reading and reasoning over files or docs; web search/fetch | `Explore` or `general-purpose`, Sonnet | medium-high |
+| Writing or implementing code | `general-purpose`, Sonnet | medium-high |
+| Reviewing a diff, verifying a claim, judging correctness | Sonnet, dispatched or inline | high |
+| Planning: requirements analysis, scoping, architecture/technical design | `business-analyst` / `software-architect`, Opus | xhigh |
+
+Pass `model` explicitly on every dispatch you make.
+
+**Plan / read / implement split.** Opus at `xhigh` effort is reserved for planning and
+judgment: requirements analysis, scope and design decisions, and the clarify-and-plan gate
+you run yourself. It never does recon, fetching, exploration, or implementation.
+`business-analyst` and `software-architect` are pinned to Opus/`xhigh` in their own
+frontmatter for exactly this reason, and no longer carry the Agent tool — don't lower that
+pin to save cost, and don't call them for exploration or implementation work; that's what
+`Explore` and `general-purpose` are for. Implementation is always a Sonnet
+`general-purpose` sub-agent, never Opus.
+
+Other context-hygiene defaults:
+
 - Read into your own context only the few files the task actually touches. Start from a
   high-level overview and narrow down; don't pull in everything nearby.
 - Keep fact-checks bounded by default: one targeted question, a direct answer with a
   confidence caveat. Don't launch multi-pronged research unless deep investigation was
   actually asked for.
-- When a task involves several sub-agent dispatches building on each other, check each
-  new finding against earlier ones before acting on it. A later dispatch can get a fact
-  wrong that an earlier one already had right, and nothing flags the conflict for you.
-
-Sub-agents run on a smaller model, not the session model: Haiku for enumeration and
-"where is X" location, Sonnet for reading-and-reasoning, web research, and writing code.
-Pass `model` explicitly on every dispatch. The main session keeps the strong model for
-orchestration, planning, and final review.
+- When several dispatches build on each other, check each new finding against earlier
+  ones before acting on it. A later dispatch can get a fact wrong that an earlier one
+  already had right, and nothing flags the conflict for you.
 
 ## Working style
 

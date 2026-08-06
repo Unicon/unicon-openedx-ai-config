@@ -24,17 +24,23 @@ and after the user approves the wording.
 
 ## Model and orchestration
 
-You, the main session on the strong model, orchestrate. Dispatch the two experts with the
-Agent tool and **no `model` override**, so they inherit your model and their judgment runs on
-the strong model; both push their own context-heavy reading down to cheaper sub-agents
-(`Explore` on Haiku for location, `Explore` or `general-purpose` on Sonnet for read-and-reason
-and web). Do not read large docs or run web lookups inline.
+You, the top-level session, orchestrate. `business-analyst` and `software-architect` are
+pinned to Opus at `xhigh` effort in their own frontmatter, so dispatch them with the Agent
+tool without a `model` override. Per the Delegation rule in `CLAUDE.md`, neither expert has
+an Agent tool and neither dispatches a sub-agent itself: when one needs context-heavy
+reading it wasn't given (a location lookup, reading/reasoning over large docs or many
+files, a web lookup), it returns a "Needs research" item in its output instead of fetching
+it. You fulfill those the same way you fulfill open questions — dispatch on its behalf
+(`Explore` on Haiku for location, `Explore` or `general-purpose` on Sonnet for
+read-and-reason and web) and continue it via `SendMessage` with the result. Do not read
+large docs or run web lookups inline yourself either.
 
 The experts are sub-agents and **cannot talk to the user**. You are the only one who can. So
-every question they raise comes back in their output, and you broker it: collect, dedupe,
-prioritize, ask the user with `AskUserQuestion`, then continue the expert with the answers via
-`SendMessage` (which preserves its context). Keep each expert's agent id from the Agent tool
-so you can continue it.
+every question they raise, and every research need, comes back in their output, and you
+broker it: collect, dedupe, prioritize, ask the user with `AskUserQuestion` (for open
+questions) or dispatch directly (for research needs), then continue the expert with the
+result via `SendMessage` (which preserves its context). Keep each expert's agent id from the
+Agent tool so you can continue it.
 
 ## Section ownership
 
@@ -50,25 +56,26 @@ it; the software-architect designs but does not rewrite the user story.
 
 Many tickets here also touch code outside this repo. Understand the neighbor from its
 orientation doc first, and reach into the neighbor's actual code only when the doc is not
-enough. Tell the experts to do the same, and to keep this work in cheap sub-agents so the
-strong-model context stays lean.
+enough. Tell the experts to do the same, and that when the doc is not enough, the move is a
+"Needs research" item back to you, not a dispatch of their own.
 
 - **Authoring frontend** (`frontend-app-authoring`, the Studio MFE, external to this
   workspace at `../frontend-app-authoring`). For any ticket with a frontend part, understand it
   from `.claude/frontend-app-authoring-architecture-overview.md`: the MFE's architecture,
   conventions, and how it connects back to this repo's APIs. Only where that overview is not
-  enough, have an expert dispatch a low-cost `Explore` or `general-purpose` sub-agent on
-  **Sonnet** with a narrow question against a small, specific set of files there. Never read
-  the repo into the main context.
+  enough, dispatch a low-cost `Explore` or `general-purpose` sub-agent on **Sonnet**, on the
+  expert's behalf, with a narrow question against a small, specific set of files there, and
+  continue the expert with the answer via `SendMessage`. Never read the repo into the main
+  context.
 
 - **openedx-platform** (the monolith, formerly `edx-platform` -- still commonly called that in
   issues, PRs, and discussion; recognize both, external at `../openedx-platform`). It is huge,
   so protect context aggressively. Start from `.claude/architecture-overview.md`, which covers
   how it integrates this library (the `content_libraries` and `content_tagging` layers). Prefer
   that overview to opening the monolith at all. Only where strictly necessary, dispatch a
-  **Sonnet** sub-agent with a very narrow question pointed at a very small, specific selection
-  of files in `../openedx-platform`, and instruct it to be protective of its own context: read
-  excerpts, not whole files, and return only the answer.
+  **Sonnet** sub-agent on the expert's behalf with a very narrow question pointed at a very
+  small, specific selection of files in `../openedx-platform`, and instruct it to be
+  protective of its own context: read excerpts, not whole files, and return only the answer.
 
 ## 1. Intake
 
@@ -105,6 +112,9 @@ return, grounded in the actual repo:
   Only questions whose answer would actually change the ticket. 2-4 candidate answers each,
   with a recommended default, so the user can decide fast. Blocking questions are ones the
   ticket cannot be written correctly without.
+- **NEEDS RESEARCH**, for anything it would otherwise fetch or explore itself but wasn't
+  given: what it needs and why, in the same list shape. You resolve these yourself (dispatch
+  or answer directly), never by asking the user.
 
 Keep its agent id. Reason over its summary; do not redo its reading.
 
@@ -144,7 +154,8 @@ the code:
   reuses before it rebuilds), justified against the rest. When the work spans repos, trace the
   full chain and name which layer each piece lands in (this repo, `content_libraries` or
   `content_tagging` in edx-platform, the MFE feature), using the overviews per the cross-repo
-  section and narrow Sonnet sub-agents only where necessary.
+  section and a Needs Research item, per that section, wherever a narrow Sonnet lookup is
+  necessary.
 - **Its owned sections** in the canonical format: Technical Details closing with the Example
   Resolution Prompt, Files to create and modify (two tables), and the code and prior-art
   Context. Hold Technical Details to the standard in `.claude/ticket-template.md`:
@@ -153,6 +164,8 @@ the code:
   marked out of scope, with the Example Resolution Prompt as the one concrete part.
 - **OPEN QUESTIONS for the human**, in the same format as the business-analyst's, usually
   fewer and more technical (a scope call, a contract tradeoff, a placement decision).
+- **NEEDS RESEARCH**, in the same shape as the business-analyst's, for anything it would
+  otherwise fetch or explore itself but wasn't given. You resolve these yourself.
 
 For a design spike, ask for scope judgment only; the business-analyst owns Context for the
 Designer in place of Technical Details and Files. Keep the architect's agent id.

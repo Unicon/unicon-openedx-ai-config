@@ -8,6 +8,11 @@ description: Senior peer review of a diff for this Django library. Use when aske
 A senior peer review for `openedx-core`. Surface what is wrong and why; let the
 developer decide what to act on. Never apply fixes, commit, or push from this skill.
 
+This skill runs at the top-level session (directly, or as `spike-and-stabilize`'s final
+step, which is explicitly run by "the strong main model, not the sub-agent"). Per the
+Delegation rule in `CLAUDE.md`, whoever runs it dispatches the sub-agents below directly;
+it never runs inside a dispatched sub-agent that would then need to dispatch further.
+
 ## 1. Get the diff
 
 Identify the target from what the developer asked: a PR number (`gh pr diff <n>`),
