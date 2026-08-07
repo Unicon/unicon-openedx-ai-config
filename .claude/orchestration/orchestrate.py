@@ -699,6 +699,21 @@ def validate_semantics(plan: Plan) -> list[str]:
                 f"node '{n.id}': gates == 'user_response' but required is false; an optional gate is not a gate"
             )
 
+    # An orchestrator node IS the session, so it cannot run on some other model.
+    # Left unchecked, relabeling one to a cheaper model prices it at that rate and
+    # understates the plan while the work is unchanged, the same failure mode as
+    # branching the cost model on a node's role.
+    for n in plan.nodes:
+        if n.agent != AgentType.ORCHESTRATOR:
+            continue
+        if n.model != plan.orchestrator.model or n.effort != plan.orchestrator.effort:
+            errors.append(
+                f"node '{n.id}': agent is 'orchestrator' but declares "
+                f"{n.model.value}/{n.effort.value} while the orchestrator runs "
+                f"{plan.orchestrator.model.value}/{plan.orchestrator.effort.value}; an orchestrator "
+                f"node is the session itself and cannot run on a different model"
+            )
+
     has_required_gate_evaluator = any(
         n.gates == "user_response" and n.role == Role.EVALUATE and n.required for n in plan.nodes
     )

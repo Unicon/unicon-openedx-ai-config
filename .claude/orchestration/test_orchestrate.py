@@ -227,6 +227,29 @@ class ValidationRuleTests(TempDirTestCase):
         errors = self._errors_for(make_plan(nodes=nodes))
         self.assertTrue(any("feedback.to references unknown node 'missing-node'" in e for e in errors), errors)
 
+    def test_orchestrator_node_must_match_orchestrator_model(self) -> None:
+        """An orchestrator node relabeled to a cheaper model must be rejected.
+
+        The node is the session, so it runs on the session's model whatever the
+        JSON says. Pricing it at the declared rate moved tiny-feature from
+        -36.8% to -54.7% for a one-word edit that changes no actual work.
+        """
+        nodes = [
+            make_node(
+                id="plan-node", role="plan", required=True,
+                agent="orchestrator", model="sonnet", effort="high",
+            ),
+            make_node(
+                id="eval-node", name="Evaluator", role="evaluate", required=True,
+                inputs=["plan-node"], gates="user_response",
+            ),
+        ]
+        errors = self._errors_for(make_plan(nodes=nodes))
+        self.assertTrue(
+            any("cannot run on a different model" in e for e in errors),
+            f"expected an orchestrator/model mismatch error, got {errors}",
+        )
+
     def test_duplicate_node_ids_detected(self) -> None:
         nodes = [
             make_node(id="dup", role="research", required=True),
