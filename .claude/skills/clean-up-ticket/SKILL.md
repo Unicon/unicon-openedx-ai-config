@@ -38,7 +38,8 @@ of the skill. The ticket under review and the template are small, read them inli
 the Delegation rule in `CLAUDE.md`: if you are the top-level session, push context-heavy
 *fetching* down yourself (a URL or non-GitHub tracker to a Sonnet sub-agent, code-location
 lookups to a Haiku `Explore`). If you were dispatched to run this skill (e.g. by
-`ticket-writer`'s fidelity-check step), you have no Agent tool and fetch nothing yourself —
+`ticket-writer`'s fidelity-check step, or as the `editorial-review` node of an
+orchestration plan), you have no Agent tool and fetch nothing yourself —
 return a "Needs research" item to whoever dispatched you instead. Never read a neighbor
 repo (`openedx-platform`, `frontend-app-authoring`) into context to verify a claim; use its
 overview doc, or dispatch/flag a narrow Sonnet sub-agent per the same rule.

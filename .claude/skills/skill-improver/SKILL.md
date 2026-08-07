@@ -35,6 +35,11 @@ feedback into skill updates", "reflect on the last few sessions".
 
 ## Model and orchestration
 
+- **This skill only runs at the top-level session.** It has a per-principle
+  approval gate and it edits the instruction files, so it needs to talk to the
+  developer and cannot run as a node inside someone else's plan. If you find
+  yourself dispatched to run it, say so and hand it back rather than proceeding
+  without the approval gate.
 - The main session keeps the strong model. Extracting the principle, judging the
   evidence bar, routing, conflict checks, and the approval gate are all judgment
   work. Do them yourself.
@@ -45,7 +50,9 @@ feedback into skill updates", "reflect on the last few sessions".
   long doc. Pass `model` explicitly on every dispatch.
 - Never read a raw `*.jsonl` transcript into the main context. It is mostly tool
   output and is enormous. A sub-agent returns the handful of corrections, not the
-  file.
+  file. If you cannot dispatch, extract with targeted `grep`/`jq` over the
+  `*.jsonl` rather than reading it, and say that coverage was narrower than a
+  sub-agent pass would have given.
 
 ## 1. Identify the base conversation
 

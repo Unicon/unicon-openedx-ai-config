@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openedx-core/.claude/orchestration/schema.json",
+  "title": "Orchestration plan",
+  "description": "A minimum set of sub-agent calls, dependencies and gates that the top-level orchestrator must satisfy for a task. Not exhaustive: the orchestrator may add any further sub-agent, tool or skill call it judges useful, but may not skip anything marked required.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "title", "description", "when_to_use", "baseline_size", "orchestrator", "nodes"],
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "description": "Stable slug. Must match the filename stem."
+    },
+    "title": { "type": "string", "minLength": 1, "maxLength": 60 },
+    "description": { "type": "string", "minLength": 1 },
+    "when_to_use": {
+      "type": "string",
+      "minLength": 1,
+      "description": "One or two sentences the orchestrator matches a task against when choosing a plan."
+    },
+    "baseline_size": {
+      "type": "number",
+      "exclusiveMinimum": 0,
+      "description": "The plan author's honest estimate, in the same units as node 'size', of what a single all-Opus session would spend to produce a COMPARABLE deliverable. It must NOT be the sum of this plan's node sizes. The two differ precisely because a plan decomposes work more finely than one agent would: an all-Opus run does not perform a requirements pass and a design pass as two independent efforts, it does one combined pass. Deriving the baseline from the plan's own nodes would launder the plan's decomposition into its own comparison and make the verdict near-tautological. This number is a judgment call the author has to defend, which is the point."
+    },
+    "requires": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Agents and skills this plan dispatches. Validation warns, rather than fails, when one is missing from the active .claude/, so a plan carried into another repository degrades legibly instead of breaking mid-run.",
+      "properties": {
+        "agents": { "type": "array", "items": { "type": "string" } },
+        "skills": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "orchestrator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "effort", "mandate"],
+      "properties": {
+        "model": { "$ref": "#/$defs/model" },
+        "effort": { "$ref": "#/$defs/effort" },
+        "mandate": {
+          "type": "string",
+          "description": "What the top-level agent does itself versus delegates. The orchestrator is the most expensive agent in the plan, so this should keep it thin."
+        }
+      }
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/node" }
+    }
+  },
+  "$defs": {
+    "model": {
+      "enum": ["haiku", "sonnet", "opus"],
+      "description": "Relative per-token cost weight: haiku 1, sonnet 3, opus 5 (input and output ratios are identical). Opus is the ceiling; nothing more expensive is permitted."
+    },
+    "effort": {
+      "enum": ["low", "medium", "high", "xhigh"],
+      "description": "Reasoning effort. xhigh is the ceiling. Sonnet is capped at high; opus may reach xhigh."
+    },
+    "size": {
+      "enum": ["small", "medium", "large"],
+      "description": "Relative volume of work, used only for cost estimation. small=10, medium=30, large=80 thousand-token-equivalents."
+    },
+    "role": {
+      "enum": ["research", "plan", "implement", "evaluate", "synthesize"],
+      "description": "What this node does in the workflow. Used for diagram colouring and for an explanatory breakdown of spend. The cost model MUST NOT branch on this field: an earlier version excluded 'evaluate' nodes from the baseline, which meant editing one word flipped a plan's verdict without changing a single dispatch. The denominator must be label-invariant."
+    },
+    "shape": {
+      "enum": ["read-heavy", "balanced", "think-heavy"],
+      "default": "balanced",
+      "description": "How this node's work splits between reading (input tokens) and thinking or writing (output tokens). Output costs 5x input at every model, and effort scales the output half only, so a file sweep and a design pass of the same size differ in real cost by several times. read-heavy 80/20, balanced 50/50, think-heavy 20/80."
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name", "description", "agent", "model", "effort", "size", "role", "required"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$" },
+        "name": {
+          "type": "string",
+          "minLength": 1,
+          "description": "How this sub-agent behaves, as a role name. Not the agent type."
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1,
+          "description": "One or two sentences accurately describing this sub-agent's behavior, specific enough to brief it from."
+        },
+        "agent": {
+          "enum": ["orchestrator", "Explore", "general-purpose", "business-analyst", "software-architect", "Plan", "claude"],
+          "description": "Agent type to dispatch. 'orchestrator' means the top-level agent does this itself inline, at no handover cost. Inline it when the orchestrator already holds the inputs and the work is synthesis or judgment. Delegate to an agent on the SAME model when independence or context isolation is the point: a second Opus reviewing the orchestrator's own reasoning cold is worth far more than the orchestrator checking itself, and pushing heavy reading off the orchestrator keeps its window small for every later turn."
+        },
+        "model": { "$ref": "#/$defs/model" },
+        "effort": { "$ref": "#/$defs/effort" },
+        "size": { "$ref": "#/$defs/size" },
+        "shape": { "$ref": "#/$defs/shape" },
+        "role": { "$ref": "#/$defs/role" },
+        "required": {
+          "type": "boolean",
+          "description": "true: the orchestrator must run this and may not skip it without explicit user consent. false: optional, run at the orchestrator's discretion."
+        },
+        "requires_user_approval": {
+          "type": "boolean",
+          "default": false,
+          "description": "The ledger may not mark this node complete until the user has explicitly approved its output. A mid-graph barrier, distinct from 'gates'. Because downstream nodes list this one in their 'inputs', the existing DAG check then makes the approval enforceable rather than a promise buried in prose."
+        },
+        "skills": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Skills this sub-agent may use. A dispatched sub-agent never dispatches further sub-agents."
+        },
+        "inputs": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "description": "Node ids that must complete before this node starts. Hard dependency; forms the acyclic part of the graph."
+        },
+        "produces": {
+          "type": "string",
+          "description": "The handover artifact this node returns to the orchestrator."
+        },
+        "gates": {
+          "enum": ["user_response", null],
+          "default": null,
+          "description": "'user_response' means this node must complete before the user receives an answer to the task. Ordinary node-to-node ordering is expressed with 'inputs', not here."
+        },
+        "feedback": {
+          "type": ["object", "null"],
+          "default": null,
+          "additionalProperties": false,
+          "required": ["to", "when", "max_iterations"],
+          "properties": {
+            "to": { "type": "string", "description": "Node id this loops back to when the condition holds." },
+            "when": { "type": "string", "description": "The condition that triggers the loop." },
+            "max_iterations": { "type": "integer", "minimum": 1, "maximum": 3 },
+            "on_exhausted": {
+              "enum": ["surface_to_user", "proceed"],
+              "default": "surface_to_user",
+              "description": "What happens when max_iterations runs out with the condition still true. Defaults to surfacing, because silently shipping known findings is the failure this tool exists to prevent."
+            }
+          }
+        }
+      }
+    }
+  }
+}

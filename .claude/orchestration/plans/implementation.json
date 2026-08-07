@@ -1,0 +1,148 @@
+{
+  "id": "implementation",
+  "title": "Standard implementation",
+  "description": "Cheap recon, orchestrator-owned planning, Sonnet implementation, and a mandatory review gate with a bounded fix loop. The default for any non-trivial code change.",
+  "when_to_use": "A task that changes code in this repo and is not a rename, typo fix, or one-liner.",
+  "baseline_size": 118,
+  "requires": {
+    "agents": [
+      "Explore",
+      "general-purpose",
+      "software-architect"
+    ],
+    "skills": [
+      "spike-and-stabilize",
+      "code-review"
+    ]
+  },
+  "orchestrator": {
+    "model": "opus",
+    "effort": "xhigh",
+    "mandate": "Own the planning, the judgment calls, and the gate decisions. Delegate every file sweep and every line of implementation. Do not read files the plan does not touch, and do not write the implementation yourself."
+  },
+  "nodes": [
+    {
+      "id": "recon",
+      "name": "codebase-scout",
+      "description": "Sweeps the repo for the files, existing patterns, and reusable public APIs the task touches, and returns a summary with file paths rather than file contents.",
+      "agent": "Explore",
+      "model": "haiku",
+      "effort": "low",
+      "size": "small",
+      "shape": "read-heavy",
+      "role": "research",
+      "required": true,
+      "skills": [],
+      "inputs": [],
+      "produces": "Recon brief: relevant paths, existing patterns, reusable helpers, layering constraints.",
+      "gates": null,
+      "feedback": null
+    },
+    {
+      "id": "behavior-recon",
+      "name": "behavior-analyst",
+      "description": "Reads the specific call sites and tests the recon brief flagged as ambiguous and explains how the existing code actually behaves. Run only when recon leaves a behavioral question open.",
+      "agent": "Explore",
+      "model": "sonnet",
+      "effort": "medium",
+      "size": "small",
+      "shape": "read-heavy",
+      "role": "research",
+      "required": false,
+      "skills": [],
+      "inputs": [
+        "recon"
+      ],
+      "produces": "Behavioral notes on the specific ambiguity, with file:line citations.",
+      "gates": null,
+      "feedback": null
+    },
+    {
+      "id": "design-review",
+      "name": "architecture-advisor",
+      "description": "Assesses placement, boundaries, and contract impact for changes that touch a public API, the import layering, or the data model. Advisory and read-only; returns tradeoffs and a recommendation.",
+      "agent": "software-architect",
+      "model": "opus",
+      "effort": "xhigh",
+      "size": "small",
+      "shape": "think-heavy",
+      "role": "plan",
+      "required": false,
+      "skills": [],
+      "inputs": [
+        "recon"
+      ],
+      "produces": "Placement and contract recommendation with rejected alternatives.",
+      "gates": null,
+      "feedback": null
+    },
+    {
+      "id": "plan",
+      "name": "implementation-plan",
+      "description": "The orchestrator turns the recon findings into a concrete implementation plan, asks the user any question that would change the work, and gets explicit approval before any code is written.",
+      "agent": "orchestrator",
+      "model": "opus",
+      "effort": "xhigh",
+      "size": "medium",
+      "shape": "think-heavy",
+      "role": "plan",
+      "required": true,
+      "requires_user_approval": true,
+      "skills": [
+        "spike-and-stabilize"
+      ],
+      "inputs": [
+        "recon"
+      ],
+      "produces": "Approved plan: target files, approach, edge cases, conventions to follow.",
+      "gates": null,
+      "feedback": null
+    },
+    {
+      "id": "implement",
+      "name": "implementer",
+      "description": "Writes the change against the approved plan, tightens types, adds one test per behavior, and runs the relevant linters and targeted pytest until clean. Never dispatches a sub-agent; reports back if it needs a lookup it was not briefed on.",
+      "agent": "general-purpose",
+      "model": "sonnet",
+      "effort": "high",
+      "size": "large",
+      "shape": "balanced",
+      "role": "implement",
+      "required": true,
+      "skills": [
+        "spike-and-stabilize"
+      ],
+      "inputs": [
+        "plan"
+      ],
+      "produces": "Working diff, tests, and the output of the checks that were run.",
+      "gates": null,
+      "feedback": null
+    },
+    {
+      "id": "review",
+      "name": "change-reviewer",
+      "description": "Reviews the diff for correctness, security, data access, layering, test quality, and scope creep, anchoring every finding to a file:line. Review-only: never fixes, commits, or pushes.",
+      "agent": "general-purpose",
+      "model": "sonnet",
+      "effort": "high",
+      "size": "medium",
+      "shape": "balanced",
+      "role": "evaluate",
+      "required": true,
+      "skills": [
+        "code-review"
+      ],
+      "inputs": [
+        "implement"
+      ],
+      "produces": "Findings grouped by severity with file:line anchors, or an explicit all-clear.",
+      "gates": "user_response",
+      "feedback": {
+        "to": "implement",
+        "when": "the review reports a Bug-severity finding",
+        "max_iterations": 2
+      }
+    }
+  ]
+}

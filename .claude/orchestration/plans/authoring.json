@@ -1,0 +1,151 @@
+{
+  "id": "authoring",
+  "title": "Author a ticket or ADR",
+  "description": "Two Opus experts interrogate requirements and design independently, their questions batch into one round with the user, a Sonnet agent drafts, and an editorial evaluator gates the result.",
+  "when_to_use": "Writing or substantially revising a ticket, issue, or ADR, where the decision itself is still being shaped.",
+  "baseline_size": 91,
+  "requires": {
+    "agents": [
+      "Explore",
+      "business-analyst",
+      "software-architect",
+      "general-purpose"
+    ],
+    "skills": [
+      "ticket-writer",
+      "clean-up-ticket"
+    ]
+  },
+  "orchestrator": {
+    "model": "opus",
+    "effort": "xhigh",
+    "mandate": "Own the clarification round with the user and the final decision on scope. Delegate recon and drafting. Do not relitigate the experts' findings yourself; fold them in."
+  },
+  "nodes": [
+    {
+      "id": "context-recon",
+      "name": "context-scout",
+      "description": "Finds the existing ADRs, models, and public APIs the decision touches, plus any prior art in the repo, and returns paths with one-line summaries.",
+      "agent": "Explore",
+      "model": "haiku",
+      "effort": "low",
+      "size": "small",
+      "shape": "read-heavy",
+      "role": "research",
+      "required": true,
+      "skills": [],
+      "inputs": [],
+      "produces": "Prior art and constraints: related ADRs, affected models and APIs.",
+      "gates": null,
+      "feedback": null
+    },
+    {
+      "id": "requirements",
+      "name": "requirements-analyst",
+      "description": "Recovers the true intent behind the request, judges scope and feasibility, and surfaces the product-shaped questions a technical reviewer would miss. Advisory and read-only.",
+      "agent": "business-analyst",
+      "model": "opus",
+      "effort": "xhigh",
+      "size": "medium",
+      "shape": "think-heavy",
+      "role": "plan",
+      "required": true,
+      "skills": [],
+      "inputs": [
+        "context-recon"
+      ],
+      "produces": "Requirements findings plus clarifying questions for the user.",
+      "gates": null,
+      "feedback": null
+    },
+    {
+      "id": "design",
+      "name": "design-analyst",
+      "description": "Scopes the change technically: placement, boundaries, contracts, and at least three alternatives with one recommendation. Advisory and read-only.",
+      "agent": "software-architect",
+      "model": "opus",
+      "effort": "xhigh",
+      "size": "medium",
+      "shape": "think-heavy",
+      "role": "plan",
+      "required": true,
+      "skills": [],
+      "inputs": [
+        "context-recon"
+      ],
+      "produces": "Design analysis, alternatives, recommendation, plus clarifying questions.",
+      "gates": null,
+      "feedback": null
+    },
+    {
+      "id": "clarify",
+      "name": "clarification-round",
+      "description": "The orchestrator merges both experts' questions, drops the ones recon already answered, and puts the remainder to the user in a single batched round.",
+      "agent": "orchestrator",
+      "model": "opus",
+      "effort": "xhigh",
+      "size": "small",
+      "shape": "think-heavy",
+      "role": "plan",
+      "required": true,
+      "requires_user_approval": true,
+      "skills": [
+        "ticket-writer"
+      ],
+      "inputs": [
+        "requirements",
+        "design"
+      ],
+      "produces": "User's answers, folded into a settled scope.",
+      "gates": null,
+      "feedback": null
+    },
+    {
+      "id": "draft",
+      "name": "drafter",
+      "description": "Writes the ticket or ADR in the repo's canonical format from the settled scope and the experts' findings, matching the length and voice of existing documents of that kind.",
+      "agent": "general-purpose",
+      "model": "sonnet",
+      "effort": "high",
+      "size": "medium",
+      "shape": "balanced",
+      "role": "synthesize",
+      "required": true,
+      "skills": [
+        "ticket-writer",
+        "clean-up-ticket"
+      ],
+      "inputs": [
+        "clarify"
+      ],
+      "produces": "Draft document at the target path.",
+      "gates": null,
+      "feedback": null
+    },
+    {
+      "id": "editorial-review",
+      "name": "editorial-evaluator",
+      "description": "Grades the draft on structure, length, bloat, and whether a junior engineer could act on it, and checks every factual claim against the source it cites rather than trusting an earlier summary.",
+      "agent": "general-purpose",
+      "model": "sonnet",
+      "effort": "high",
+      "size": "small",
+      "shape": "balanced",
+      "role": "evaluate",
+      "required": true,
+      "skills": [
+        "clean-up-ticket"
+      ],
+      "inputs": [
+        "draft"
+      ],
+      "produces": "Graded findings and the specific edits needed.",
+      "gates": "user_response",
+      "feedback": {
+        "to": "draft",
+        "when": "the draft misses the canonical format, contradicts a cited source, or exceeds the grain of comparable documents",
+        "max_iterations": 2
+      }
+    }
+  ]
+}

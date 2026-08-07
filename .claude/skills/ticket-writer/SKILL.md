@@ -24,7 +24,16 @@ and after the user approves the wording.
 
 ## Model and orchestration
 
-You, the top-level session, orchestrate. `business-analyst` and `software-architect` are
+Everything in this section describes the **full workflow at the top-level session**, where
+you can dispatch and can talk to the user. If you were dispatched to run this skill as one
+step of a larger plan, for example the drafting node of an orchestration plan, you own only
+your step: write the ticket to the canonical format from the findings and answers you were
+given, and return a "Needs research" item instead of dispatching or trying to ask the user
+anything. The expert dispatches and the clarification loop below are then the caller's job,
+not yours, and are very likely already done. See "Where you are determines whether you may
+dispatch at all" in `CLAUDE.md`.
+
+At the top level, you orchestrate. `business-analyst` and `software-architect` are
 pinned to Opus at `xhigh` effort in their own frontmatter, so dispatch them with the Agent
 tool without a `model` override. Per the Delegation rule in `CLAUDE.md`, neither expert has
 an Agent tool and neither dispatches a sub-agent itself: when one needs context-heavy

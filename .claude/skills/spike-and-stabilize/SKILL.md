@@ -14,6 +14,23 @@ merge them; if a step doesn't apply, say why and move on.
 3. Spike
 4. Stabilize
 
+## Who runs the steps
+
+This skill runs in either of two contexts, and the four steps are the same in both. Only
+the staffing changes. See "Where you are determines whether you may dispatch at all" in
+`CLAUDE.md`; the short version:
+
+- **You are the top-level session.** Delegate as each step describes, provided the user has
+  approved those dispatches. If they have not, do the work inline. Never skip a step
+  because you cannot delegate it.
+- **You are a dispatched sub-agent**, for example the implementer node of an orchestration
+  plan. You have no Agent tool and you do not orchestrate. Do the steps you were briefed
+  on, inline, and return a "Needs research" item instead of trying to dispatch. If the
+  brief covers only some steps, do those; the caller owns the rest.
+- **An orchestration plan is active.** The plan owns who runs what, and its required nodes
+  and gates take precedence over this skill's default staffing. Do not re-delegate work the
+  plan already assigned, and do not skip a plan gate because this file does not mention it.
+
 ## Trivial escape hatch
 
 Skip the flow for obviously trivial work: renames, typo fixes, one-line changes,
@@ -24,11 +41,11 @@ logic and branching is.
 ## 1. Recon
 
 Before touching code, get a high-level map, then narrow to the few files that matter.
-Delegate broad searches to an `Explore` sub-agent (model Haiku for plain location,
-Sonnet when it must reason about behavior) so file dumps stay out of the main context;
-it returns a summary, not the files. Read into your own context only the specific files
-the task touches, not everything nearby. Search inline only when one targeted Grep
-answers it. Report back:
+Where you can delegate, send broad searches to an `Explore` sub-agent (model Haiku for
+plain location, Sonnet when it must reason about behavior) so file dumps stay out of the
+main context; it returns a summary, not the files. Where you cannot, keep the same
+discipline yourself: targeted Grep and Glob over reading directories, and read only what
+the task touches rather than everything nearby. Report back:
 
 - Existing patterns for similar features, with file paths.
 - Reusable code (helpers, base classes, public APIs) the work can build on.
@@ -44,13 +61,18 @@ Do the clarify-and-plan work in plan mode (`EnterPlanMode`). Ask focused questio
 implementation code, including illustrative snippets, until the developer approves the
 plan via `ExitPlanMode`.
 
-On plan approval, delegate the implementation (the spike and stabilize coding) to a
-`general-purpose` sub-agent on Sonnet via the Agent tool. Brief it with the approved
-plan, the target files, and the conventions to follow, and per the Delegation rule in
-`CLAUDE.md`, that it must not itself dispatch a sub-agent — if it needs a lookup it
-wasn't briefed on, it stops and reports back to you rather than trying to spawn one. You
-stay on the strong model to run the gates, judge results, and do the final review; don't
-write the code yourself.
+On plan approval, the coding in steps 3 and 4 should be done by a `general-purpose`
+sub-agent on Sonnet, briefed with the approved plan, the target files, and the conventions
+to follow, and told that it must not itself dispatch — if it needs a lookup it wasn't
+briefed on, it stops and reports back. When you are the top-level session and the user has
+approved that dispatch, stay on the strong model to run the gates and judge results rather
+than writing the code yourself.
+
+Two cases where the coding is yours to do inline, and doing it is correct, not a
+shortcut: you are already the dispatched implementer, or you are top-level and have no
+approved dispatch to make. In both, carry on through steps 3 and 4 yourself under the same
+rules. The point of this step is that the plan is approved before code is written, not
+that a particular agent writes it.
 
 - Enumerate edge cases yourself and propose handling; don't ask the developer to list
   them. Time/timezones, parsing, and concurrency are the usual traps.
@@ -79,8 +101,9 @@ in a comment on the originating ticket instead of in the ADR body.
 
 ## 3. Spike
 
-Have the implementation sub-agent write the thinnest vertical slice that does something
-real end-to-end. Rough is fine. Brief it with these rules:
+Write the thinnest vertical slice that does something real end-to-end. Rough is fine.
+These rules bind whoever writes it, so brief the implementer with them if you dispatched
+one, and follow them yourself if you are the implementer:
 
 - Happy path only; defer error handling and edge cases.
 - Loose types where the shape is unclear; tighten later.
@@ -92,8 +115,9 @@ Show the developer the result and confirm the shape before stabilizing.
 
 ## 4. Stabilize
 
-Once the shape is confirmed, add no new features. Hand the same sub-agent (continue it
-via `SendMessage` so it keeps context) these steps in order:
+Once the shape is confirmed, add no new features. Run these steps in order. If you
+dispatched an implementer, continue that same agent via `SendMessage` so it keeps its
+context rather than dispatching a fresh one:
 
 1. Tighten types: full annotations; prefer dataclasses or `TypedDict` over bare `dict`.
 2. Write tests: one per behavior, not per function. Ask "what would tell me this works?"
@@ -103,8 +127,13 @@ via `SendMessage` so it keeps context) these steps in order:
 4. Apply the rule of three: don't extract shared code until a third caller needs it.
 5. Report: what's covered, which checks ran clean, what's next.
 
-As the final step, you (the strong main model, not the sub-agent) run the `code-review`
-skill on the diff. Fix anything it flags as wrong before the change is done.
+As the final step the diff gets a `code-review` pass, and it must not be run by the same
+agent that wrote the code: a reviewer that already believes the code is right is not a
+review. If you are the top-level session, run it yourself on the strong model or dispatch
+a reviewer. If you are the implementer, do not review your own work; report back that the
+change is ready for review and let the caller run it. Under an orchestration plan the
+review is a required node with its own gate, so it is already staffed. Fix anything it
+flags as wrong before the change is done.
 
 If this increment produced or amended an ADR, run one more pass before calling it
 done: re-read it against the "ADR grain and voice" note in step 2 and trim anything

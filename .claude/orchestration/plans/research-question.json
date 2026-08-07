@@ -1,0 +1,99 @@
+{
+  "id": "research-question",
+  "title": "Research a question",
+  "description": "Cheap broad sweep, focused deep read, orchestrator synthesis, and a mandatory fact-check that every claim traces to a real source before the user sees it.",
+  "when_to_use": "A question about how something works, where something lives, or what the tradeoffs are, with no code change expected.",
+  "baseline_size": 48,
+  "requires": {
+    "agents": [
+      "Explore",
+      "general-purpose"
+    ],
+    "skills": []
+  },
+  "orchestrator": {
+    "model": "opus",
+    "effort": "xhigh",
+    "mandate": "Own the synthesis and the judgment about what the evidence supports. Delegate all searching and all file reading; work from summaries, not file dumps."
+  },
+  "nodes": [
+    {
+      "id": "sweep",
+      "name": "broad-sweep",
+      "description": "Enumerates every location plausibly relevant to the question across the repo and returns a ranked list of paths with one-line notes, not contents.",
+      "agent": "Explore",
+      "model": "haiku",
+      "effort": "low",
+      "size": "small",
+      "shape": "read-heavy",
+      "role": "research",
+      "required": true,
+      "skills": [],
+      "inputs": [],
+      "produces": "Ranked candidate locations with one-line relevance notes.",
+      "gates": null,
+      "feedback": null
+    },
+    {
+      "id": "deep-read",
+      "name": "deep-reader",
+      "description": "Reads the top candidates from the sweep and explains what the code actually does, quoting file:line for anything load-bearing.",
+      "agent": "Explore",
+      "model": "sonnet",
+      "effort": "high",
+      "size": "medium",
+      "shape": "read-heavy",
+      "role": "research",
+      "required": true,
+      "skills": [],
+      "inputs": [
+        "sweep"
+      ],
+      "produces": "Behavioral account of the relevant code with file:line citations.",
+      "gates": null,
+      "feedback": null
+    },
+    {
+      "id": "synthesis",
+      "name": "answer-synthesis",
+      "description": "The orchestrator turns the research into a direct answer, separating confirmed fact from inference and naming what remains unknown.",
+      "agent": "orchestrator",
+      "model": "opus",
+      "effort": "xhigh",
+      "size": "small",
+      "shape": "think-heavy",
+      "role": "synthesize",
+      "required": true,
+      "skills": [],
+      "inputs": [
+        "deep-read"
+      ],
+      "produces": "Draft answer with each claim marked as fact or inference.",
+      "gates": null,
+      "feedback": null
+    },
+    {
+      "id": "fact-check",
+      "name": "claim-verifier",
+      "description": "Checks each load-bearing claim in the draft answer against the source it cites, at that source, and reports any claim the source does not actually support.",
+      "agent": "general-purpose",
+      "model": "sonnet",
+      "effort": "high",
+      "size": "small",
+      "shape": "balanced",
+      "role": "evaluate",
+      "required": true,
+      "skills": [],
+      "inputs": [
+        "synthesis"
+      ],
+      "produces": "Per-claim verdict: supported, unsupported, or overstated.",
+      "gates": "user_response",
+      "feedback": {
+        "to": "synthesis",
+        "when": "a load-bearing claim is unsupported or overstated",
+        "max_iterations": 1
+      }
+    }
+  ]
+}

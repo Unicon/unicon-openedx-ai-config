@@ -5,6 +5,11 @@ and community plugins. Treat public APIs as contracts and keep changes small.
 
 ## Which skill to use
 
+- **Any non-trivial task, before anything else: use the `orchestrate` skill.** It picks
+  the orchestration plan, shows it to the developer as a mermaid diagram for approval,
+  and then enforces the plan's required sub-agent calls and evaluator gates. The skills
+  below are what its plan nodes invoke, so reach for `orchestrate` first and let it
+  route. Skip it only for genuinely trivial work: renames, typo fixes, one-liners.
 - Implementing a non-trivial change: use the `spike-and-stabilize` skill.
 - Reviewing a PR, branch, or diff: use the `code-review` skill.
 - Writing or amending an ADR: apply the same clarify-first discipline as
@@ -32,6 +37,28 @@ etc.), are the only ones who call the Agent tool. A dispatched sub-agent — `bu
 regardless of what its own file says or what tools happen to be available to it. Anything
 below about pushing work to a cheaper agent is an instruction for *you*, before or after a
 dispatch, not something a sub-agent can act on by itself.
+
+**Where you are determines whether you may dispatch at all.** Every skill here runs in one
+of two contexts, and must work in both:
+
+- **Top-level session.** You may dispatch. But the system prompt in this environment
+  carries a standing "do not call the Agent tool unless the user requested it", which
+  outranks every skill file. A skill saying "delegate this" is not the user requesting it.
+  What counts is the user approving the specific dispatches, which is what the `orchestrate`
+  skill's diagram approval is for. Without that, do the work inline rather than arguing
+  with the system prompt.
+- **Inside a dispatched sub-agent**, including as a node of an orchestration plan. You have
+  no Agent tool. Do the work inline within your brief. If you need something you were not
+  briefed on, stop and return a "Needs research" item to whoever dispatched you.
+
+So read every "delegate X to a sub-agent" instruction in these skills as *"X should be
+delegated if you are in a position to delegate"*, never as a hard requirement. A skill that
+cannot dispatch is not blocked; it does the work itself and says so. Never skip a step
+because you cannot delegate it, and never assume you are the top-level session.
+
+**When an orchestration plan is active, the plan decides who runs what.** Its required
+nodes, models, and gates override a skill's own default staffing. A skill invoked as a plan
+node does its own job and leaves the orchestration to the plan.
 
 **How a sub-agent asks for help it can't fetch itself.** If a dispatched agent's task
 would benefit from cheaper help it wasn't given up front — a location lookup, a web fetch,

@@ -1,0 +1,101 @@
+{
+  "id": "review-only",
+  "title": "Review a diff",
+  "description": "Sonnet reviews the diff, then a second Sonnet pass adversarially verifies each finding against the code before anything reaches the user. No code is changed.",
+  "when_to_use": "Reviewing a PR, a branch, or the working diff, where the deliverable is findings rather than a change.",
+  "baseline_size": 95,
+  "requires": {
+    "agents": [
+      "Explore",
+      "general-purpose"
+    ],
+    "skills": [
+      "code-review"
+    ]
+  },
+  "orchestrator": {
+    "model": "opus",
+    "effort": "xhigh",
+    "mandate": "Decide what to review and adjudicate the verified findings. Delegate the reading and the reviewing. Never fix, commit, or push from this plan."
+  },
+  "nodes": [
+    {
+      "id": "scope",
+      "name": "review-scope",
+      "description": "The orchestrator identifies the exact diff under review, defaulting to the merge-base against origin/main, and states which review dimensions the diff actually touches.",
+      "agent": "orchestrator",
+      "model": "opus",
+      "effort": "xhigh",
+      "size": "small",
+      "shape": "balanced",
+      "role": "plan",
+      "required": true,
+      "skills": [
+        "code-review"
+      ],
+      "inputs": [],
+      "produces": "The diff ref, and the dimensions in and out of scope.",
+      "gates": null,
+      "feedback": null
+    },
+    {
+      "id": "usage-sweep",
+      "name": "usage-scout",
+      "description": "Traces how the changed code is called across the rest of the codebase, so findings about breaking behavior rest on real call sites. Run when the diff changes a shared or public interface.",
+      "agent": "Explore",
+      "model": "sonnet",
+      "effort": "medium",
+      "size": "small",
+      "shape": "read-heavy",
+      "role": "research",
+      "required": false,
+      "skills": [],
+      "inputs": [
+        "scope"
+      ],
+      "produces": "Call sites of the changed code, with paths.",
+      "gates": null,
+      "feedback": null
+    },
+    {
+      "id": "review",
+      "name": "diff-reviewer",
+      "description": "Reviews the diff across the in-scope dimensions and reports every candidate finding with a file:line anchor and a severity marker, favouring coverage over self-filtering.",
+      "agent": "general-purpose",
+      "model": "sonnet",
+      "effort": "high",
+      "size": "large",
+      "shape": "balanced",
+      "role": "synthesize",
+      "required": true,
+      "skills": [
+        "code-review"
+      ],
+      "inputs": [
+        "scope"
+      ],
+      "produces": "Candidate findings with anchors, severities, and confidence.",
+      "gates": null,
+      "feedback": null
+    },
+    {
+      "id": "verify-findings",
+      "name": "finding-verifier",
+      "description": "Tries to refute each candidate finding by checking it against the actual code at the diff's ref, and downgrades any claim it cannot back to a question.",
+      "agent": "general-purpose",
+      "model": "sonnet",
+      "effort": "high",
+      "size": "medium",
+      "shape": "balanced",
+      "role": "evaluate",
+      "required": true,
+      "skills": [],
+      "inputs": [
+        "review"
+      ],
+      "produces": "Per-finding verdict: confirmed, downgraded to a question, or refuted.",
+      "gates": "user_response",
+      "feedback": null
+    }
+  ]
+}

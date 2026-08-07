@@ -1,11 +1,20 @@
 ---
 name: experimental-implement-ticket-starter
-description: Implement a github ticket by using the /spike-and-stabilize skill. 
+description: Implement a github ticket by using the /spike-and-stabilize skill. If a plan document already exists (in .claude/plans/), that plan is the source of truth and the github ticket is only context; read and follow the plan rather than re-deriving the work from the ticket.
 ---
 
 ## Task
 
-Use the /spike-and-stabilize skill to implement a github ticket provided by the user. Use this background info as additional info augmenting the user's prompt.
+Implement a github ticket provided by the user, using the background info below to augment
+their prompt.
+
+Route the work through the `orchestrate` skill: it picks the orchestration plan, shows it
+to the user as a diagram for approval, and enforces the review gate. The `implementation`
+plan is the usual match, and its own steps invoke `spike-and-stabilize` for the coding. Go
+to `spike-and-stabilize` directly only if the user declines the orchestration.
+
+This is a top-level entry point: it asks the user questions and then hands off. It is not
+something to run inside a dispatched sub-agent.
 
 ## Questions to the User
 
@@ -14,6 +23,11 @@ Before starting, ask the user these questions, unless the user already provided 
 - How to activate the user's relevant virtualenv?
 - What is the link to the github ticket?
 - Is the ticket a subtask, and if so, what is the link to the parent ticket?
+- Is there already a plan document? If so, where is it?
+
+## Rules
+
+If the user states there's already a plan, you have to read it and follow it as source of truth (the github ticket is just the context). The plan lives in .claude/plans/ . If you cannot find the plan, immediately stop your work and bring this to the user as a serious problem to be resolved first.
 
 ## Background info
 
