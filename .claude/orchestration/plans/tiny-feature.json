@@ -1,0 +1,104 @@
+{
+  "id": "tiny-feature",
+  "title": "Tiny feature",
+  "description": "The cheap tier: one Haiku sweep, a short orchestrator plan, Sonnet implementation at medium effort, and the mandatory review gate with a single fix iteration. Same shape as the implementation plan with every dial turned down.",
+  "when_to_use": "A small, self-contained change with real branching but no design question: one new helper and its tests, a narrow bug fix, a validation rule. Not a rename or one-liner, which need no plan at all.",
+  "baseline_size": 32,
+  "requires": {
+    "agents": [
+      "Explore",
+      "general-purpose"
+    ],
+    "skills": [
+      "code-review"
+    ]
+  },
+  "orchestrator": {
+    "model": "opus",
+    "effort": "xhigh",
+    "mandate": "Keep the plan short and delegate the code. On a task this small the orchestrator's job is to state the edge cases and then stay out of the way."
+  },
+  "nodes": [
+    {
+      "id": "recon",
+      "name": "codebase-scout",
+      "description": "Finds where the change belongs and which existing helper or test pattern to follow, and returns paths rather than file contents.",
+      "agent": "Explore",
+      "model": "haiku",
+      "effort": "low",
+      "size": "small",
+      "shape": "read-heavy",
+      "role": "research",
+      "required": true,
+      "skills": [],
+      "inputs": [],
+      "produces": "Target file, the nearest existing pattern to imitate, and the test file to extend.",
+      "gates": null,
+      "feedback": null
+    },
+    {
+      "id": "plan",
+      "name": "implementation-plan",
+      "description": "The orchestrator names the target files, the signature, and the edge cases the tests must cover, then gets explicit approval before any code is written.",
+      "agent": "orchestrator",
+      "model": "opus",
+      "effort": "xhigh",
+      "size": "small",
+      "shape": "balanced",
+      "role": "plan",
+      "required": true,
+      "requires_user_approval": true,
+      "skills": [],
+      "inputs": [
+        "recon"
+      ],
+      "produces": "Approved plan: signature, behavior, and the edge case list.",
+      "gates": null,
+      "feedback": null
+    },
+    {
+      "id": "implement",
+      "name": "implementer",
+      "description": "Writes the change and one test per edge case in the approved plan, then runs the targeted tests until clean. Reports back rather than dispatching if it needs a lookup it was not briefed on.",
+      "agent": "general-purpose",
+      "model": "sonnet",
+      "effort": "medium",
+      "size": "small",
+      "shape": "balanced",
+      "role": "implement",
+      "required": true,
+      "skills": [],
+      "inputs": [
+        "plan"
+      ],
+      "produces": "Working diff, tests, and the test output.",
+      "gates": null,
+      "feedback": null
+    },
+    {
+      "id": "review",
+      "name": "change-reviewer",
+      "description": "Reviews the diff for correctness and test quality, anchoring each finding to a file:line, and checks that every edge case in the approved plan is actually covered by a test that could fail. Review-only.",
+      "agent": "general-purpose",
+      "model": "sonnet",
+      "effort": "medium",
+      "size": "small",
+      "shape": "balanced",
+      "role": "evaluate",
+      "required": true,
+      "skills": [
+        "code-review"
+      ],
+      "inputs": [
+        "implement"
+      ],
+      "produces": "Findings by severity with file:line anchors, or an explicit all-clear.",
+      "gates": "user_response",
+      "feedback": {
+        "to": "implement",
+        "when": "the review reports a Bug-severity finding or a missing edge case test",
+        "max_iterations": 1
+      }
+    }
+  ]
+}
