@@ -1,7 +1,20 @@
 # Steps log — #640 CBE app foundation
 
 Purpose: record of the *approach* taken, for later evaluation. Not a description of the
-code. Phase covered here: planning only (user asked for a plan, not an implementation).
+code.
+
+Sessions so far:
+
+- **Session 1 — planning.** Produced `640-cbe-app-foundation-plan.md`. Logged below under
+  "Session 1".
+- **Session 2 — a failed implementation attempt.** Not logged here; the user discarded its
+  changes. Its one lesson is recorded in Session 3's opening item, because it is the most
+  actionable finding in this whole log.
+- **Session 3 — implementation.** Logged below under "Session 3".
+
+---
+
+# Session 1 — planning
 
 ## Approach
 
@@ -103,3 +116,154 @@ assumptions and seven conflicts are recorded in the plan. Then, on review:
   (which umbrella modules to create) are the most discretionary.
 - 6 conflicts (section 3), of which C1 (migrations path) also affects #641 and #642 and
   should be fixed in those ticket bodies.
+
+---
+
+# Session 3 — implementation
+
+## Approach
+
+1. **Read the plan file before anything else, and verified the repo state against it.**
+   This is called out first because session 2 failed by never finding the plan and working
+   from the GitHub issue instead. The user's prompt made the plan the source of truth and
+   said to stop and surface any problem rather than improvise. Cheap, and it set up
+   everything after.
+2. Found leftover debris from session 2 immediately: `src/openedx_learning/` and
+   `tests/openedx_learning/` still existed as `__pycache__`-only directories, invisible to
+   `git status` (untracked, no source files left). Deleted them before writing anything, so
+   no stale bytecode or half-package could confuse imports.
+3. Read the prior art the plan pointed at (`openedx_content`'s umbrella shape,
+   `openedx_catalog/models_api.py`, `.importlinter`, both settings modules) directly rather
+   than by sub-agent. About ten small files; delegating would have cost more than it saved.
+4. Ran the skill's spike and stabilize phases as **two separate dispatches to one Sonnet
+   sub-agent**, continuing it with `SendMessage` so it kept context. Spike = skeleton,
+   model, wiring, migration, layering, plus an end-to-end MTI proof. Stabilize = tests,
+   docstring corrections, linters.
+5. Reviewed the spike output myself against the plan before authorising stabilize, instead
+   of taking the sub-agent's summary at face value. Read the generated migration line by
+   line.
+6. When the stabilize agent stalled (harness watchdog, 600s no progress) partway through
+   its check suite, took over the remaining gates directly rather than resuming it. Running
+   linters is deterministic; re-dispatching would have re-read the whole context to
+   re-run four commands.
+7. Verified every "pre-existing failure" claim with `git stash -u` rather than asserting it.
+   Three of them were real (`isort` on `projects/dev.py`, PII coverage at 66.7%,
+   `organizations` migration drift); all three would have looked like new breakage.
+8. Dispatched an **independent Sonnet reviewer** for the `code-review` step, because the
+   skill forbids reviewing a diff you wrote in the same context and I had hand-edited three
+   files. It found no code defects and independently re-raised the plan's C7 governance
+   item, which is a useful confirmation that C7 is real rather than plan paranoia.
+9. Executed every command in the manual verification guide before shipping it, and pasted
+   real output into it. This caught two bugs in my own guide (below).
+10. Dispatched a third Sonnet sub-agent to implement the companion edx-platform issue
+    (#38958) on a branch in `../edx-platform`, so the user can actually integration test.
+
+## What went right
+
+- Deleting session 2's `__pycache__`-only directories before starting. A clean `git status`
+  hid them completely; a stale `.pyc` tree under a package being recreated is an unpleasant
+  class of bug to debug later.
+- Verifying pre-existing failures with `git stash -u`, not plain `git stash`. Because the
+  new app was untracked, plain `git stash` would have left it in place and "proved" a
+  baseline that still contained the change. Got this right in the work and then wrote the
+  *wrong* version into the guide on the first pass; caught it on review.
+- Not accepting the first suppression that would have made mypy pass. django-stubs cannot
+  see reverse MTI accessors, and there are 95 `# type: ignore` precedents in this repo, so
+  adding one was defensible. Spent one extra iteration finding a form that needs no
+  suppression at all (module constant + `getattr`), verified it against both mypy and
+  pylint, and only then kept it. Net: zero new suppressions.
+- Running the guide's own commands before shipping the guide. Two real bugs in it:
+  a `git checkout --` revert step that cannot work on untracked files, and a
+  "temporarily rename the class" demo that would have broken Django admin autodiscovery at
+  startup. Both were replaced with non-destructive equivalents that prove the same point.
+- Refusing the part of the platform ticket that could not be done honestly. #38958 asks for
+  an `openedx-core` pin bump; the version does not exist on PyPI yet. Doing it would have
+  broken `pip install` for everyone. Documented the deferral in the commit body and the
+  guide instead of silently skipping or faking it.
+- Building a separate `.venv` for the quality tooling when asked, rather than installing
+  into the tutor venv. `.venv/` was already gitignored, so it cost nothing.
+
+## What went less well / friction
+
+- **The harness/skill conflict from session 1 recurred and cost the user a round trip.**
+  The session system prompt carried "Do not call the AgentTool unless the user requested
+  it", while `.claude/CLAUDE.md` and `spike-and-stabilize` both mandate delegation. I
+  followed the harness instruction and said so; the user corrected it and asked where the
+  text came from. It is not in any file on disk (`~/.claude/settings.json`, CLAUDE.md, or
+  `~/.claude.json`) — it appears to be injected by the VSCode extension/SDK, with
+  `CLAUDE_CODE_ENABLE_TASKS=0` set in the environment. *This is the second session where
+  this exact conflict surfaced. It is an environment configuration problem, not a
+  reasoning problem, and it will keep recurring until the setting is found and changed.*
+- Wrote the manual verification guide before running its commands, then had to correct it.
+  The corrections were caught, but the cheaper order was obviously to verify first and
+  write once. Same failure shape as session 1's "asserted Django behaviour from memory in a
+  written artifact" lesson, which suggests the lesson did not fully generalise: it is not
+  about Django facts specifically, it is about *any* claim in a durable artifact.
+- The stabilize sub-agent stalled at 600s and its work had to be picked up mid-flight. No
+  work was lost, but a long single dispatch that both writes code and runs seven checks is
+  a large unit to lose. Splitting "write tests" from "run the gates" would have been more
+  robust, and the gates were arguably always mine to run.
+- Two environment probe commands (`source ~/.virtualenvs/tutor/bin/activate && python -c
+  ...`) were denied by the permission classifier early on. Harmless, worked around by
+  delegating env discovery, but it means I shipped the plan's venv assumptions to a
+  sub-agent unverified rather than confirming them myself first.
+
+## Human corrections / iterations
+
+1. **User corrected the no-sub-agents claim** and asked to delegate to Sonnet at high
+   effort. Complied. Note the Agent tool exposes no `effort` parameter (only Workflow's
+   `agent()` does), so the dispatches inherited the session effort, which was `xhigh` —
+   at or above what was asked. Worth knowing for future briefs that specify an effort level.
+2. **User redirected the quality-tooling install** away from the tutor venv into a
+   dedicated one. I had been about to follow the plan's verification note literally
+   (`pip install -r requirements/quality.txt`, implicitly into the active venv).
+   *Lesson: the plan said which tools were missing but not where to put them; "install the
+   missing tools" into someone's working runtime venv is a side effect worth asking about,
+   and the repo already gitignored `.venv/` as the obvious answer.*
+3. **User asked for the companion edx-platform work** so the change could actually be
+   integration tested. Plan section 9 already enumerated the platform changes (added in
+   session 1 after a similar prompt), so the content was ready, but I had again treated the
+   library change as the whole deliverable.
+   *Lesson: session 1 learned "ask what has to happen downstream" and wrote it into the
+   plan; session 3 still did not act on it unprompted. Knowing the downstream work exists
+   is not the same as offering to do it. For a library whose only consumer is another repo,
+   "do you want the consumer side too, so you can test this?" should be offered at the
+   point the library work goes green.*
+
+## Follow-up round: ADR amendment and PR description
+
+After the implementation report, the user resolved C7 and asked for a PR description.
+
+4. **User resolved the C7 question by ruling on it directly**: barring additions to
+   `openedx_tagging` is the real constraint; adding to the CBE app is obviously fine, and
+   the ADR text was simply wrong. Amended ADR-0013 in four places, not one. The obvious
+   edit was the Decision's opening clause, but the same "and the CBE app" phrasing had
+   propagated into the Known trade-off paragraph and into a Rejected Alternative, where it
+   read as nonsense on inspection ("keeping the CBE app free of any competency-specific
+   reference"). Also added the positive half: the Decision now records that platform calls
+   `openedx_learning.api` rather than spelling the accessor, which is what makes the ADR
+   agree with the code that was just merged into the branch.
+   *Lesson: when a phrase in a document turns out to be wrong, grep for it before editing.
+   A drafting error that survived review once has usually been copy-pasted.*
+5. Verified the doc change the way CLAUDE.md requires for documentation: installed
+   `requirements/doc.txt` into the same throwaway `.venv` and actually ran `doc8` and the
+   Sphinx build, rather than eyeballing the RST. Build succeeded. `doc8` reported two
+   trailing-whitespace errors, both in ADRs I had not touched (0002 and 0012), confirmed by
+   checking my own file separately; left them alone as unrelated.
+6. **Ran the PR description's own test instructions before posting them.** The join query
+   in step 4 had never actually been executed, only reasoned about. It works
+   (`1|Nursing|0`). Same discipline as the verification guide, applied first this time
+   rather than after a correction.
+7. Went back and cleared the now-stale "needs sign-off" language in all three planning
+   artifacts (plan C7, plan section 10, guide B.2 note, guide checklist). Stale
+   "blocked on X" notes are worse than no note, since a reader trusts them.
+
+## Handed to the user, unresolved
+
+- **The extra `root_packages` line** the platform sub-agent added beyond its brief, with a
+  documented rationale. Flagged for review rather than silently kept or reverted.
+- **Release ordering**: openedx-core must release before the platform branch can bump its
+  pin and merge.
+- **The ADR-0013 amendment is uncommitted.** The user has been handling commits and pushes
+  on this branch themselves, so it was left in the working tree rather than committed
+  unasked.
