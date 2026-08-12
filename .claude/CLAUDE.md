@@ -49,6 +49,7 @@ for user-facing clarifying questions in `ticket-writer`.
 | Reading and reasoning over files or docs; web search/fetch | `Explore` or `general-purpose`, Sonnet | medium-high |
 | Writing or implementing code | `general-purpose`, Sonnet | medium-high |
 | Reviewing a diff, verifying a claim, judging correctness | Sonnet, dispatched or inline | high |
+| Measuring what a draft actually conveys to a reader | `naive-reader`, Sonnet | high |
 | Planning: requirements analysis, scoping, architecture/technical design | `business-analyst` / `software-architect`, Opus | xhigh |
 
 Pass `model` explicitly on every dispatch you make.
@@ -61,6 +62,11 @@ frontmatter for exactly this reason, and no longer carry the Agent tool — don'
 pin to save cost, and don't call them for exploration or implementation work; that's what
 `Explore` and `general-purpose` are for. Implementation is always a Sonnet
 `general-purpose` sub-agent, never Opus.
+
+`naive-reader` is deliberately starved rather than pinned: it carries no repository tools at
+all, and the draft under test is passed to it inline. Do not "help" it by granting `Read` or
+`Grep`. Its whole value is that it cannot resolve a document's gaps against the source, so
+whatever it fails to reconstruct is a real defect in the text rather than in the reader.
 
 Other context-hygiene defaults:
 
