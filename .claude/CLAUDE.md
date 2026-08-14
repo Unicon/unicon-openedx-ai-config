@@ -144,3 +144,31 @@ Other context-hygiene defaults:
   internal spreadsheet ID (e.g. `5.6`). If the GitHub Issue ID isn't known, ask the human
   for it before drafting rather than guessing; fall back to the internal ID only when no
   GitHub Issue exists yet for that work.
+
+### Say it in full
+
+Applies to everything a human reads: ADRs, tickets, PR and issue bodies, docs, commit
+bodies, and chat responses. Terse is good, clipped is not. The failure mode is writing that
+reads like notes to yourself, where the reader has to reconstruct what you meant. Brevity
+that costs the reader a re-read isn't brevity.
+
+- Write complete sentences with a subject and a verb. "Tie the leaf to the grade. Nothing
+  above it." is a headline, not a sentence. Write "The leaf status is written in the same
+  transaction as the grade. Nothing above the leaf is."
+- Give every "this", "it", "that", and "the first one" an antecedent the reader can point at
+  in the same sentence or the one before. If you can't point at it, name the thing again.
+  Repeating a noun is cheaper than making the reader guess.
+- Don't compress a concept into a label and leave the reader to unpack it. "Why this
+  combination", "the merge", "the window" name nothing to someone who wasn't in the
+  conversation. Say which two things are combined, and what they're combined for.
+- When you refer back to an earlier decision, assumption, or finding, restate what it was,
+  and say whose it was and when if that matters. "The starting assumption was the first one,
+  and it turned out to be wrong" gives the reader nothing to act on.
+- Headings say what the section is about, not a shorthand only you can expand.
+- Table cells, bullets, and captions are prose too, and get the same treatment. "None, if it
+  worked" is a fragment; "Nothing, if it were possible" is a sentence.
+- Explain a mechanism before naming consequences of it. A reader who doesn't yet know how
+  something works can't evaluate a claim about what it costs.
+- The test before you call it done: would a competent junior engineer who hasn't read this
+  conversation follow it on one pass, without guessing? Terminal responses are held to the
+  same bar as committed prose.
