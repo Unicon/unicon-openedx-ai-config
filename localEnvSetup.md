@@ -3,8 +3,8 @@
 /usr/local/bin/python3.12 -m venv env
 source env/bin/activate
 python --version  # Should be Python 3.12.x
-git clone https://github.com/openedx/edx-platform
-git clone https://github.com/overhangio/tutor
+git clone https://github.com/openedx/openedx-platform # Fork and then clone your fork
+git clone https://github.com/overhangio/tutor # Doesn't need fork
 cd tutor
 git checkout main # Fixes error
 pip install -e .
@@ -12,10 +12,10 @@ pip install -e .
 Set Docker Desktop to use 16GB of RAM in Settings>Resources>Advanced>Resource Allocation:Memory limit
 ```
 cd ../
-tutor mounts add ./edx-platform
-<!-- tutor plugins disable indigo # Necessary to avoid React version mismatch problem -->
+tutor mounts add ./openedx-platform
+tutor plugins disable indigo
 tutor images build openedx-dev
-git clone https://github.com/overhangio/tutor-mfe.git
+git clone https://github.com/overhangio/tutor-mfe.git  # Doesn't need fork
 pip install -e ./tutor-mfe
 tutor plugins enable mfe
 tutor config save
@@ -40,7 +40,7 @@ tutor dev do importdemocourse
 
 To make the CMS fully functional, also do the following:
 ```
-git clone https://github.com/openedx/frontend-app-authoring.git
+git clone https://github.com/openedx/frontend-app-authoring.git # Fork and then clone your fork
 ```
 Ensure your Node version matches the one mentioned in the .nvmrc file of the `frontend-app-authoring` repository using `node --version`.
 ```
@@ -50,21 +50,21 @@ tutor plugins install mfe
 tutor plugins enable mfe
 tutor images build mfe
 tutor dev start lms cms mfe
-cd frontend-app-authoring && npm ci
-npm run dev
+cd frontend-app-authoring && npm ci # Probably not necessary?
+npm run dev # Probably not necessary?
 ```
 CMS is actually accessible at: http://apps.local.openedx.io:2001/course-authoring/home
 
-If you're going to do development on openedx-learning:
+If you're going to do development on openedx-core:
 ```
 tutor dev stop
-git clone https://github.com/openedx/openedx-learning.git
-tutor mounts add ./openedx-learning
+git clone https://github.com/openedx/openedx-core.git # Fork and then clone your fork
+tutor mounts add ./openedx-core
 tutor images build openedx-dev
 tutor dev launch
 ```
 
-If you're going to do development on openedx-events:
+If you're going to do development on openedx-events (Skip this):
 ```
 tutor dev stop
 git clone https://github.com/openedx/openedx-events.git
@@ -103,7 +103,7 @@ tutor dev stop
 ```
 Database Migration Local:
 ```
-cd openedx-learning
+cd openedx-core
 
 # Prerequisite
 pip install -r requirements/dev.txt
@@ -132,22 +132,6 @@ tutor images build mfe --no-cache
 tutor dev reboot -d mfe
 ```
 
-Start event consumer in Studio (LMS does not know about openedx-learning):
-```
-# Verify mounts inside container is in /mnt dir
-tutor dev exec lms ls -la /mnt/openedx-events
-tutor dev exec lms ls -la /mnt/openedx-learning
-# Install local openedx-events
-tutor dev exec lms pip install -e /mnt/openedx-events
-tutor dev exec cms pip install -e /mnt/openedx-events
-# Run event consumer in CMS
-tutor dev exec cms ./manage.py cms consume_events \
-  -t learning-subsection-grade \
-  -g openedx-learning \
-  --extra '{"consumer_name":"openedx-learning-1"}'
-
-```
-
 ## Pytest
 Prerequisites:
 ```
@@ -156,20 +140,20 @@ deactivate
 /usr/local/bin/python3.12 -m venv env
 source env/bin/activate
 python --version  # Should be Python 3.12.x
-cd edx-platform
+cd openedx-platform
 python -m pip install -U pip setuptools wheel
 python -m pip install -r requirements/edx/development.txt -c requirements/constraints.txt
 ```
 Example test commands:
 ```
-cd edx-platform
+cd openedx-platform
 python -m pytest lms/djangoapps/grades/tests/test_events.py -k persistent_subsection
 python -m pytest openedx/core/djangoapps/content/search/tests/test_api.py --ds=cms.envs.test -rs -vv
 ```
 
-### openedx-learning / openedx-core
+### openedx-core / openedx-core
 ```
-cd openedx-learning
+cd openedx-core
 python -m pip install -r requirements/test.txt
 python -m pip install -e .
 python -m pytest tests/openedx_tagging/test_models.py
@@ -224,7 +208,7 @@ If you see no errors and only warnings but are unable to access the site, run `t
 
 # Sources:
 * https://docs.tutor.edly.io/install.html
-* https://docs.tutor.edly.io/tutorials/edx-platform.html#edx-platform
+* https://docs.tutor.edly.io/tutorials/openedx-platform.html#openedx-platform
 * https://discuss.openedx.org/c/development/11
 * https://docs.tutor.edly.io/dev.html
 * https://docs.tutor.edly.io/local.html#common-tasks
