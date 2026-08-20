@@ -13,10 +13,11 @@ different from a one-shot pass is the clarification loop: the experts surface th
 whose answers would actually change the ticket, you relay those to the user, get answers, and
 continue the same experts with that new information before anything is finalized.
 
-Read `.claude/ticket-template.md` first: it is the canonical format (the six sections, who
-owns each, the acceptance-criteria rules by ticket type, the Example Resolution Prompt, and
-the stub and design-spike shapes). This skill owns the *workflow*; the template owns the
-*format*. For competency, skills, or CBE work, also read `.claude/cbe-project-context.md`.
+Read `.claude/ticket-template.md` first: it is the canonical format (the required and
+optional sections, who owns each, the User Story and Acceptance Criteria as the core of
+the ticket, and the stub and design-spike shapes). This skill owns the *workflow*; the
+template owns the *format*. For competency, skills, or CBE work, also read
+`.claude/cbe-project-context.md`.
 
 This is advisory. It produces an assessment and drafted ticket text; it does not change code.
 Apply changes to the real ticket (edit the issue, post a comment) only when explicitly asked,
@@ -44,10 +45,11 @@ Agent tool so you can continue it.
 
 ## Section ownership
 
-- **Business-analyst** owns Use Case, Description, Acceptance Criteria, and the non-code parts
-  of Context (and, for a design spike, Context for the Designer).
-- **Software-architect** owns Technical Details, Files to create and modify, and the code and
-  prior-art parts of Context.
+- **Business-analyst** owns User Story, Acceptance Criteria, the optional Description, and
+  Open Questions raised from a requirements angle (and, for a design spike, Context for the
+  Designer in place of Technical Details and Files).
+- **Software-architect** owns Technical Details, Files to create and modify, and the code
+  and prior-art parts of Context.
 
 The business-analyst surfaces the need for a split or a technical concern but does not design
 it; the software-architect designs but does not rewrite the user story.
@@ -84,8 +86,9 @@ Identify what you are working from and gather the ground truth:
 - Pasted text: use it. A file path: read it. A GitHub issue: `gh issue view <n> --comments`.
   A URL or other tracker (Jira and similar): delegate the fetch to a Sonnet sub-agent, never
   inline. A bare feature idea with no ticket: treat it as a request to draft a new ticket.
-- Collect any related or blocking tickets and backlog the user points at; the architect needs
-  them to judge split and merge boundaries.
+- Collect any related or blocking tickets and backlog the user points at, by **GitHub issue
+  number** — the architect needs them to judge split and merge boundaries. Never carry over
+  an internal ticket ID or a spreadsheet reference.
 - Skim `.claude/ticket-template.md` (and `cbe-project-context.md` for competency work). If the
   request has a frontend or edx-platform part, read the relevant overview named in the
   cross-repo section.
@@ -98,14 +101,21 @@ Dispatch the `business-analyst` agent with an excellent, self-contained prompt. 
 ticket or idea verbatim, the related tickets, and the context you gathered, and ask it to
 return, grounded in the actual repo:
 
-- **True intent**: the real Open edX role and the "so that"; where the request optimizes for
-  the wrong thing or gold-plates past the outcome.
+- **True intent**: the real Open edX role and the "in order to"; where the request optimizes
+  for the wrong thing or gold-plates past the outcome.
 - **Findings**, grouped and anchored to the text: Missing / Open question / Contradiction /
   Outdated / Improvement.
 - **SMART scorecard** and a **1-2 developer-day feasibility flag**.
-- **Its owned sections** drafted in the canonical format (Acceptance Criteria in the style the
-  template prescribes for this ticket type; for a frontend part, cover the UI states and use
-  the frontend overview for what is realistic).
+- **Its owned sections** drafted in the canonical format: a one-sentence User Story ("As a
+  &lt;role&gt;, I want &lt;capability&gt;, in order to &lt;outcome&gt;" — or, for the rare
+  ticket genuinely covering more than one story, a short plain-English bulleted list
+  instead of forcing one sentence), Acceptance
+  Criteria as Given/When/Then scenarios describing observable behavior only (this applies
+  even to backend/data-model tickets with no UI — phrase the outcome in terms of what's
+  observed, not the mechanism; for a frontend part, cover the UI states using the frontend
+  overview for what is realistic), and a Description only if something essential doesn't
+  fit in the User Story or AC (a few terse sentences, never technical, never why the ticket
+  is blocked or unsplit).
 - **OPEN QUESTIONS for the human** as a clean, prioritized list it knows you will relay. Tell
   it to format each as:
   `[BLOCKING|non-blocking] <crisp question> (why it matters: <one line>). Options: A) … B) … [recommended: X]`
@@ -156,12 +166,19 @@ the code:
   `content_tagging` in edx-platform, the MFE feature), using the overviews per the cross-repo
   section and a Needs Research item, per that section, wherever a narrow Sonnet lookup is
   necessary.
-- **Its owned sections** in the canonical format: Technical Details closing with the Example
-  Resolution Prompt, Files to create and modify (two tables), and the code and prior-art
-  Context. Hold Technical Details to the standard in `.claude/ticket-template.md`:
-  pair-programming altitude a junior can evaluate (intent and contract, not every variable),
-  structured Data Structures then Logic, aggressively short and DRY, companion-ticket work
-  marked out of scope, with the Example Resolution Prompt as the one concrete part.
+- **Its owned sections** in the canonical format: Technical Details written as short,
+  concrete facts (signatures and one-bullet-per-rule, not prose), opening with a note that
+  it's background and a suggestion rather than the ticket's source of truth; Files to
+  create and modify (two tables, one line per file); and the code and prior-art Context.
+  Hold Technical Details to the standard in `.claude/ticket-template.md`: intent and
+  contract captured as facts, structured Data Structures then Logic, aggressively short and
+  DRY, companion-ticket work marked out of scope and referenced by GitHub issue number. No
+  Example Resolution Prompt or other closing implementation-plan prompt — the User Story,
+  Acceptance Criteria, and Technical Details are what the implementer needs. **Technical
+  Details is required, not optional** — even a small ticket gets a few bullets naming the
+  approach (the one exception is a design spike, which has no Technical Details at all).
+  Technical Details, Files to create and modify, and Context each go in their own
+  collapsible `<details>` block per the template.
 - **OPEN QUESTIONS for the human**, in the same format as the business-analyst's, usually
   fewer and more technical (a scope call, a contract tradeoff, a placement decision).
 - **NEEDS RESEARCH**, in the same shape as the business-analyst's, for anything it would
@@ -181,10 +198,14 @@ and defer the unresolvable to TBD.
 Combine the two into a complete draft ticket, verdict first and skimmable (step 7
 finalizes it):
 
-- The assembled ticket in the canonical format (`.claude/ticket-template.md`): all six
-  sections, BA-owned and architect-owned merged into one coherent ticket, with the answers you
-  gathered reflected in the criteria and design. For a bare idea this is the drafted ticket;
-  for a review, the improved one. For a split, one ticket per sub-ticket.
+- The assembled ticket in the canonical format (`.claude/ticket-template.md`): User Story,
+  Acceptance Criteria, and Technical Details (required) as the core, plus only the optional
+  sections (Description, Files, Context, Open Questions) that earn their place, with
+  Technical Details, Files, and Context each wrapped in its own collapsible `<details>`
+  block and everything else left open on the page, with BA-owned and architect-owned content merged into one coherent
+  ticket reflecting the answers you gathered. For a bare idea this is the drafted ticket;
+  for a review, the improved one. For a split, one ticket per sub-ticket, cross-referenced
+  by GitHub issue number.
 - The findings behind it: true intent and whether the ticket serves it; the questions that
   were answered and how they shaped the ticket; any remaining open questions or TBDs, blocking
   ones first; the scope verdict with any split or merge; the SMART scorecard and an effort

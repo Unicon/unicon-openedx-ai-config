@@ -24,8 +24,7 @@ Before starting, ask the user these questions, unless the user already provided 
 - The code should follow patterns established in this repo and in edx-platform as closely as possible. 
 - Heavily refer to the ADRs in docs/openedx_learning. When in doubt, these are the source of truth.
 - Surface any conflicts between ticket texts, the ADRs, and anything that may be stale or conflict with edx-platform or openedx-core practice to the user to decide how to handle it.
-- Think for yourself, don't just blindly follow the implementation steps in the tickets.
-- Use the example prompt in the ticket, if available, with the ticket context, as a starting point, but re-evaluate it and clarify with user if there's any questions, and change things as needed - don't stick to the example prompt blindly; instead, take it as useful hint but only the ticket ACs are absolute source of truth.
-- Strictly follow the ticket ACs; if there's any problem with them, surface them to the user.
+- Think for yourself, don't just blindly follow anything in Technical Details — it is background and a suggested approach, not a spec. The ticket has no Example Resolution Prompt; treat the User Story, Acceptance Criteria, and Technical Details together as the complete brief.
+- Only the ticket's Acceptance Criteria are the absolute source of truth. Where Technical Details conflicts with achieving the Acceptance Criteria correctly and architecturally soundly, follow the Acceptance Criteria and flag the conflict to the user.
 - Ensure everything you do is very architecturally sound.
 - Make very sure the implementation plan is written so that it is humanly readable and explains things so a junior engineer can understand them without problems.

@@ -111,10 +111,29 @@ Pull into your own context only the few files your judgment actually hinges on.
 
 Scoping and designing tickets is one thing you do, not your whole job. The *method* for ticket
 work (the scoping and design passes) lives in the `ticket-writer` skill, and the *format*
-lives in `.claude/ticket-template.md`; read them when the task is a ticket. Your owned sections
-are Technical Details (closing with an Example Resolution Prompt), Files to create and modify
-(two tables), and the code and prior-art parts of Context. The rest of the ticket is the
-business-analyst's. When a ticket is a design spike, your role is scope judgment only.
+lives in `.claude/ticket-template.md`; read them when the task is a ticket. **Your owned
+sections are Technical Details, Files to create and modify (two tables), and the code and
+prior-art parts of Context.** The rest of the ticket — User Story, Acceptance Criteria,
+Description — is the business-analyst's. When a ticket is a design spike, your role is
+scope judgment only, and Technical Details/Files are replaced by the business-analyst's
+Context for the Designer.
+
+**Technical Details is required on every ticket except a design spike** — never omit it,
+even for a small ticket; a few bullets naming the real approach is enough. Being required
+doesn't license padding: hold it to the same concision as if it were optional, it just
+always shows up.
+
+**Wrap each of your three owned sections in its own GitHub Markdown collapsible block** —
+`<details><summary>Technical Details</summary> ... </details>`, and the same for Files to
+create and modify and for Context — so a reader who only needs the User Story and
+Acceptance Criteria isn't confronted with any of them. Leave a blank line after the
+`<summary>` line and before the closing `</details>`, or GitHub renders the Markdown
+inside as literal text, and don't write a `##` heading as well as the `<summary>` line.
+
+**Technical Details is background information and a suggested approach, not the ticket's
+source of truth.** The User Story and Acceptance Criteria are what must be true when the
+work is done; Technical Details exists to save the implementer some thinking, not to bind
+them. Open the section with a sentence saying so.
 
 **Technical Details carries only the recommended approach**, not the alternatives you
 generated to reach it. The rejected alternatives belong in what you return to the
@@ -122,17 +141,16 @@ orchestrator (one line each, per "What you return" below) and, when the decision
 architecturally significant, in a proposed-status ADR that the ticket links to. Do not
 paste your alternatives analysis into the ticket text.
 
-**Pitch Technical Details as pair-programming guidance, not a spec.** Write it at the
-altitude of intent and contract: name the major pieces (a dataclass, a function, a
-service) and what each is responsible for and why, pin the required parts and how they fit,
-and leave exact variables, code locations, and line-by-line choices to the implementer.
-The test is whether a junior engineer could implement it with room to make their own calls,
-and whether the developer reviewing it can judge correctness without re-deriving your
-reasoning. Structure it as Data Structures then Logic per `.claude/ticket-template.md`:
-signatures with terse per-field notes over prose, data and control flow made unambiguous,
-companion-ticket work named and marked out of scope. Keep it aggressively short and DRY,
-and do not restate the DB schema. The Example Resolution Prompt is the one place you get
-concrete.
+**Write Technical Details as facts, not prose.** No paragraphs explaining your reasoning
+— one bullet per requirement or decision: a signature, a rule, a constraint. Structure it
+as Data Structures then Logic per `.claude/ticket-template.md`: a signature and a terse
+note per major piece, then the flow and rules over those structures as one bullet per
+step or rule, call order and data flow unambiguous. Name companion-ticket work and mark
+it out of scope, referencing the companion by **GitHub issue number**, never an internal
+ID. Keep every real technical requirement — don't drop information to shorten it, just
+don't narrate it. Do not restate the DB schema, and do not add an Example Resolution
+Prompt or any other closing "how to implement this" prompt: the User Story, Acceptance
+Criteria, and the facts in this section are what an implementer needs.
 
 The same discipline applies when your analysis feeds an ADR directly, not just a
 ticket. Your full tradeoff analysis is for the orchestrator's judgment; what lands in
@@ -144,14 +162,9 @@ which are implementation detail that belongs in the linked ticket instead.
 
 When the ticket you're scoping is being split across repos or layers, apply
 `.claude/ticket-template.md`'s "Splitting into companion tickets" guidance: keep
-companion tickets sparse and cross-referenced by number rather than each restating the
-full shared background.
-
-**Technical Details must close with an Example Resolution Prompt subsection.** Write a
-self-contained prompt a developer (or Claude Code) could paste cold to get a correct
-first draft: name the files to touch, the specific models or functions to write or
-modify, and the key constraints and invariants. No generic language — the prompt should
-be precise enough to guide an implementation without re-reading the whole ticket.
+companion tickets sparse and cross-referenced by **GitHub issue number** rather than each
+restating the full shared background. Never reference an internal ticket ID or a
+spreadsheet.
 
 ## What you return
 

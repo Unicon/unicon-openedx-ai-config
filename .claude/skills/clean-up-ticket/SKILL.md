@@ -17,9 +17,9 @@ point is editorial and structural quality, not requirements discovery.
 - **It is not** requirements or design interrogation. It preserves the decided scope and
   the chosen approach; it does not ask the user clarifying questions, dispatch the
   business-analyst or software-architect, or add/remove requirements.
-- **When to hand off instead:** if the requirements are unclear or contested, the "so
-  that" is missing, or the design is genuinely unsettled, this is the wrong skill. Say so
-  and point to `ticket-writer` (the interactive, expert-driven skill), rather than
+- **When to hand off instead:** if the requirements are unclear or contested, the "in
+  order to" is missing, or the design is genuinely unsettled, this is the wrong skill.
+  Say so and point to `ticket-writer` (the interactive, expert-driven skill), rather than
   guessing at intent under the guise of cleanup.
 - **Advisory.** Produces a review and writes the improved ticket to a **new** local file.
   Never overwrite the source ticket, and touch the real tracker only on explicit request
@@ -27,9 +27,12 @@ point is editorial and structural quality, not requirements discovery.
 
 ## Read first
 
-`.claude/ticket-template.md` — the canonical six-section shape you rewrite toward, and the
-standard for how much implementation detail belongs in Technical Details (intent and
-contract, not a code dump).
+`.claude/ticket-template.md` — the canonical shape you rewrite toward. The User Story and
+Acceptance Criteria are the ticket; Technical Details is required alongside them, and
+everything else is optional and earns its place. Three sections are collapsible —
+Technical Details, Files to create and modify, and Context — each in its own `<details>`
+block. The template also defines how much (and how little) belongs in Technical Details,
+and that there is no Example Resolution Prompt in the current template.
 
 ## Model and context
 
@@ -45,16 +48,19 @@ overview doc, or dispatch/flag a narrow Sonnet sub-agent per the same rule.
 
 ## 1. Get the ticket and ground it
 
-- **Intake.** Pasted text: use it. A file path: read it. A GitHub issue:
-  `gh issue view <n> --repo <owner/repo> --json body,comments,...` (read the comments too;
-  a maintainer may have already flagged a factual error). A URL or other tracker: delegate
-  the fetch to a Sonnet sub-agent, never inline.
+- **Intake.** Pasted text: use it. A file path: read it. A GitHub issue: `gh issue view <n>
+  --repo <owner/repo> --json body,comments,...` (read the comments too; a maintainer may
+  have already flagged a factual error). A URL or other tracker: delegate the fetch to a
+  Sonnet sub-agent, never inline.
 - **Spot-check the falsifiable claims**, cheaply and targeted. Does each referenced file
   and function exist? Are the line numbers accurate? Is a categorical assertion ("there is
   no way to X") actually true? A couple of `grep`s or one Haiku `Explore` for location is
   enough; do not audit the codebase. Note anything wrong or overstated, it feeds both the
   review and the rewrite. **Treat line numbers as a liability even when currently correct:**
   they rot on the next merge and read as false precision, so the rewrite drops them.
+- **Note any internal ticket IDs or spreadsheet references** the source ticket carries.
+  The rewrite replaces every one with a GitHub issue number, or drops it if there's no
+  public equivalent.
 
 ## 2. Brutally honest review, verdict first
 
@@ -68,16 +74,17 @@ Rubric:
 
 | Dimension | The question it asks |
 | --- | --- |
-| Problem framing / Use Case | Real role and a non-hand-waved "so that"? Is the actual ask findable in the first few lines, or buried? |
-| Scoping discipline | Is out-of-scope explicit? Is related-but-separate work (other ADRs, companion tickets) disentangled? |
-| Acceptance criteria | Observable and testable? Unhappy paths covered? Or bloated and repetitive? |
+| Problem framing / User Story | Real role and a non-hand-waved "in order to"? Is the direct "As X, I want Y, in order to Z" statement in the first line, or buried under preamble? If the ticket genuinely covers more than one story, is it a short plain-English bulleted list rather than one sentence forced to cover too much? |
+| Scoping discipline | Is out-of-scope explicit? Is related-but-separate work (other ADRs, companion tickets) disentangled and referenced by GitHub issue number? |
+| Acceptance criteria | Pure Given/When/Then, observable and testable? Unhappy paths covered? Any technical checkpoint (a field name, a status code, a schema detail) that should have moved to Technical Details? |
 | Grounding accuracy | Are the concrete claims (files, functions, line numbers, "there is no way to X") true? Which will rot? |
-| Structure | Is content in one canonical place, or restated across four sections that will drift? |
+| Structure | Is content in one canonical place, or restated across sections that will drift? Does Description (if present) sit below Acceptance Criteria, stay free of technical detail, and avoid narrating why the ticket is blocked, unsplit, or tied to a release? |
 | Length / bloat | Is the ticket longer than the diff it will produce? What is pure repetition? |
 | Language / writing | Sentence length, bold overuse, one-idea-per-sentence, scannability. |
-| Level of implementation detail | Intent and contract, or a code dump in prose that removes the engineer's judgment? |
+| Level of implementation detail | Is Technical Details present (it's required, not optional), short factual bullets reading as background/suggestion — or missing, a prose spec, or padded past what the ticket actually needs? |
+| Collapsibility | Are Technical Details, Files to create and modify, and Context each wrapped in their own `<details>` block, with the blank lines GitHub needs to render the Markdown inside? Is anything else (User Story, Acceptance Criteria, Description, Open Questions) collapsed that should be open? |
 | Helpfulness for a junior human | Can a junior hold it in working memory and start cold, or is it exhausting? |
-| Helpfulness for an AI implementer | Is there one clean, concrete implementer block, or three redundant ones the AER will read in full? |
+| Helpfulness for an AI implementer | Do the User Story, Acceptance Criteria, and Technical Details give a complete, unambiguous brief on their own, without a separate implementer prompt restating them? |
 
 ## 3. Rewrite to a new local file
 
@@ -85,66 +92,96 @@ Write the improved ticket to a **new** file (e.g. `issue-<n>-cleaned.md` or, for
 ticket, `<slug>-cleaned.md`) in the repo root or scratchpad. Never overwrite the source.
 Apply these editorial principles, they are the method:
 
-- **BLUF.** Open with a one-sentence statement of the actual change, before the Use Case,
-  so the shape of the work lands immediately.
+- **BLUF.** Lead with the User Story, stated directly: "As &lt;role&gt;, I want
+  &lt;capability&gt;, in order to &lt;outcome&gt;." That is the shape of the work; it
+  should land in the first line, not after preamble. If the source ticket genuinely
+  covers more than one story, rewrite it as a short plain-English bulleted list rather
+  than force it into one sentence — but don't split a single coherent story into bullets
+  just for variety.
 - **Say each idea once, canonically.** DRY applies to prose. State each invariant/rule in
   exactly one place (usually Technical Details → Logic). Redundant copies drift out of
   sync when the ticket is edited and become contradictions.
-- **Intent, not a code dump.** Describe the contract and the flow at pair-programming
-  altitude a junior can evaluate. Leave exact expressions, variable names, and line-by-line
-  choices to the implementer, per the template.
-- **One implementer block.** Keep a single concrete **Example Resolution Prompt**; delete
-  duplicate "implementation notes" paragraphs and collapse the Files table to one line per
-  file. Do not describe the solution three times.
+- **Acceptance Criteria are pure Given/When/Then.** Strip out any technical checkpoint —
+  a field name, a status code, a schema fact — and move the underlying requirement into
+  Technical Details if it isn't captured there already. This applies even to backend or
+  data-model tickets with no UI: rephrase around what's observed, not the mechanism.
+- **Description is optional, and most tickets don't need one.** Keep it only if it
+  carries something essential the User Story and Acceptance Criteria don't. Cut it to a
+  few terse sentences, move it below Acceptance Criteria, and strip: implementation
+  detail (→ Technical Details), any narration of why the ticket is blocked or wasn't
+  split (→ drop, or Open Questions/Context with a GitHub issue reference if it's a real
+  dependency), and any release or version timing (→ drop). If nothing survives that
+  filter, delete the section.
+- **Technical Details is required — never delete the section, only its bloat.** If the
+  source ticket is missing it entirely, flag that as a gap rather than silently adding
+  content you're inventing; if it exists, keep it (don't cut it down to nothing to hit a
+  length target). Open it with a line noting it's background and a suggested approach,
+  not the source of truth. Convert explanatory paragraphs into one bullet per requirement
+  or decision — a signature, a rule, a constraint. Keep every real technical requirement
+  the source ticket had; only the narration is cut, and being required doesn't mean padding it past
+  what the ticket needs.
+- **Drop the Example Resolution Prompt entirely.** The current template has no such
+  section. Before deleting one from a source ticket, check whether it's the only place
+  carrying a real decision or constraint — if so, move that content up into Technical
+  Details first, then delete the prompt. Do the same for any "implementation notes"
+  paragraph duplicating what Technical Details already says.
+- **Collapse the three supporting sections.** Technical Details, Files to create and
+  modify, and Context each get their own `<details><summary>Section name</summary> ...
+  </details>` wrapper, so the page a reader lands on is the User Story, the Acceptance
+  Criteria, any Description, and three collapsed summaries. Leave a blank line after the
+  `<summary>` line and before the closing `</details>`, or GitHub renders the Markdown
+  inside as literal text, and replace the section's `##` heading with the `<summary>` line
+  rather than keeping both. Never wrap the User Story, Acceptance Criteria, Description,
+  or Open Questions this way; those stay open.
+- **One Files table per direction, one line per file.** Collapse the Files table to a
+  single line per file; don't restate the approach there.
 - **Technical decisions live in Technical Details, and only there are they authoritative.**
-  Technical Details / Logic states the contract, the *why*, and every specific decision (a
-  validation rule, a claiming precedence, an error-handling choice). The Files table is a
-  one-line-per-file map and the Example Resolution Prompt is an orientation guide; both may
-  *reference* the approach, but a decision that appears only in a Files-table row or in the
-  Resolution Prompt is misplaced, move it up. State each decision once, in Technical
-  Details, rather than restating it across all three technical renderings (the triplication
-  that survives a careless first pass). When you move a decision up, confirm it is not
-  silently dropped from what used to be its only home.
-- **The Example Resolution Prompt is an approach guide, not an implementation plan.** Its
-  job is to point the implementer (human or AI) at the right approach and keep them off a
-  wrong one: the goal, the authoritative sources (Technical Details and the Acceptance
-  Criteria), the scope and invariants, where the relevant code lives, and how to verify.
-  The agent has the whole ticket in context, so the prompt references those sections rather
-  than restating them. It must not spell out a file-by-file, step-by-step sequence, let the
-  agent form its own plan. When cleaning up, strip numbered "edit file X, then Y" steps down
-  to that orientation, first moving any decision they carried up into Technical Details.
+  Technical Details states the contract, the specific decisions (a validation rule, a
+  claiming precedence, an error-handling choice) as facts. The Files table is a
+  one-line-per-file map that may reference the approach but is not where a decision is
+  made. State each decision once, in Technical Details, rather than restating it in the
+  Files table or anywhere else. When you move a decision up, confirm it is not silently
+  dropped from what used to be its only home.
 - **No line numbers.** Name files and functions; the implementer navigates. Drop stale or
   fragile precision.
+- **GitHub issue numbers only.** Replace any internal ticket ID or spreadsheet reference
+  with the equivalent GitHub issue number, or drop it if there's no public equivalent a
+  reader outside the team could open.
 - **Bullets for enumerables.** Anything you can count (out-of-scope items, files) is a
   list, not a bold-studded paragraph. Reserve bold for the few things that must not be
   missed.
 - **Fix factual overstatements** surfaced in step 1 (including anything a maintainer
   already corrected in the comments).
 - **Preserve the genuine strengths** verbatim or near-verbatim, do not rewrite what
-  already works (a strong Use Case, good Gherkin, a careful ADR disentangling).
+  already works (a strong User Story, good Gherkin, a careful ADR disentangling).
 - **Do not relitigate a settled design.** If an ADR or prior decision fixed the approach,
   keep it and do not reopen it in the ticket. If the design is *genuinely* unsettled, that
   belongs upstream (an ADR or `ticket-writer`), not smuggled into a cleanup, flag it and
   leave it.
-- **Align to the canonical template**: the six sections in order, house section names,
-  omit empty tables.
+- **Align to the canonical template**: User Story and Acceptance Criteria first, then
+  only the optional sections that earn their place (Description, Technical Details,
+  Files, Context) in template order, Open Questions last. Use the house section names.
+  Omit empty tables and empty optional sections.
 
 ## 4. Second pass: re-review your own rewrite
 
 Do not trust the first rewrite. Re-read it cold, as if someone else wrote it, and put it
 back through the step 2 rubric. The first pass reliably leaves residual redundancy in the
-technical middle: the same mechanism restated across Technical Details, the Example
-Resolution Prompt, and the Files table. Hunt that specifically, and check that the three
-technical renderings actually sit at different altitudes rather than repeating each other.
-If the re-review finds anything past cosmetic nits, rewrite again and repeat; stop only
-when a pass turns up nothing but nits. Each time you tighten, confirm the tightened version
-still says everything the prior one did, no requirement, constraint, or fact lost in the
-edit.
+technical middle: the same mechanism restated across Technical Details and the Files
+table, or a leftover implementer-prompt paragraph that should have been deleted outright.
+Hunt that specifically, and check that Technical Details and the Files table actually sit
+at different altitudes rather than repeating each other. If the re-review finds anything
+past cosmetic nits, rewrite again and repeat; stop only when a pass turns up nothing but
+nits. Each time you tighten, confirm the tightened version still says everything the
+prior one did, no requirement, constraint, or fact lost in the edit.
 
 ## 5. Summarize what changed and why
 
 Close with a short changelog: each significant cut or restructure traced to the principle
-behind it (bloat, redundancy, over-specification, buried ask, stale line numbers, factual
-fix). State what you deliberately kept and why. Call out, as one explicit judgment, any
-design question you left untouched because it is upstream/ADR work rather than a cleanup
-concern.
+behind it (bloat, redundancy, over-specification, buried ask, stale line numbers, a
+dropped Example Resolution Prompt, an internal ID swapped for a GitHub issue number,
+a section wrapped in a collapsible block, a User Story split into bullets for a
+genuinely multi-story ticket, a factual fix). State what you deliberately kept and why.
+Call out, as one explicit judgment, any design question you left untouched because it is
+upstream/ADR work rather than a cleanup concern. If Technical Details was missing from
+the source ticket entirely, call that out explicitly rather than silently filling it in.
