@@ -81,7 +81,7 @@ Rubric:
 | Structure | Is content in one canonical place, or restated across sections that will drift? Does Description (if present) sit below Acceptance Criteria, stay free of technical detail, and avoid narrating why the ticket is blocked, unsplit, or tied to a release? |
 | Length / bloat | Is the ticket longer than the diff it will produce? What is pure repetition? |
 | Language / writing | Sentence length, bold overuse, one-idea-per-sentence, scannability. |
-| Level of implementation detail | Is Technical Details present (it's required, not optional), short factual bullets reading as background/suggestion — or missing, a prose spec, or padded past what the ticket actually needs? |
+| Level of implementation detail | Is Technical Details present (it's required, not optional), with both a plain-language "In short" pass and a factual "Implementation specifics" bullet list — or missing one of the two, a wall of bullets with no prose on-ramp, a prose spec with no concrete facts, or padded past what the ticket actually needs? |
 | Collapsibility | Are Technical Details, Files to create and modify, and Context each wrapped in their own `<details>` block, with the blank lines GitHub needs to render the Markdown inside? Is anything else (User Story, Acceptance Criteria, Description, Open Questions) collapsed that should be open? |
 | Helpfulness for a junior human | Can a junior hold it in working memory and start cold, or is it exhausting? |
 | Helpfulness for an AI implementer | Do the User Story, Acceptance Criteria, and Technical Details give a complete, unambiguous brief on their own, without a separate implementer prompt restating them? |
@@ -99,8 +99,10 @@ Apply these editorial principles, they are the method:
   than force it into one sentence — but don't split a single coherent story into bullets
   just for variety.
 - **Say each idea once, canonically.** DRY applies to prose. State each invariant/rule in
-  exactly one place (usually Technical Details → Logic). Redundant copies drift out of
-  sync when the ticket is edited and become contradictions.
+  exactly one place (usually Technical Details → Implementation specifics, with "In
+  short" giving the plain-language version of the same fact rather than a second,
+  divergent one). Redundant copies drift out of sync when the ticket is edited and become
+  contradictions.
 - **Acceptance Criteria are pure Given/When/Then.** Strip out any technical checkpoint —
   a field name, a status code, a schema fact — and move the underlying requirement into
   Technical Details if it isn't captured there already. This applies even to backend or
@@ -116,10 +118,16 @@ Apply these editorial principles, they are the method:
   source ticket is missing it entirely, flag that as a gap rather than silently adding
   content you're inventing; if it exists, keep it (don't cut it down to nothing to hit a
   length target). Open it with a line noting it's background and a suggested approach,
-  not the source of truth. Convert explanatory paragraphs into one bullet per requirement
-  or decision — a signature, a rule, a constraint. Keep every real technical requirement
-  the source ticket had; only the narration is cut, and being required doesn't mean padding it past
-  what the ticket needs.
+  not the source of truth. Restructure it into the template's two parts: "In short", a
+  few plain-language paragraphs (one per major mechanism or decision, each with a bold
+  lead-in phrase) a non-specialist can follow, and "Implementation specifics", one bullet
+  per concrete fact the prose doesn't spell out — a signature, a file location, a rule, a
+  constraint. If the source is a wall of dense bullets with no prose on-ramp, write the
+  missing "In short" paragraphs from what the bullets already say, don't invent new
+  requirements. If it's unstructured prose, extract its concrete facts into
+  "Implementation specifics" bullets underneath. Keep every real technical requirement the
+  source ticket had in one part or the other; only the duplication and narration is cut,
+  and being required doesn't mean padding either part past what the ticket needs.
 - **Drop the Example Resolution Prompt entirely.** The current template has no such
   section. Before deleting one from a source ticket, check whether it's the only place
   carrying a real decision or constraint — if so, move that content up into Technical

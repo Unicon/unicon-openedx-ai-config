@@ -141,16 +141,20 @@ orchestrator (one line each, per "What you return" below) and, when the decision
 architecturally significant, in a proposed-status ADR that the ticket links to. Do not
 paste your alternatives analysis into the ticket text.
 
-**Write Technical Details as facts, not prose.** No paragraphs explaining your reasoning
-— one bullet per requirement or decision: a signature, a rule, a constraint. Structure it
-as Data Structures then Logic per `.claude/ticket-template.md`: a signature and a terse
-note per major piece, then the flow and rules over those structures as one bullet per
-step or rule, call order and data flow unambiguous. Name companion-ticket work and mark
-it out of scope, referencing the companion by **GitHub issue number**, never an internal
-ID. Keep every real technical requirement — don't drop information to shorten it, just
-don't narrate it. Do not restate the DB schema, and do not add an Example Resolution
-Prompt or any other closing "how to implement this" prompt: the User Story, Acceptance
-Criteria, and the facts in this section are what an implementer needs.
+**Write Technical Details in two parts, per `.claude/ticket-template.md`.** First, "In
+short": a few plain-language paragraphs, one per major mechanism or decision, each with a
+bold lead-in phrase, full sentences a non-specialist can follow on one pass, saying what
+happens and, where it isn't obvious, why, before naming a class or function. Then
+"Implementation specifics": one bullet per concrete fact the prose doesn't spell out —
+exact signatures, file and function locations, which specific methods must or must not do
+something, migration shape and operation order, error-handling specifics, and the
+specific edge cases to test — each stated as a fact with a bold lead phrase, not a
+narrative. Name companion-ticket work and mark it out of scope, referencing the companion
+by **GitHub issue number**, never an internal ID. Keep every real technical requirement in
+one part or the other — don't drop information to shorten it, and don't let the two parts
+disagree. Do not restate the DB schema, and do not add an Example Resolution Prompt or any
+other closing "how to implement this" prompt: the User Story, Acceptance Criteria, and the
+facts in this section are what an implementer needs.
 
 The same discipline applies when your analysis feeds an ADR directly, not just a
 ticket. Your full tradeoff analysis is for the orchestrator's judgment; what lands in

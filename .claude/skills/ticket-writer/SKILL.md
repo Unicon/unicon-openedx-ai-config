@@ -166,17 +166,21 @@ the code:
   `content_tagging` in edx-platform, the MFE feature), using the overviews per the cross-repo
   section and a Needs Research item, per that section, wherever a narrow Sonnet lookup is
   necessary.
-- **Its owned sections** in the canonical format: Technical Details written as short,
-  concrete facts (signatures and one-bullet-per-rule, not prose), opening with a note that
-  it's background and a suggestion rather than the ticket's source of truth; Files to
-  create and modify (two tables, one line per file); and the code and prior-art Context.
-  Hold Technical Details to the standard in `.claude/ticket-template.md`: intent and
-  contract captured as facts, structured Data Structures then Logic, aggressively short and
-  DRY, companion-ticket work marked out of scope and referenced by GitHub issue number. No
-  Example Resolution Prompt or other closing implementation-plan prompt — the User Story,
-  Acceptance Criteria, and Technical Details are what the implementer needs. **Technical
-  Details is required, not optional** — even a small ticket gets a few bullets naming the
-  approach (the one exception is a design spike, which has no Technical Details at all).
+- **Its owned sections** in the canonical format: Technical Details written in two parts,
+  opening with a note that it's background and a suggestion rather than the ticket's
+  source of truth — "In short", a few plain-language paragraphs (one per major mechanism
+  or decision, each with a bold lead-in phrase) that a non-specialist can follow, then
+  "Implementation specifics", one bullet per concrete fact the prose doesn't spell out
+  (exact signatures, file/function locations, specific methods, migration shape, test
+  cases); Files to create and modify (two tables, one line per file); and the code and
+  prior-art Context. Hold Technical Details to the standard in `.claude/ticket-template.md`:
+  intent and contract captured in both parts, structured In short then Implementation
+  specifics, aggressively DRY between them, companion-ticket work marked out of scope and
+  referenced by GitHub issue number. No Example Resolution Prompt or other closing
+  implementation-plan prompt — the User Story, Acceptance Criteria, and Technical Details
+  are what the implementer needs. **Technical Details is required, not optional** — even a
+  small ticket gets a short "In short" paragraph and a couple of Implementation specifics
+  bullets (the one exception is a design spike, which has no Technical Details at all).
   Technical Details, Files to create and modify, and Context each go in their own
   collapsible `<details>` block per the template.
 - **OPEN QUESTIONS for the human**, in the same format as the business-analyst's, usually

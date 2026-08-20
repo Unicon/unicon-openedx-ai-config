@@ -127,24 +127,35 @@ Keep a blank line after the `<summary>` line and before the closing `</details>`
 GitHub renders the Markdown inside as literal text. The section's own `##` heading is
 replaced by the `<summary>` line; don't write both.
 
-State it as facts, not explanation. No prose paragraphs walking through the reasoning —
-short bullets, one requirement or decision per line. Keep every real technical
-requirement (don't drop information to make it shorter), just don't narrate it. Don't let
-being required become an excuse to pad it — a one-line Data Structures bullet and a
-two-line Logic list is a complete Technical Details section when the work is that small.
+Structure it in two parts, matching altitude to purpose (fold together only when the work
+is genuinely tiny — a one-paragraph "In short" and a two-bullet "Implementation
+specifics" is a complete Technical Details section in that case):
 
-Structure it in two parts (fold together for a data-only or migration ticket):
+- **In short** — a few short paragraphs in plain language, one per major mechanism or
+  decision, each opening with a bold lead-in phrase naming what it covers (e.g. "**Backfilling
+  existing rows.**"). Write full sentences a reader who isn't a specialist in this code
+  can follow on one pass: say what happens, and where it isn't obvious, why, before
+  reaching for a class or function name. This is the part most readers actually read, so
+  it has to carry the same requirements as Implementation specifics below, in prose
+  instead of bullets, not a softer or partial version of them.
+- **Implementation specifics** — one bullet per concrete fact an implementer needs that
+  the prose above doesn't spell out: exact file, class, and function names and where
+  they live, exact signatures or formulas, which specific methods must or must not do
+  something, the specific query or API calls to use, migration file names and operation
+  order, error-handling specifics, and the specific edge cases to test. State each as a
+  fact, not a narrative: a bold lead phrase, then one sentence of elaboration. Don't
+  restate the DB schema; fold anything essential into the bullet.
 
-- **Data Structures** — one bullet per major type or piece: its signature and a
-  terse note on what it's for. Don't restate the DB schema; fold anything essential
-  into the bullet.
-- **Logic** — one bullet per rule or step in the flow, in order. Name companion-ticket
-  work that touches this flow and mark it out of scope, referencing the companion by
-  GitHub issue number.
+Between the two parts, keep every real technical requirement the work has: "In short"
+doesn't get to omit something the bullets below state, and the bullets don't get to
+introduce a requirement the prose above never mentioned in some form. Name
+companion-ticket work that touches this flow and mark it out of scope in Implementation
+specifics, referencing the companion by GitHub issue number.
 
-Also fold in, as bullets, wherever relevant: public-API/contract impact, the layer or
-app it sits in (respecting `.importlinter`), backward-compatibility notes, test
-strategy, and a link to a warranted ADR.
+Also fold into Implementation specifics, as bullets, wherever relevant: public-API/contract
+impact, the layer or app it sits in (respecting `.importlinter`), backward-compatibility
+notes, test strategy (specific fixtures, files, and test cases, not just "add tests"),
+and a link to a warranted ADR.
 
 State only the recommended approach — not the alternatives considered and rejected.
 Those belong in the architect's returned analysis for the human synthesizing the ticket,
@@ -258,8 +269,9 @@ others depend on — and keep the rest sparse:
   sentences of essential context, nothing technical, and it sits below Acceptance
   Criteria.
 - Technical Details is always present, opens by saying it's background and a suggestion,
-  then reads as short facts — signatures and bullets — never a paragraph explaining
-  itself, and never padded just to look complete.
+  then reads as a short "In short" walkthrough in plain language followed by an
+  "Implementation specifics" list of exact facts, never only a wall of dense bullets with
+  no prose on-ramp, and never padded just to look complete.
 - Technical Details, Files to create and modify, and Context are each in their own
   `<details>` block, so the page a reader lands on is the User Story, the Acceptance
   Criteria, and three collapsed summaries.
