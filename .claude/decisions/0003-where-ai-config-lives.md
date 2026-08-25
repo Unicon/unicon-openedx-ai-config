@@ -6,10 +6,10 @@ description: Contains decisions on how humans should use AI, and decisions that 
 
 ## Decisions
 
-- For now, we are keeping our AI config for OpenEdx private inside Unicon.
+- For now, we are keeping our AI config for Open edX private inside Unicon.
 - We symlink the .claude from here into openedx-core repository.
 - Ideally this will be symlinked to the folder that contains all the openedx repositories, so we should adjust this claude setup to work from there.
 
 ## Open Questions
 
-- Should this repository stay unicon internal or should we share this with Axim / OpenEdx community?
+- Should this repository stay unicon internal or should we share this with Axim / Open edX community?
