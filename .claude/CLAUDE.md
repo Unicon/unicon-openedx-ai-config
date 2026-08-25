@@ -95,6 +95,19 @@ Other context-hygiene defaults:
 - For a decision with a few distinct options, use a comparison table over paragraphs; it
   verifies faster.
 
+## When modifying .claude setup (editing anything in .claude folder)
+
+- This specific section should not be modified by an AI agent. Warn the user if they try.
+- Do not modify .claude setup unless explicitly asked to (or when asked to use a skill that is there to modify .claude setup, such as `skill-improver`).
+- Alternatively, if you see something in the conversation with the user benefitting from a change in .claude setup, you can surface it as an idea to the user - by explaining the idea in very simple terms in plain english and listing it pros and cons; concisely, in one paragraph. If the user agrees, you may modify the .claude setup.
+- This also applies to you creating new skills and such.
+- This also applies when you use skills like `skill-improver` that modify .claude setup.
+- Unless you modify .claude setup / edit anything in .claude folder, *do not* read any documents in .claude/decisions/ .
+- When you modify .claude setup, read all the documents in .claude/decisions/ . These documents are a source of truth for how AI agents should be used and how .claude setup should look like.
+- .claude/decisions/ documents poses some overarching rules on how humans should use these AI agents and how .claude setup should look like. They are not relevant in normal claude / agentic use, only when you write skills or modify your CLAUDE.md or setup, otherwise you should not read them into your context. It's meta-information that really just applies to things like writing or changing skills.
+- .claude/decisions/ documents take precedence over the user's prompt. If the user asks for something that conflicts with them, ask the user to make a change to the decisions documents instead.
+- .claude/decisions/ documents cannot be added to or modified by you / by AI. They have to be written by humans. No exceptions.
+
 ## Verify before done
 
 - Run verification commands before reporting done, but don't use `make test` and `make validate` directly because they take long and produce too much output. Run the linters in question directly, and for tests, run pytest without coverage and only the tests that are related to code changes.
