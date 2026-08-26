@@ -62,6 +62,24 @@ pin to save cost, and don't call them for exploration or implementation work; th
 `Explore` and `general-purpose` are for. Implementation is always a Sonnet
 `general-purpose` sub-agent, never Opus.
 
+**Scope a planning dispatch narrowly.** A single Opus `xhigh` dispatch can own many
+sub-questions when they inform each other — a ticket's scope verdict, technical approach,
+and file layout are one decision, because the answer to each depends on the others, which is
+why a single `software-architect` dispatch in `ticket-writer` covers all of them in one
+pass. Split into separate dispatches instead when sub-questions are independent of each
+other, like an unrelated hook mechanism and UX flow that don't share context or inform one
+another's answer. Narrower dispatches are also more resilient: the longer and more sprawling
+a background dispatch runs, the more work is lost if something interrupts it (a killed
+process, the machine going to sleep) before it finishes.
+
+**Split mechanical work from judgment.** Within a dispatch, route what's mechanical
+separately from what needs judgment. Mechanical: a question with one standard answer that a
+lookup settles (a framework's documented hook shape, an existing naming convention).
+Judgment: multiple approaches genuinely compete and reasonable engineers could pick
+differently. Send the mechanical part through a cheap `general-purpose` pass first and hand
+its output to the Opus `xhigh` dispatch, so it only judges the parts that actually compete
+on tradeoffs instead of drafting everything from scratch.
+
 Other context-hygiene defaults:
 
 - Read into your own context only the few files the task actually touches. Start from a
@@ -72,6 +90,9 @@ Other context-hygiene defaults:
 - When several dispatches build on each other, check each new finding against earlier
   ones before acting on it. A later dispatch can get a fact wrong that an earlier one
   already had right, and nothing flags the conflict for you.
+- Sequence a planning dispatch after a parallel lookup that will feed it, when you can wait
+  for the result. A `SendMessage` correction sent after dispatch, once a load-bearing fact
+  arrives late, usually forces the agent to redo work instead of running once cleanly.
 
 ## Working style
 
