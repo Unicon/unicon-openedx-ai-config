@@ -1,6 +1,6 @@
 ---
 name: clean-up-text
-description: Editorial and structural cleanup of an already-written technical text (a doc, ADR, README, RFC, design note, PR or commit body, migration guide, long chat write-up), then a rewritten version written to a new local file. Use when asked to clean up, tighten, trim, de-bloat, condense, restructure, or improve the writing of an existing technical document, or for a brutally honest review of how well it reads. It audits what the text assumes its reader already knows, grades it against a fixed rubric, rewrites it toward whatever canonical shape that kind of document has, and sends the result to a dedicated accuracy reviewer that confirms nothing was lost, altered, or invented. It does NOT reopen the decisions the text records; beyond defining what a reader needs in order to follow the text, it invents no content and preserves the substance. For a ticket or issue specifically, use clean-up-ticket instead. Advisory: writes to a new local file, never overwrites the source and never publishes anywhere.
+description: Editorial and structural cleanup of an already-written technical text (a doc, ADR, README, RFC, design note, PR or commit body, migration guide, long chat write-up), then a rewritten version written to a new local file. Use when asked to clean up, tighten, trim, de-bloat, condense, restructure, or improve the writing of an existing technical document, or for a brutally honest review of how well it reads. It audits what the text assumes its reader already knows, grades it against a fixed rubric, rewrites it toward whatever canonical shape that kind of document has, and sends the result to a dedicated fidelity reviewer that confirms the technical concepts and decisions survived the rewrite unchanged, and that flags anything the rewrite added for you to confirm. It does NOT reopen the decisions the text records; beyond defining what a reader needs in order to follow the text, it invents no content and preserves the substance. For a ticket or issue specifically, use clean-up-ticket instead. Advisory: writes to a new local file, never overwrites the source and never publishes anywhere.
 ---
 
 # Clean up a technical text
@@ -59,9 +59,9 @@ because you have no Agent tool. You keep your own read tools, so run the cheap l
 yourself, a `grep` or a file read, exactly as a top-level runner would. What you cannot do is
 delegate: return a "Needs research" item for anything needing a network fetch or a sub-agent.
 Step 6's accuracy gate is also a dispatch, so finish the rewrite and return the gate as a
-"Needs verification" item naming the source path, the rewrite path, your changelog, and the
-ground truth behind every definition you added. Never skip the gate silently, and never
-self-certify accuracy in its place.
+"Needs verification" item naming the source path, the rewrite path, and your changelog, plus
+the list of definitions you added for a human to confirm. Never skip the gate silently, and
+never self-certify accuracy in its place.
 
 Stated plainly, because it is otherwise an inference across two sections: **a dispatched run
 of this skill never reaches a finished state.** It always ends at a handoff, because the gate
@@ -106,8 +106,9 @@ reliably flatters the source.
 
 Then close the gaps. For each entry the rewrite will need to explain, find the authoritative
 definition and note it **together with where you got it**. This is the only place this skill
-adds content the source did not have, so every definition carries its provenance and step 6
-verifies it. Where to look depends on the kind of term:
+adds content the source did not have, so every definition carries its provenance. The gate in
+step 6 compares the two texts only and cannot confirm a definition is true, so the provenance
+is what lets the author check it. Where to look depends on the kind of term:
 
 - **Repo-native terms**, a model, an ADR concept, a setting, have a source here. Read it and
   cite it.
@@ -263,16 +264,20 @@ both. Step 5 was yours. This one is not yours, because you cannot audit a text a
 source you have just spent two passes reshaping.
 
 Dispatch the **`doc-accuracy-reviewer`** agent, Sonnet at high effort per the Delegation
-table in `CLAUDE.md`. Pass it four things: the source path, the rewrite path, the ground
-truth behind every definition you added in step 2, and your changelog of deliberate cuts,
-without which it cannot tell a cut from a loss. It checks that nothing was lost, nothing
-altered in meaning or force, nothing invented, and that every count in the document adds up,
-and it re-verifies your added definitions itself rather than trusting your citations.
+table in `CLAUDE.md`. Pass it three things: the source path, the rewrite path, and your
+changelog of deliberate cuts, without which it cannot tell a cut from a loss. It compares the
+two texts against each other and nothing else, deliberately: it does not research the repo,
+because that costs far more than it returns here. It checks that nothing was lost, that
+nothing changed meaning or force, that every count adds up, and it recognizes a concept
+restated in different words as unchanged rather than reporting it.
 
-If the agent type does not resolve, which can happen for a while after the agent file is
-first added, dispatch a Sonnet `general-purpose` agent and tell it to read
-`.claude/agents/doc-accuracy-reviewer.md` and adopt it as its brief. A registration problem
-is not a reason to skip the gate.
+Agent definitions are snapshotted when the type first registers, not re-read on each
+dispatch. Two situations therefore need the fallback: the type does not resolve at all, which
+happens for a while after the file is first added, and the brief has been edited during this
+session, in which case the live type silently still holds the old text and its old tool list.
+In either case dispatch a Sonnet `general-purpose` agent and tell it to read
+`.claude/agents/doc-accuracy-reviewer.md` and adopt it as its brief, which reads the file
+fresh from disk. Neither situation is a reason to skip the gate.
 
 - **Nothing ships past a FAIL.** Correct what it found and dispatch it again on the
   corrected text. A gate you overrule is not a gate.
@@ -280,9 +285,10 @@ is not a reason to skip the gate.
   rather than a wording correction.
 - **Do not argue with a finding you cannot disprove.** If the agent has it wrong, show the
   ground truth that makes it wrong. Otherwise treat the finding as correct.
-- The added definitions are the highest-risk part of the rewrite, because a plausible wrong
-  definition reads as authoritative. Make sure the agent's report says explicitly which ones
-  it checked.
+- **The agent flags what the rewrite added; it does not certify it.** Confirming an added
+  definition needs the research this gate deliberately skips. Its Additions list is therefore
+  the rewrite's residual risk, and closing it is the author's job: carry that list into step 7
+  so a human sees it, and never treat a PASS as evidence that a definition you wrote is true.
 
 An unverified rewrite is not done.
 
@@ -295,7 +301,8 @@ substantive question you left untouched because it is upstream work rather than 
 concern. If a section required for this document type was missing from the source
 entirely, call that out explicitly rather than silently filling it in.
 
-Report alongside the changelog: the word count before and after, the accuracy gate's verdict
-with any finding you corrected because of it, and the definitions the rewrite added with the
-ground truth each came from. If the gate could not be run, say so in place of a verdict
-rather than leaving it unmentioned.
+Report alongside the changelog: the three word counts, the gate's verdict with any finding
+you corrected because of it, and **every definition the rewrite added, with its provenance
+and a note that nobody has confirmed it**. That last list is the one thing here a human must
+act on rather than read, so do not bury it. If the gate could not be run, say so in place of
+a verdict rather than leaving it unmentioned.
