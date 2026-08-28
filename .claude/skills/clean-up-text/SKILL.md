@@ -1,6 +1,6 @@
 ---
 name: clean-up-text
-description: Editorial and structural cleanup of an already-written technical text (a doc, ADR, README, RFC, design note, PR or commit body, migration guide, long chat write-up), then a rewritten version written to a new local file. Use when asked to clean up, tighten, trim, de-bloat, condense, restructure, or improve the writing of an existing technical document, or for a brutally honest review of how well it reads. It first audits what the text assumes its reader already knows, grades the text across fixed dimensions (prerequisites, lead, structure, length, bloat, level of detail, grounding accuracy, readability, helpfulness for a junior human and for an AI reader), rewrites it toward whatever canonical shape that kind of document has, and then sends the rewrite to a dedicated accuracy reviewer that confirms nothing was lost, altered, or invented. It does NOT reopen the decisions the text records; beyond defining what a reader needs in order to follow the text, it invents no content and preserves the substance. For a ticket or issue specifically, use clean-up-ticket instead. Advisory: writes to a new local file, never overwrites the source and never publishes anywhere.
+description: Editorial and structural cleanup of an already-written technical text (a doc, ADR, README, RFC, design note, PR or commit body, migration guide, long chat write-up), then a rewritten version written to a new local file. Use when asked to clean up, tighten, trim, de-bloat, condense, restructure, or improve the writing of an existing technical document, or for a brutally honest review of how well it reads. It audits what the text assumes its reader already knows, grades it against a fixed rubric, rewrites it toward whatever canonical shape that kind of document has, and sends the result to a dedicated accuracy reviewer that confirms nothing was lost, altered, or invented. It does NOT reopen the decisions the text records; beyond defining what a reader needs in order to follow the text, it invents no content and preserves the substance. For a ticket or issue specifically, use clean-up-ticket instead. Advisory: writes to a new local file, never overwrites the source and never publishes anywhere.
 ---
 
 # Clean up a technical text
@@ -18,10 +18,8 @@ document should say.
   of document.
 - **It is not** content or design interrogation. It preserves the substance and the
   decisions the text records; it does not ask the user clarifying questions, dispatch
-  planning experts, or add and remove claims. The one exception is definitional: where the
-  text leans on a term or a relationship it never explains, the rewrite may state what that
-  thing is, sourced from ground truth and verified by step 6. Explaining what the source
-  assumed is not the same as adding a claim of your own.
+  planning experts, or add and remove claims. The one exception is definitional, and step 2
+  governs it: explaining what the source assumed is not adding a claim of your own.
 - **When to hand off instead:** if the substance is unclear or contested, the point the
   document is making is missing, or a decision it records is genuinely unsettled, this is
   the wrong skill. Say so and point upstream (back to the author, to an ADR for a design
@@ -49,20 +47,25 @@ review which shape you chose and why, and hold it consistently through the rewri
 
 ## Model and context
 
-Whoever runs this skill does the review and the rewrite; that judgment is the whole point
-of the skill. The text under review and its template are small, read them inline. Per the
+Whoever runs this skill does the review and the rewrite; that judgment is the whole point of
+the skill. The text under review and its template are small, read them inline. Per the
 Delegation rule in `CLAUDE.md`, if you are the top-level session, push context-heavy
 *fetching* down yourself: a URL or a published page to a Sonnet sub-agent, code-location
-lookups to a Haiku `Explore`. Never read a neighbor repo (`openedx-platform`,
-`frontend-app-authoring`) into context to verify a claim; use its overview doc, or dispatch a
-narrow Sonnet sub-agent per the same rule.
+lookups to a Haiku `Explore`, a neighbor repo (`openedx-platform`, `frontend-app-authoring`)
+never into your own context.
 
 **If you were dispatched to run this skill**, none of the dispatching above is yours to do,
-because you have no Agent tool. Fetch nothing yourself: return a "Needs research" item to
-whoever dispatched you. Step 6's accuracy gate is also a dispatch, so you cannot run it
-either. Finish the rewrite, then return the gate as an explicit "Needs verification" item
-naming the source path, the rewrite path, and the ground truth behind every definition you
-added. Never skip the gate silently, and never self-certify accuracy in its place.
+because you have no Agent tool. You keep your own read tools, so run the cheap local checks
+yourself, a `grep` or a file read, exactly as a top-level runner would. What you cannot do is
+delegate: return a "Needs research" item for anything needing a network fetch or a sub-agent.
+Step 6's accuracy gate is also a dispatch, so finish the rewrite and return the gate as a
+"Needs verification" item naming the source path, the rewrite path, your changelog, and the
+ground truth behind every definition you added. Never skip the gate silently, and never
+self-certify accuracy in its place.
+
+Stated plainly, because it is otherwise an inference across two sections: **a dispatched run
+of this skill never reaches a finished state.** It always ends at a handoff, because the gate
+that would finish it is not yours to run.
 
 ## 1. Get the text and ground it
 
@@ -70,6 +73,9 @@ added. Never skip the gate silently, and never self-certify accuracy in its plac
   delegate the fetch to a Sonnet sub-agent, never inline. If the source carries review
   feedback alongside it (PR review comments, doc comments, an email thread), read that
   too; a reviewer may have already flagged a factual error you would otherwise reproduce.
+  Check whether the input is also read as live configuration somewhere (a `CLAUDE.md`, a
+  skill, a settings file). If it is, say so in the review: the rewrite is a proposal about
+  something with behavior attached, not just a document.
 - **Spot-check the falsifiable claims**, cheaply and targeted. Does each referenced file,
   function, setting, and command exist? Are the line numbers accurate? Is a categorical
   assertion ("there is no way to X", "this always happens") actually true? A couple of
@@ -77,10 +83,8 @@ added. Never skip the gate silently, and never self-certify accuracy in its plac
   anything wrong or overstated, it feeds both the review and the rewrite. **Treat line
   numbers as a liability even when currently correct:** they rot on the next merge and
   read as false precision, so the rewrite drops them.
-- **Note any reference a reader of the finished text could not follow.** Internal ticket
-  or spreadsheet IDs, local scratch filenames, "as we discussed", a link only the author
-  can open. The rewrite replaces each with a public equivalent, restates the load-bearing
-  content inline, or drops it.
+- **Note any reference a reader of the finished text could not follow**, for the rewrite to
+  deal with under "Every reference must be one the reader can follow" in step 4.
 
 ## 2. Audit what the reader must already know
 
@@ -100,12 +104,19 @@ reliably flatters the source.
    contains what, what is derived from what, which of several similarly named things is the
    one that matters here, and in what order things happen.
 
-Then close the gaps. For each entry on either list that the rewrite will need to explain,
-read the authoritative source in this repo, the ADR or the model or the module that defines
-it, and note the definition **together with where you got it**. This is the only place this
-skill adds content the source did not have, so every added definition carries its source and
-step 6 verifies it. Stay bounded: look up what the reader needs defined, not everything
-nearby.
+Then close the gaps. For each entry the rewrite will need to explain, find the authoritative
+definition and note it **together with where you got it**. This is the only place this skill
+adds content the source did not have, so every definition carries its provenance and step 6
+verifies it. Where to look depends on the kind of term:
+
+- **Repo-native terms**, a model, an ADR concept, a setting, have a source here. Read it and
+  cite it.
+- **External vocabulary**, a third-party tool, an ecosystem term, an acronym, has no in-repo
+  source and never will. Define it from general knowledge and mark the definition
+  **unsourced**, so step 6 scrutinizes it and the author can confirm it. Do not hunt the repo
+  for a definition that cannot be there.
+
+Stay bounded: look up what the reader needs defined, not everything nearby.
 
 If both lists come back empty, that is a real result. Say so in the review and move on.
 
@@ -117,11 +128,16 @@ brutally honest but fair: name the genuine strengths too, a review that only att
 not trustworthy. Grade each dimension (A-F is fine) so the author sees at a glance where
 it stands.
 
+Scale the review to the source. Every dimension gets a grade, always, but only the ones that
+are actually costing the reader get a written justification; the rest need a few words. A
+review that approaches the length of the document it reviews has become part of the bloat
+problem it exists to name.
+
 Rubric:
 
 | Dimension | The question it asks |
 | --- | --- |
-| Prerequisites | Can the intended reader enter the document at all? Grade against step 2's two lists, weighted by what the gaps actually cost: a term the argument turns on counts, a term mentioned once in passing does not. Nearly every real technical document has a non-empty list, so the list alone is not the finding. What it means is that the rewrite owes the reader a prerequisites section. |
+| Prerequisites | Can the intended reader enter the document at all? Grade against step 2's lists, weighted by what each gap costs: a term the argument turns on counts, one mentioned in passing does not. Nearly every real document has a non-empty list, so the list alone is not the finding; what it means is that the rewrite owes the reader a prerequisites section. |
 | Lead | Does the first line say what this document is and what it wants from the reader, or is the point buried under preamble, history, and throat-clearing? Would a reader who stops after the first paragraph have the main thing? |
 | Scoping discipline | Is the subject bounded, and is the boundary stated where a reader would wonder? Is related-but-separate material disentangled and referenced rather than inlined and re-explained? |
 | Grounding accuracy | Are the concrete claims (files, functions, commands, versions, line numbers, "there is no way to X") true? Which will rot? |
@@ -136,8 +152,8 @@ Rubric:
 ## 4. Rewrite to a new local file
 
 Write the improved text to a **new** file (e.g. `<original-name>-cleaned.md`, or
-`<slug>-cleaned.md` for pasted text) in the repo root or scratchpad. Never overwrite the
-source. Apply these editorial principles, they are the method. Four of them do most of the
+`<slug>-cleaned.md` for pasted text) in the repo root or scratchpad. Apply these editorial
+principles, they are the method. Four of them do most of the
 work on a first draft: lead with the point, give the reader the model first, say each idea
 once, and turn same-shaped prose into a table. Draft with those four, then run the rest as a
 checklist during step 5 rather than trying to hold all of them at once.
@@ -154,32 +170,23 @@ checklist during step 5 rather than trying to hold all of them at once.
   ("Skip this if you know the model"), and source every definition. It usually pays for
   itself: once the model is stated once, every item below stops re-explaining it.
 - **Say each idea once, canonically.** DRY applies to prose. State each rule, invariant,
-  and decision in exactly one place, and let any plain-language summary elsewhere give the
-  same fact rather than a second, divergent one. Redundant copies drift out of sync when
-  the document is edited and become contradictions.
-- **Keep the altitudes separate.** A summary, the body, and a reference table are
-  different altitudes on the same material, not three copies of it. When two sections say
-  the same thing at the same level of detail, one of them is dead weight: pick the
-  canonical home and cut the other down to a pointer.
-- **Every section earns its place.** Keep an optional section only if it carries something
-  essential the rest does not. Cut it to a few terse sentences, put it where a reader would
-  look for it, and strip out material that belongs in a different section. If nothing
-  survives that filter, delete the section.
-- **Never delete a section for its bloat alone.** This and the bullet above are different
-  tests, and both apply: "earns its place" asks whether any substance survives, while this one
-  forbids cutting for length. A required section that is merely padded gets trimmed, never
-  deleted. A section with no substance left goes. If a section is required for this
-  document type, keep it and cut only the duplication and narration inside it. If a
-  required section is missing from the source entirely, flag that as a gap rather than
-  silently inventing content to fill it. Being required does not license padding either.
-- **Give dense technical content both halves.** A few plain-language paragraphs, one per
-  major mechanism or decision, each with a bold lead-in phrase, that a non-specialist can
-  follow; and a bullet list of the concrete facts the prose does not spell out, one per
-  signature, file location, rule, or constraint. If the source is a wall of dense bullets
-  with no prose on-ramp, write the missing paragraphs from what the bullets already say,
-  do not invent new claims. If it is unstructured prose, extract its concrete facts into
-  bullets underneath. Keep every real technical fact the source had in one half or the
-  other.
+  and decision in exactly one place; redundant copies drift apart on the next edit and
+  become contradictions. A summary, the body, and a reference table are three altitudes on
+  the material, not three copies of it, so a summary may restate a fact more briefly but
+  never at the same level of detail. Where two passages sit at the same altitude, pick the
+  canonical home and cut the other to a pointer.
+- **Two tests decide a section's fate, and both apply.** Does it carry something essential
+  the rest does not, and is it required for this document type? An optional section carrying
+  nothing essential gets deleted. Everything else gets trimmed, never deleted: cut the
+  duplication and the narration inside it, put it where a reader would look, and move out
+  material belonging to another section. Length alone is never grounds for deleting a
+  section, and being required never licenses padding. If a required section is missing from
+  the source, flag the gap rather than inventing content to fill it.
+- **Give dense technical content both halves.** A plain-language paragraph per major
+  mechanism, each with a bold lead-in, that a non-specialist can follow; and beneath it the
+  concrete facts, one bullet per signature, file location, rule, or constraint. Supply
+  whichever half the source lacks, drawn from what it already says rather than from new
+  claims, and keep every technical fact it had in one half or the other.
 - **Explain a mechanism before naming consequences of it.** A reader who does not yet know
   how something works cannot evaluate a claim about what it costs. Reorder where the
   source gets this backwards.
@@ -189,12 +196,11 @@ checklist during step 5 rather than trying to hold all of them at once.
   Before deleting such a passage, check whether it is the only place carrying a real
   decision or constraint; if it is, move that content into its proper section first, then
   delete the passage.
-- **No line numbers.** Name files and functions; the reader navigates. Drop stale or
-  fragile precision.
-- **Public references only.** Replace every internal ID, scratch filename, private link, and
-  bare in-conversation pointer ("as suggested on <date>", "as we discussed", "see the thread")
-  with a reference a reader outside the conversation could open, restate the load-bearing
-  content inline, or drop it.
+- **Every reference must be one the reader can follow.** Drop line numbers and name the file
+  and function instead; the reader navigates, and line numbers rot. Replace internal IDs,
+  scratch filenames, private links, and bare in-conversation pointers ("as suggested on
+  <date>", "as we discussed", "see the thread") with a public equivalent, restate the
+  load-bearing content inline, or drop it.
 - **Bullets for enumerables.** Anything you can count (out-of-scope items, files, steps,
   options) is a list, not a bold-studded paragraph. Reserve bold for the few things that
   must not be missed. For a decision with a few distinct options, use a comparison table
@@ -225,18 +231,22 @@ checklist during step 5 rather than trying to hold all of them at once.
   marker taxonomy or a numbering convention, is a cost rather than a free improvement: adopt
   it only where it tells the reader something the section headings do not, and drop it once
   the headings carry it.
-- **Count the words: the source, the rewrite, and the rewrite minus any prerequisites
-  section.** Run `wc -w`, never estimate, and report all three. The third number is the test:
-  the body must come in at or under the source, because the prerequisites section is the only
-  growth this skill licenses. If the body will not come down, say so plainly and say why,
-  rather than forcing real deletions to hit a number or quietly declaring victory. A source
-  that explained nothing inline has little for a prerequisites section to reclaim, so a total
-  that grows by roughly what that section cost is an honest outcome. A body that grew is not.
+
+### The length check
+
+Unlike the bullets above, which are craft, this is a pass/fail gate. Run it as a check.
+
+Count the words with `wc -w`, never by estimate, and report all three numbers: the source,
+the rewrite, and the rewrite minus any prerequisites section. **The third is the test: the
+body must come in at or under the source**, because the prerequisites section is the only
+growth this skill licenses. A total that grew by roughly what that section cost is an honest
+outcome. A body that grew is not. If the body will not come down, say so and say why, rather
+than forcing real deletions to hit a number or quietly declaring victory.
 
 ## 5. Second pass: re-review your own rewrite
 
 Do not trust the first rewrite. Re-read it cold, as if someone else wrote it, and put it
-back through the step 2 rubric. The first pass reliably leaves residual redundancy in the
+back through the step 3 rubric. The first pass reliably leaves residual redundancy in the
 technical middle: the same mechanism restated in two sections, or a leftover summary
 paragraph that should have been deleted outright once its content moved. Hunt that
 specifically, and check that sections which should sit at different altitudes actually do
@@ -253,15 +263,16 @@ both. Step 5 was yours. This one is not yours, because you cannot audit a text a
 source you have just spent two passes reshaping.
 
 Dispatch the **`doc-accuracy-reviewer`** agent, Sonnet at high effort per the Delegation
-table in `CLAUDE.md`, passing the source path, the rewrite path, and every ground-truth
-source behind a definition you added in step 2, and the changelog of what you cut on
-purpose, which the agent needs in order to tell a deliberate cut from a loss. If the agent
-type does not resolve, which can happen for a while after the agent file is first added,
-dispatch a Sonnet `general-purpose` agent instead and tell it to read
+table in `CLAUDE.md`. Pass it four things: the source path, the rewrite path, the ground
+truth behind every definition you added in step 2, and your changelog of deliberate cuts,
+without which it cannot tell a cut from a loss. It checks that nothing was lost, nothing
+altered in meaning or force, nothing invented, and that every count in the document adds up,
+and it re-verifies your added definitions itself rather than trusting your citations.
+
+If the agent type does not resolve, which can happen for a while after the agent file is
+first added, dispatch a Sonnet `general-purpose` agent and tell it to read
 `.claude/agents/doc-accuracy-reviewer.md` and adopt it as its brief. A registration problem
-is not a reason to skip the gate. It runs three checks, nothing lost, nothing
-altered in meaning or force, and nothing invented, and it verifies your added definitions
-itself instead of trusting your citations.
+is not a reason to skip the gate.
 
 - **Nothing ships past a FAIL.** Correct what it found and dispatch it again on the
   corrected text. A gate you overrule is not a gate.
@@ -273,16 +284,13 @@ itself instead of trusting your citations.
   definition reads as authoritative. Make sure the agent's report says explicitly which ones
   it checked.
 
-If you cannot dispatch because you are yourself a sub-agent, return the gate as a "Needs
-verification" item per **Model and context** above. An unverified rewrite is not done.
+An unverified rewrite is not done.
 
 ## 7. Summarize what changed and why
 
 Close with a short changelog: each significant cut or restructure traced to the principle
-behind it (bloat, redundancy, over-specification, a buried point, stale line numbers, a
-duplicated summary deleted, an internal ID swapped for a public reference, sections
-reordered, a lead rewritten as bullets for a genuinely multi-point document, a factual
-fix). State what you deliberately kept and why. Call out, as one explicit judgment, any
+behind it, naming the principle rather than describing the edit. State what you deliberately
+kept and why. Call out, as one explicit judgment, any
 substantive question you left untouched because it is upstream work rather than a cleanup
 concern. If a section required for this document type was missing from the source
 entirely, call that out explicitly rather than silently filling it in.
