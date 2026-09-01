@@ -131,6 +131,28 @@ Other context-hygiene defaults:
 - To understand current architecture decisions, refer to ADRs (docs/decisions).
 - Document impactful architecture decisions in new ADRs in proposed status.
 
+## Frontend repositories (e.g. `frontend-app-authoring`)
+
+This file is written primarily for `openedx-core` (the Django backend library). When the
+actual work is in a JS/TS frontend repo instead (an Open edX MFE such as
+`frontend-app-authoring`), the following overrides the backend-specific sections above:
+
+- Read that repo's own `AGENTS.md` first. It is the authoritative source for that repo's
+  own conventions (TypeScript, imports, data fetching, testing, i18n), not this file's
+  Django-oriented guidance.
+- Verify with that repo's own tools, not Python's: typically `npx tsc --noEmit`,
+  `npx oxlint --type-aware --deny-warnings` (scoped to touched files), `npx dprint check`,
+  `npx stylelint` on any touched SCSS, and `npx jest <touched paths> --coverage=false`. Skip
+  the repo's slow full-suite command (e.g. `make validate`) for the same reason the
+  backend section above skips `make test`: too slow, too much output for one change.
+- Reuse the Paragon design system (`@openedx/paragon`) as much as possible for any UI
+  work. Before writing custom markup or CSS for a visual element, check whether an
+  existing Paragon component already covers it, including checking its actual compiled
+  CSS and props rather than assuming from memory. If something genuinely isn't available
+  in Paragon, flag it as early as possible, before implementation, not just once the PR
+  is up, and call it out in the PR description too, so the community can consider adding
+  it to Paragon upstream instead of it living on as a one-off.
+
 ## Comments and docstrings
 
 - Comment why, not what. No change narration ("updated X", "as requested", "was Y").
