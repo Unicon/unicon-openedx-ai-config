@@ -1,6 +1,6 @@
 ---
 name: todo
-description: Read and update the developer's personal one-screen progress sheet at .claude/my-todo.md, and help them decide what to work on next. Covers priority calls, three pomodoro-sized to-dos a day, cutting big work into day-sized pieces, folding a brain dump into the sheet, starting and ending the day, tracking the developer's own hands-on work alongside the Claude sessions, whose status a hook keeps current, and moving finished items to the log. Manual only, invoked when the developer types /todo and at no other time.
+description: Read and update the developer's personal one-screen progress sheet at .claude/my-todo.md, and help them decide what to work on next. Covers priority calls, three pomodoro-sized to-dos a day, cutting big work into day-sized pieces, folding a brain dump into the sheet, starting and ending the day, tracking the developer's own hands-on work alongside the Claude sessions, whose status a command computes fresh from each session's transcript, and moving finished items to the log. Manual only, invoked when the developer types /todo and at no other time.
 disable-model-invocation: true
 ---
 
@@ -42,6 +42,10 @@ These files are the developer's personal notes, not AI configuration. The rule i
 `CLAUDE.md` about not modifying `.claude/` without being asked is satisfied by the
 developer typing `/todo`, which is the explicit ask. It covers these four files and
 nothing else: never edit any other file under `.claude/` from this skill.
+
+`.claude/agent-status.md` is a fifth file, but it is not this skill's to write: `list`,
+covered under *Keeping IN FLIGHT true* below, generates it as a side effect. Get the
+session overview by running that command; never edit the file directly.
 
 ## Archiving the sheet once a day
 
@@ -224,59 +228,59 @@ Run this at the start of every `/todo` invocation, before you print or change an
 /usr/bin/python3 .claude/hooks/agent-status.py list
 ```
 
-It prints one line per Claude Code session: the session's name, the task it was given, its
-status, and when that status last changed. A hook writes each line as the session runs, so
-the status is the session's own account of itself rather than a guess from the outside, and
-reading it opens no conversation. A final line counts the sessions that are open but have
-never reported, which are empty editor tabs or sessions started before the hook existed.
+It computes fresh from each live session's own transcript and prints three buckets, most
+urgent first: `NEEDS YOU`, `WORKING`, `IDLE`. Each row carries the session's name (with its
+pid appended when the name is ambiguous), a task title, one of five statuses, and how long
+since the session last did anything. A `needs answer` row carries an indented `asks:` line
+with the question it is blocked on. A `working` row may carry an indented line naming its
+running subagents. The command hides sessions the developer has dismissed and that have not
+moved since, sessions idle for more than eight hours, and empty tabs with no transcript. It
+also prints at most six `IDLE` rows, keeping the ones that moved most recently. Each of those
+groups is reported as a count in a trailing line rather than as a row.
 
-Translate its statuses into the sheet's words:
+Translate its five statuses into the sheet's words:
 
-| The log says | The sheet says | Because |
+| The command says | The sheet says | Because |
 | --- | --- | --- |
+| `needs answer` | `NEEDS ME` | The session ended its turn asking a question, so it is blocked until the developer replies. |
+| `needs permission` | `NEEDS ME` | The session is sitting on an unanswered tool call, so it is blocked until the developer approves or denies it. |
 | `working` | `agent working` | A turn is running and nothing is needed from the developer. |
-| `waiting for answer` | `NEEDS ME` | The session ended its turn by asking something, so it is blocked until the developer replies. |
-| `Completed` | `done, review it` | The session finished what it was asked and produced output nobody has looked at yet. |
-| `working · closed` | `interrupted` | The process exited mid-turn, so the work stopped partway and may be worth resuming. |
-| `waiting for answer · closed` | `interrupted` | The tab is gone with the question unanswered, so the work needs picking back up. |
-| `Completed · closed` | nothing | Finished, and the editor tab is gone. Keep it off the sheet. |
+| `finished` | `done, review it` | The session finished what it was asked and produced output nobody has looked at yet. |
+| `interrupted` | `interrupted` | The turn was stopped before it finished, so the work sits partway and may be worth resuming. |
 
 Rules for using it:
 
-- The log owns exactly the rows whose `what` starts with `🤖`, and no others. It may add,
+- The command owns exactly the rows whose `what` starts with `🤖`, and no others. It may add,
   update, or remove those. Every row without the robot is something the developer told you
-  about, so never rewrite its state from the log, even when its `where` names the same
-  repository.
+  about, so never rewrite its state from the command's output, even when its `where` names the
+  same repository.
 - Stay inside the repositories already on the sheet. A session somewhere else is not part of
   the developer's overview; if one outside the sheet is running, say so as a count in one
   chat line and do not add a row.
-- Report the never-reported count in one line rather than as rows, and say what it means:
-  "Nine sessions are open but have reported nothing, so they are empty tabs or they predate
-  the status hook."
+- Report the trailing hidden-session counts in one chat line rather than as rows, e.g. "3
+  hidden: 2 dismissed and unchanged, 1 abandoned for over 8h; 4 open tabs never used."
 - Keep `not started` for a task the developer named but has not begun. It is a fact about
-  their work, not something the log ever produces.
-- The `what` cell is the log's task, cut to about 30 characters while keeping the part the
-  developer will recognize: "Use the spike-and-stabilize skill to implement issue #641"
-  becomes `🤖 Implement issue #641`. The task is the session's opening prompt, so it can be
-  stale for a session that has moved on. When the developer corrects a label, keep their
-  words: theirs are better than the prompt they typed an hour ago. A task reading
-  `(task not recorded)` means the session was mid-turn when the hook was installed, so use
-  the developer's own description of it, or `🤖 (ask it)` when they have none.
+  their work, not something the command ever produces.
+- The `what` cell is the command's title, Claude Code's own continuously-refreshed summary of
+  the session (`PR #39054 and review #676`, `Issue 642 implementation`): already short and
+  already current. Cut it to about 30 characters only if it does not fit. When the developer
+  corrects a label, keep their words: theirs beat any summary.
 - Build the `where` value from the session name, which is the session's directory followed by
   two characters that tell sessions in the same directory apart. `openedx-core-39` becomes
   `core-39`, `unicon-openedx-ai-config-6a` becomes `ai-config-6a`, and a worktree session like
   `wt-640-cbe-foundation-16` keeps its worktree name. Keep the cell under about 26 characters.
-- The full session name, `openedx-core-39`, is the only handle that identifies a session
-  anywhere else: it is what `ListAgents` prints and what `SendMessage` addresses. Keep the
-  sheet cell short and give the full name in your chat line instead, so the developer can
-  match the row to a session.
+- The session name is not a unique handle: derived names collide, so two live sessions can
+  both be named `unicon-openedx-ai-config-6a`. `ListAgents` and `SendMessage` still address a
+  session by name, so when the command appends a pid to mark a name ambiguous, carry that
+  name-plus-pid form into your chat line too, so the developer can tell the rows apart.
 - When the six-row limit bites, keep `NEEDS ME` rows first, then `interrupted`, then
   `done, review it`, then `agent working`, and say which rows did not fit.
 - When the developer says they have no idea what a session is, offer to ask the session
-  itself: `SendMessage` to its full name with one question, "In one line: what are you
-  working on, and what do you need from Jesper?" Get approval first, because the message
-  wakes that session and shows up in its conversation. Never message a session whose status
-  is `working`, which is mid-task, and use whatever comes back as the `what` value.
+  itself: `SendMessage` to its name (with the pid too, if the command showed one) with one
+  question, "In one line: what are you working on, and what do you need from Jesper?" Get
+  approval first, because the message wakes that session and shows up in its conversation.
+  Never message a session whose status is `working`, which is mid-task, and use whatever
+  comes back as the `what` value.
 - Asking makes that session run for a minute or two while it answers, so its status on the
   next run says `working` because of your question rather than because of real work. Say so
   rather than reporting it as progress.
@@ -286,7 +290,7 @@ Rules for using it:
 ### When the developer says a session is finished
 
 A session stays open in the editor long after its work is done, so it sits there reading
-`done, review it` forever. Only the developer can say they are finished with it: `Completed`
+`done, review it` forever. Only the developer can say they are finished with it: `finished`
 means the agent stopped without a question, which usually means something came back for them
 to look at. Never decide on your own that a session is done.
 
@@ -294,17 +298,13 @@ When they do say it, take three steps:
 
 1. Append a line to the log in exactly this shape, with the time as well as the date:
    `- 2026-08-27 11:20 — Competency taxonomy accessor tests (session wt-640-cbe-foundation-16 done)`
-2. Take the row off the sheet.
+2. Run `/usr/bin/python3 .claude/hooks/agent-status.py dismiss <session-id-or-name>` for that
+   session, and take its row off the sheet. The command hides that row until the session's
+   transcript changes again, at which point the developer has picked the work back up and the
+   row reappears on its own with whatever the status now says. When the name matches more than
+   one live session, the command refuses and prints each candidate's session id, so run it
+   again with the session id belonging to the row the developer meant.
 3. Say nothing more about it.
-
-On later invocations you decide for yourself whether such a session is still dismissed, by
-comparing two times you already have: the time on the `done` line in the log, and the
-last-change time the status command printed for that session. If the status has not changed
-since the developer dismissed it, the session has been quiet ever since, so leave it off the
-sheet and say nothing about it. If the status has changed, the developer picked the work back
-up in that same session, so put the row back with whatever the status now says. Suggest
-closing the editor tab as well, since a closed session's row drops off the sheet on its own
-once it reads `Completed · closed`.
 
 The state words in the table below are the only ones allowed anywhere in the `state` column.
 Uppercase is reserved for the one state where something is stuck until the developer acts, so
@@ -316,7 +316,7 @@ lowercase even though it is waiting on the developer too.
 | `NEEDS ME` | An agent or a person is blocked until the developer answers or decides. |
 | `agent working` | A Claude agent is running and nothing is needed from the developer. |
 | `done, review it` | A Claude session finished its task and nobody has looked at the output yet. |
-| `interrupted` | A Claude session's process exited part-way through. Restarting it is the developer's call. |
+| `interrupted` | A Claude session's turn was stopped part-way through. Resuming it is the developer's call. |
 | `me working` | The developer is doing this one by hand right now. No agent involved. |
 | `waiting on CI` | A build or test run has to finish. |
 | `waiting on <name>` | Another person owes an answer or a review. |
@@ -435,8 +435,7 @@ repeat a nudge the developer has already answered.
 - Take the `updated:` stamp from `date` output. Never guess the time.
 - Append to the log one line per item, newest at the bottom. A finished to-do carries the
   date: `- 2026-08-27 — Draft ticket 5.10c (ai-config)`. A finished Claude session carries the
-  time too, and the session's full name, so a later `/todo` can tell a session the developer
-  dismissed from one they picked the work back up in:
+  time too, and the session's full name, so the log says which session produced the work:
   `- 2026-08-27 11:20 — Competency taxonomy accessor tests (session wt-640-cbe-foundation-16 done)`.
 - Never dispatch a sub-agent from this skill. Reading and rewriting a 45-line file is cheaper
   inline, and a dispatch would lose the conversation the sheet is built from.
