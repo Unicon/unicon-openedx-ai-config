@@ -1,6 +1,6 @@
 ---
 name: todo
-description: Read and update the developer's personal one-screen progress sheet at .claude/my-todo.md, and help them decide what to work on next. Covers priority calls, three pomodoro-sized to-dos a day, cutting big work into day-sized pieces, folding a brain dump into the sheet, starting and ending the day, tracking the developer's own hands-on work alongside the Claude sessions, which the bundled sessions.sh script keeps current, and moving finished items to the log. Manual only, invoked when the developer types /todo and at no other time.
+description: Read and update the developer's personal one-screen progress sheet at .claude/my-todo.md, and help them decide what to work on next. Covers priority calls, three pomodoro-sized to-dos a day, cutting big work into day-sized pieces, folding a brain dump into the sheet, starting and ending the day, tracking the developer's own hands-on work alongside the Claude sessions, whose status a hook keeps current, and moving finished items to the log. Manual only, invoked when the developer types /todo and at no other time.
 disable-model-invocation: true
 ---
 
@@ -23,10 +23,13 @@ touch the files below outside a `/todo` invocation, even if a task looks related
 
 ## The four files
 
-- `.claude/my-todo.md` is the sheet. Everything that matters now lives here.
+- `.claude/my-todo.md` is the sheet. Everything that matters now lives here, including a
+  `BACKLOG` section that holds only the near-term queue: items the developer is actually
+  looking at for today or tomorrow.
 - `.claude/my-todo-log.md` is the append-only record of finished items.
-- `.claude/my-todo-someday.md` is the overflow dump for backlog items that do not fit on
-  the sheet. Nothing in it is scheduled or ordered.
+- `.claude/my-todo-someday.md` is the developer's real backlog. Everything that is not on
+  that today-or-tomorrow horizon lives here instead, whether it arrived as overflow past the
+  sheet's ten-line limit or was always further out. Nothing in it is scheduled or ordered.
 - `.claude/my-todo-archive.md` is an append-only daily snapshot of the sheet, kept purely
   as a history the developer can scroll back through. Nothing reads from it.
 
@@ -55,6 +58,17 @@ or trims it.
 - If the archive file does not exist yet, create it with the Write tool.
 - Skip the append on the same day the sheet was already archived; check the archive's last
   heading before writing to avoid a duplicate entry.
+
+## Daily PR check
+
+The same once-a-day trigger above also asks one standing question, on whichever `/todo`
+path happens to hit it first that day: "Were you assigned any PRs to review, or do you need
+to respond to any PR reviews or comments?" Ask it once per calendar day, right alongside the
+archiving step, regardless of whether the developer typed a bare `/todo`, a brain dump, or
+"start my day." Fold whatever comes back into the sheet like any other update, a new
+backlog line, a `TODAY` slot, or nothing if the answer is no, and do not ask it again until
+the next day's rollover. This question is separate from, and not counted against, the
+"ask at most three questions" cap on the *"Start my day"* flow below.
 
 ## The shape of the sheet
 
@@ -197,7 +211,7 @@ All of it belongs on the sheet, and all of it competes for the same three daily 
 - `IN FLIGHT` holds anything genuinely in progress, whoever is doing it. `me working` is the
   developer at the keyboard; `agent working` is a Claude session.
 - Every row driven by a Claude session starts its `what` cell with `🤖`. Rows without the
-  robot are the developer's own. This is what tells `sessions.sh` which rows it owns, so the
+  robot are the developer's own. This is what marks the rows the status log owns, so the
   marker is not decoration: put it on every agent row and on no other row.
 - A row does not need a repository. `where` is wherever the work lives: `core`, `ai-config`,
   `Jira 5.10c`, `email`, `a Google Doc`, or `-` when it lives nowhere in particular.
@@ -207,108 +221,74 @@ All of it belongs on the sheet, and all of it competes for the same three daily 
 Run this at the start of every `/todo` invocation, before you print or change anything:
 
 ```
-bash .claude/skills/todo/sessions.sh
+/usr/bin/python3 .claude/hooks/agent-status.py list
 ```
 
-It prints one line per live Claude Code session: the session's name, the directory it runs
-in, its state, and how long it has been idle. A session in a state that could earn a row on
-the sheet also gets its transcript path, which the `--label` mode below takes as its
-argument.
+It prints one line per Claude Code session: the session's name, the task it was given, its
+status, and when that status last changed. A hook writes each line as the session runs, so
+the status is the session's own account of itself rather than a guess from the outside, and
+reading it opens no conversation. A final line counts the sessions that are open but have
+never reported, which are empty editor tabs or sessions started before the hook existed.
 
-Everything it reads is metadata: the session registry in `~/.claude/sessions/`, the
-modification time of each session's transcript, and one `ps` pass. It opens no conversation,
-and it lists no sub-agents, because the registry records only interactive sessions.
+Translate its statuses into the sheet's words:
 
-Translate its states into the sheet's words:
-
-| The script says | The sheet says | Because |
+| The log says | The sheet says | Because |
 | --- | --- | --- |
-| `busy` | `agent working` | It wrote to its transcript in the last two minutes, or it has a child process running right now. |
-| `needs-you` | `NEEDS ME` | Its turn ended, so it is sitting there waiting for the developer. |
-| `stale` | nothing | Idle for more than eight hours, which means an abandoned editor tab rather than work in progress. Keep it off the sheet. |
-| `never-used` | nothing | The session is open but was never given a prompt, so it is an empty tab, not work. Keep it off the sheet. |
+| `working` | `agent working` | A turn is running and nothing is needed from the developer. |
+| `waiting for answer` | `NEEDS ME` | The session ended its turn by asking something, so it is blocked until the developer replies. |
+| `Completed` | `done, review it` | The session finished what it was asked and produced output nobody has looked at yet. |
+| `working · closed` | `interrupted` | The process exited mid-turn, so the work stopped partway and may be worth resuming. |
+| `waiting for answer · closed` | `interrupted` | The tab is gone with the question unanswered, so the work needs picking back up. |
+| `Completed · closed` | nothing | Finished, and the editor tab is gone. Keep it off the sheet. |
 
 Rules for using it:
 
-- The script owns exactly the rows whose `what` starts with `🤖`, and no others. It may add,
+- The log owns exactly the rows whose `what` starts with `🤖`, and no others. It may add,
   update, or remove those. Every row without the robot is something the developer told you
-  about, so never rewrite its state from the script, even when its `where` matches a
-  directory the script reported.
-- Stay inside the directories already on the sheet. A session somewhere else is not part of
-  the developer's overview; if one outside the sheet is `busy`, say so as a count in one
+  about, so never rewrite its state from the log, even when its `where` names the same
+  repository.
+- Stay inside the repositories already on the sheet. A session somewhere else is not part of
+  the developer's overview; if one outside the sheet is running, say so as a count in one
   chat line and do not add a row.
-- Report `stale` and `never-used` sessions as a count in one line rather than as rows: "Six
-  old sessions are still open in openedx-core, idle since yesterday, and three more were
-  never used."
+- Report the never-reported count in one line rather than as rows, and say what it means:
+  "Nine sessions are open but have reported nothing, so they are empty tabs or they predate
+  the status hook."
 - Keep `not started` for a task the developer named but has not begun. It is a fact about
-  their work, not something the script ever produces.
-- Build the `where` value from the directory the script printed, shortened to whatever the
-  developer will recognize: `openedx-core` becomes `core`, `unicon-openedx-ai-config` becomes
-  `ai-config`, and a worktree like `wt-640-cbe-foundation` stays as it is. Keep the whole
-  cell under about 26 characters.
-- When the directory name does not say what the work is, put the git branch after a slash,
-  and get it for that one row only with `git -C <directory> branch --show-current`. The
-  script does not print branches, because most rows do not need one.
-- When the six-row limit bites, keep `NEEDS ME` rows first, then `agent working`, and say
-  which rows did not fit.
-- When two live sessions sit in the same directory, the `where` cell carries the session
-  name's last two characters so the rows can be told apart: `branch-viz-1e`, `branch-viz-ad`.
-- The full session name, `dependent-branch-visualization-1e`, is the only handle that
-  identifies a session anywhere else: it is what `ListAgents` prints and what `SendMessage`
-  addresses. Keep the sheet cell short and give the full name in your chat line instead, so
-  the developer can match the row to a session.
+  their work, not something the log ever produces.
+- The `what` cell is the log's task, cut to about 30 characters while keeping the part the
+  developer will recognize: "Use the spike-and-stabilize skill to implement issue #641"
+  becomes `🤖 Implement issue #641`. The task is the session's opening prompt, so it can be
+  stale for a session that has moved on. When the developer corrects a label, keep their
+  words: theirs are better than the prompt they typed an hour ago. A task reading
+  `(task not recorded)` means the session was mid-turn when the hook was installed, so use
+  the developer's own description of it, or `🤖 (ask it)` when they have none.
+- Build the `where` value from the session name, which is the session's directory followed by
+  two characters that tell sessions in the same directory apart. `openedx-core-39` becomes
+  `core-39`, `unicon-openedx-ai-config-6a` becomes `ai-config-6a`, and a worktree session like
+  `wt-640-cbe-foundation-16` keeps its worktree name. Keep the cell under about 26 characters.
+- The full session name, `openedx-core-39`, is the only handle that identifies a session
+  anywhere else: it is what `ListAgents` prints and what `SendMessage` addresses. Keep the
+  sheet cell short and give the full name in your chat line instead, so the developer can
+  match the row to a session.
+- When the six-row limit bites, keep `NEEDS ME` rows first, then `interrupted`, then
+  `done, review it`, then `agent working`, and say which rows did not fit.
 - When the developer says they have no idea what a session is, offer to ask the session
   itself: `SendMessage` to its full name with one question, "In one line: what are you
   working on, and what do you need from Jesper?" Get approval first, because the message
-  wakes that session and shows up in its conversation. Never message a `busy` session, which
-  is mid-task, and use whatever comes back as the `what` value.
-- Asking makes that session busy for a minute or two while it answers, so its state on the
-  next run says `agent working` because of your question rather than because of real work.
-  Say so rather than reporting it as progress.
-- If the script fails or prints nothing, say so in one line and leave the table as it was.
-  Never guess a state.
-
-### Naming a session, without reading the conversation
-
-The run above gives the session's own name and its directory, neither of which says what the
-work is. For that, ask the same script for the opening prompt of that session's
-conversation, which is all it will give you:
-
-```
-bash .claude/skills/todo/sessions.sh --label <transcript path>
-```
-
-The opening prompt is the closest thing to a chat name that exists on disk, because the
-title the editor shows in its own interface is not persisted anywhere. Sixty characters of
-it is all that reaches your context.
-
-Staying cheap is the whole point of doing it this way, so:
-
-- Never open a transcript any other way: not with the Read tool, not with `head`, not with
-  `grep`. A transcript is megabytes of somebody else's conversation, and pulling one into
-  context would cost more than every other part of `/todo` put together. This mode's 60
-  characters are the whole budget, and the script is the only thing that reads a transcript.
-- Run it only for a session that is about to get a row: `busy` or `needs-you`, in a directory
-  already on the sheet. Never run it for a `stale`, `never-used`, or dismissed session, and
-  never for a session outside the sheet's directories.
-- Never run it for a row whose `what` cell already says something. A label stays on the sheet
-  once it is there, so most `/todo` invocations read no transcript at all.
-- The `what` cell is that label, shortened to about 30 characters while keeping the part the
-  developer will recognize: "Read @DESIGN.md and @IMPLEMENTATION_PLAN.md . You are the or"
-  becomes `🤖 Read DESIGN.md, orchestrate`. Never leave a row reading `(what is this?)`.
-- The label is the conversation's opening prompt, not the name the editor displays, so it can
-  be stale for a session that moved on to something else. When the developer corrects a
-  label, keep their words: theirs are better than the prompt they typed an hour ago.
-- When the command prints nothing, the conversation has no plain opening prompt to read. Use
-  the git branch instead, and `🤖 (ask it)` when the branch is the repository default and says
-  nothing either.
+  wakes that session and shows up in its conversation. Never message a session whose status
+  is `working`, which is mid-task, and use whatever comes back as the `what` value.
+- Asking makes that session run for a minute or two while it answers, so its status on the
+  next run says `working` because of your question rather than because of real work. Say so
+  rather than reporting it as progress.
+- If the command fails or prints nothing, say so in one line and leave the table as it was.
+  Never guess a status.
 
 ### When the developer says a session is finished
 
 A session stays open in the editor long after its work is done, so it sits there reading
-`NEEDS ME` forever. Only the developer can say it is finished: `needs-you` means the turn
-ended, which usually means something came back for them to look at. Never decide on your own
-that a session is done.
+`done, review it` forever. Only the developer can say they are finished with it: `Completed`
+means the agent stopped without a question, which usually means something came back for them
+to look at. Never decide on your own that a session is done.
 
 When they do say it, take three steps:
 
@@ -317,23 +297,26 @@ When they do say it, take three steps:
 2. Take the row off the sheet.
 3. Say nothing more about it.
 
-On later invocations you decide for yourself whether such a session is still dismissed,
-because you have both halves already: the log, which you read anyway, and the idle time the
-script printed. Subtract the idle minutes from the current time to get the moment the session
-last did anything. If that moment is at or before the `done` line's time, the session has
-been quiet ever since the developer dismissed it, so leave it off the sheet and say nothing
-about it. If it is later, the developer picked the work back up in that same session, so put
-the row back with whatever state the script reported. Suggest closing the editor tab as well,
-since a closed session leaves the registry and stops being counted at all.
+On later invocations you decide for yourself whether such a session is still dismissed, by
+comparing two times you already have: the time on the `done` line in the log, and the
+last-change time the status command printed for that session. If the status has not changed
+since the developer dismissed it, the session has been quiet ever since, so leave it off the
+sheet and say nothing about it. If the status has changed, the developer picked the work back
+up in that same session, so put the row back with whatever the status now says. Suggest
+closing the editor tab as well, since a closed session's row drops off the sheet on its own
+once it reads `Completed · closed`.
 
 The state words in the table below are the only ones allowed anywhere in the `state` column.
-Uppercase is reserved for the one state where the developer is the blocker, so their own eye
-finds it first.
+Uppercase is reserved for the one state where something is stuck until the developer acts, so
+their own eye finds it first. A finished session is not stuck, so `done, review it` stays
+lowercase even though it is waiting on the developer too.
 
 | State | Means |
 | --- | --- |
 | `NEEDS ME` | An agent or a person is blocked until the developer answers or decides. |
 | `agent working` | A Claude agent is running and nothing is needed from the developer. |
+| `done, review it` | A Claude session finished its task and nobody has looked at the output yet. |
+| `interrupted` | A Claude session's process exited part-way through. Restarting it is the developer's call. |
 | `me working` | The developer is doing this one by hand right now. No agent involved. |
 | `waiting on CI` | A build or test run has to finish. |
 | `waiting on <name>` | Another person owes an answer or a review. |
@@ -355,13 +338,13 @@ closing line. Never invent a new state word.
 
 ## What to do for each kind of request
 
-**`/todo` on its own.** Refresh `IN FLIGHT` from `sessions.sh`, print the sheet, then add
+**`/todo` on its own.** Refresh `IN FLIGHT` from the status log, print the sheet, then add
 one sentence saying what to do next and why. Change nothing else. If the `updated:` stamp is
 from an earlier day, archive the sheet per *Archiving the sheet once a day*, then say so
 and offer to start the day.
 
-**`/todo` followed by a brain dump.** This is the main path. Read the sheet, run
-`sessions.sh`, get the real date and time from `date "+%a %d %b, %H:%M"`, archive the sheet per
+**`/todo` followed by a brain dump.** This is the main path. Read the sheet, run the
+status command, get the real date and time from `date "+%a %d %b, %H:%M"`, archive the sheet per
 *Archiving the sheet once a day* if its `updated:` stamp is from an earlier day, fold in
 what the developer said, retag and reorder the backlog, rewrite the whole file, append
 anything finished to the log, and print the new sheet. Keep the developer's own wording for
@@ -386,7 +369,7 @@ line.
 **"Can I finish X today?"** Compare your honest estimate against the free hours that are
 left today, and give a yes or a no. If the answer is no, say which slice of X does fit.
 
-**"What are my agents doing?"** Run `sessions.sh` and report what changed, in at most four
+**"What are my agents doing?"** Run the status command and report what changed, in at most four
 lines: who needs the developer, who is working, and how many stale sessions are cluttering
 things up.
 
@@ -432,7 +415,7 @@ thing, once, in one or two plain sentences.
   is untouched. Do that one, and let the spike run overnight."
 - A to-do that keeps rolling over: if the same one comes back unfinished for a third day, say
   so and offer to slice it smaller, because the size is the problem, not the day.
-- Agents piling up: if `sessions.sh` shows three or more sessions with `NEEDS ME`, say it
+- Agents piling up: if the status log shows three or more sessions with `NEEDS ME`, say it
   plainly. Blocked agents are the most expensive thing on the sheet, because nothing behind
   them moves.
 - A backlog full of `MAYBE`: offer to delete them, by name, and wait for a yes.
@@ -462,7 +445,7 @@ repeat a nudge the developer has already answered.
 
 ## When the sheet does not exist yet
 
-Create it from the template above, run `sessions.sh` to fill `IN FLIGHT`, and ask at most
+Create it from the template above, run the status command to fill `IN FLIGHT`, and ask at most
 three questions for the rest: what has to happen today, who or what you are waiting on, and
 how many hours of meetings there are. Pick the to-dos off the top of the priority order, size
 each to a pomodoro, print the sheet, and stop.
