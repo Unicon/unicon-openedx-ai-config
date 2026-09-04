@@ -1,4 +1,3 @@
 .claude/settings.local.json
-.claude/my-todo*
-.claude/agent-status-state.json
-.claude/agent-status.md
+.claude/my-todo*.md
+.claude/agent-status*
