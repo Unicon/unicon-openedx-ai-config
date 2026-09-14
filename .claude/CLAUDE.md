@@ -106,6 +106,10 @@ Other context-hygiene defaults:
   installed dependency, before writing something new.
 - Surgical changes: don't refactor or reformat code your task doesn't touch. Match
   existing style. Every changed line should trace to the request.
+- Name a prop or variable that offers one of two opposite actions after the action it
+  triggers, not the state it happens to apply to (`expandLabel`/`collapseLabel`, not
+  `expandedLabel`/`collapsedLabel`). A label named after the opposite state reads
+  backwards and needs a comment to stop it from confusing the next reader.
 - Don't extract shared code until three callers need it. DRY is about knowledge, not
   code that happens to look alike.
 - Separate confirmed fact from inference or proposal, and say which is which. When
@@ -165,7 +169,25 @@ actual work is in a JS/TS frontend repo instead (an Open edX MFE such as
   `npx oxlint --type-aware --deny-warnings` (scoped to touched files), `npx dprint check`,
   `npx stylelint` on any touched SCSS, and `npx jest <touched paths> --coverage=false`. Skip
   the repo's slow full-suite command (e.g. `make validate`) for the same reason the
-  backend section above skips `make test`: too slow, too much output for one change.
+  backend section above skips `make test`: too slow, too much output for one change. None
+  of these actually compile Sass, so they miss two classes of SCSS bug: a build-breaking
+  error (an undefined mixin or a broken import) and a rule that compiles cleanly but
+  silently never matches at runtime (an unresolved custom-media name in a `@media`
+  condition; an invalid media condition is not a syntax error, so the browser just ignores
+  the rule). When a change adds a new `@include`, `@import`, `@use`, or other at-rule
+  beyond a plain value edit, verify it actually compiles and resolves by test-compiling the
+  file exactly as the bundler imports it, not through a throwaway harness that adds imports
+  the real file doesn't have. A component's own SCSS file imported directly from its
+  `.tsx` compiles as its own root stylesheet, separate from whatever `src/index.scss`'s
+  import chain provides, even when another file reached through that chain uses identical
+  syntax successfully.
+- In `frontend-app-authoring` specifically, Paragon's custom-media breakpoint names
+  (`--pgn-size-breakpoint-*`, used as `@media (--pgn-size-breakpoint-max-width-xs) { ... }`)
+  only resolve within whichever compiled CSS output also contains
+  `@use "@openedx/paragon/styles/css/core/custom-media-breakpoints.css"`. `src/index.scss`
+  has that `@use` once, so any SCSS reached through its `@import` chain shares it, but a
+  component's own SCSS file imported directly from its `.tsx` does not inherit it; add the
+  same `@use` locally in that file too.
 - Reuse the Paragon design system (`@openedx/paragon`) as much as possible for any UI
   work. Before writing custom markup or CSS for a visual element, check whether an
   existing Paragon component already covers it, including checking its actual compiled
@@ -173,6 +195,40 @@ actual work is in a JS/TS frontend repo instead (an Open edX MFE such as
   in Paragon, flag it as early as possible, before implementation, not just once the PR
   is up, and call it out in the PR description too, so the community can consider adding
   it to Paragon upstream instead of it living on as a one-off.
+- That same check against Paragon's actual compiled output applies to accessibility, not
+  just layout: confirm a component's real rendered DOM role before adding `aria-label` to
+  it. Some implicit ARIA roles, such as the `generic` role a plain `<span>` or `<div>` gets
+  when it has no other semantic role, prohibit `aria-label`, and screen readers don't
+  reliably announce it. Use a visually hidden `sr-only` sibling carrying the full accessible
+  text instead.
+- When a page-local style genuinely needs to differ from a Paragon default, override the
+  component's own CSS custom property (design token) rather than the resolved CSS property
+  directly, so the override stays composable with the rest of the theme, matching the same
+  approach as `border-radius: var(--pgn-size-badge-border-radius-base)` rather than a
+  literal. Before adding such an override, trace its actual resolution chain in the
+  installed theme: if the property already resolves to the value being set, the override is
+  dead code and should be removed instead of kept. And when the token being overridden is a
+  typography token, match Paragon's own convention of a relative unit (`%`, `rem`) rather
+  than an absolute `px`, even when a design spec calls out a fixed pixel value; Paragon's
+  defaults use relative units so text keeps scaling with the user's font-size preference,
+  and a literal `px` silently drops that. Compute the relative equivalent instead (`62.5%`
+  renders as 10px at the default root font size).
+- When a component reads a `useQuery` (or similar async-hook) result, check its error
+  state (`isError`/`error`) as well as `isLoading`/`data` before deciding what to render. A
+  consumer that only branches on `isLoading` and `data` renders a failed fetch as an empty
+  or default result, indistinguishable from data that is genuinely empty.
+- When memoizing a value with `useMemo`, confirm every entry in its dependency array is
+  itself referentially stable across renders, not a fresh object or array literal computed
+  inline. A dependency that is recomputed on every render defeats the memoization silently,
+  with no type error or test failure to catch it.
+- An interactive control whose action depends on data that is still being fetched must
+  stay disabled until that data has loaded, not just have its computed inputs default to
+  empty. A click during the loading window can otherwise silently corrupt state that was
+  meant to hold a real default once the data lands.
+- For CSS inside a recursively nested structure (a tree, a nested list), key a selector
+  off the class marking the recursive unit (e.g. `.group > ul`), not a structural
+  depth-position selector (`> ul > li > ul`). The structural version matches only one
+  specific nesting depth and silently stops applying past it.
 
 ## Comments and docstrings
 

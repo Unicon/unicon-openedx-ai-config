@@ -44,7 +44,12 @@ Do the clarify-and-plan work in plan mode (`EnterPlanMode`). Ask focused questio
 implementation code, including illustrative snippets, until the developer approves the
 plan via `ExitPlanMode`.
 
-On plan approval, delegate the implementation (the spike and stabilize coding) to a
+On plan approval, before delegating implementation, save the approved plan as a markdown
+file under `.claude/plans/<ticket-id>-<short-slug>-plan.md` in this shared ai-config repo.
+Claude Code's plan mode writes the plan to a personal, per-machine folder by default; that
+copy is not visible to the rest of the team, so save this second copy explicitly.
+
+Then delegate the implementation (the spike and stabilize coding) to a
 `general-purpose` sub-agent on Sonnet via the Agent tool. Brief it with the approved
 plan, the target files, and the conventions to follow, and per the Delegation rule in
 `CLAUDE.md`, that it must not itself dispatch a sub-agent — if it needs a lookup it
