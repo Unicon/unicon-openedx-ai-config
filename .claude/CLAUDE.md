@@ -147,11 +147,30 @@ actual work is in a JS/TS frontend repo instead (an Open edX MFE such as
   backend section above skips `make test`: too slow, too much output for one change.
 - Reuse the Paragon design system (`@openedx/paragon`) as much as possible for any UI
   work. Before writing custom markup or CSS for a visual element, check whether an
-  existing Paragon component already covers it, including checking its actual compiled
-  CSS and props rather than assuming from memory. If something genuinely isn't available
-  in Paragon, flag it as early as possible, before implementation, not just once the PR
-  is up, and call it out in the PR description too, so the community can consider adding
-  it to Paragon upstream instead of it living on as a one-off.
+  existing Paragon component or design token already covers it, and check the app's own
+  compiled theme (e.g. `@edx/brand`'s built `variables.css`) rather than only Paragon's
+  reference defaults or memory from an earlier session: the app's brand theme can remap
+  a Paragon token to a different value, so checking the wrong layer can make a value
+  look unmatched, or an override look necessary, when it already resolves correctly. The
+  same check applies before adding a new font or other external asset: confirm no
+  existing token already covers it, and if a genuinely new one is needed, bundle it
+  rather than pulling it from an external CDN at runtime. If something genuinely isn't
+  available in Paragon or its tokens, flag it as early as possible, before
+  implementation, not just once the PR is up, and call it out in the PR description too,
+  so the community can consider adding it to Paragon upstream instead of it living on as
+  a one-off.
+- When a UI fix is driven by a design spec (Figma or similar), verify it by diffing the
+  live result against the spec's actual colors and measurements and by confirming the
+  change landed on the right DOM element, not by judging whether it looks roughly
+  right. Re-check every element fixed earlier in the same review round too, since a
+  later fix can silently regress one of them.
+- When verifying an interactive or accessible-state change, exercise the real keyboard
+  path (Tab, Enter, Space), not just a click followed by inspecting the resulting ARIA
+  attribute: a click-only check can report success while the keyboard path is still
+  broken. When the correctness of an ARIA attribute or role itself is in question, check
+  it with an automated tool such as `axe-core` (already present transitively via
+  `eslint-plugin-jsx-a11y` in `frontend-app-authoring`) rather than reasoning from ARIA
+  spec memory alone.
 
 ## Comments and docstrings
 
