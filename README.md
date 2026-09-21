@@ -21,6 +21,9 @@ an upstream community repo: AI config, local dev setup notes, deployment notes, 
     `code-review`, `spike-and-stabilize`.
   - `*-principles.md`, `architecture-overview.md`, `cbe-project-context.md`,
     `ticket-template.md` — reference docs the agents ground their judgment in.
+  - `github-issues/` — local cache of GitHub issue descriptions from `openedx-core`,
+    organized by workstream and epic (see its own README). GitHub is still the source of
+    truth; this is a snapshot for reference so drafting doesn't re-fetch every time.
   - `settings.local.json` — personal, gitignored; recreate your own after cloning.
   - `claude-spikes/` — design spike write-ups.
   - `supporting-docs/` — sprint/ticket planning artifacts.

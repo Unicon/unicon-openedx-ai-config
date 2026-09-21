@@ -156,6 +156,18 @@ groups including nesting; the three-level status model; a re-evaluation workflow
 
 ## Authoritative in-repo resources
 
+- **Existing ticket text**: `.claude/github-issues/competency-criteria/` and
+  `.claude/github-issues/student-progress/` hold a local cache of GitHub issue
+  descriptions, one file per issue, organized by epic (see each folder's `README.md`).
+  This is a snapshot for reference, not a copy of record — **GitHub (`openedx/openedx-core`)
+  is the source of truth**; if a cached file looks stale or incomplete, trust the linked
+  GitHub issue over it. **The cache holds only each issue's body, never its comments.**
+  Several of these issues carry long comment threads where scope narrowed, an open
+  question got resolved, or a claim in the body got corrected after the fact — none of
+  that is in the cache. Before relying on a ticket that has more than a couple of
+  comments, fetch them live (`gh issue view <n> --comments`) and treat the most recent
+  comment on any given point as the current answer, over both earlier comments and the
+  original body.
 - **CBE ADRs** under `docs/openedx_learning/decisions/` (all currently proposals; note
   these ADRs use Context/Decision headings and do not carry a `Status:` line):
   - `0001-competency-criteria-location.rst`: CBE code lives in this repo at
