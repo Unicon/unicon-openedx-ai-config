@@ -48,10 +48,19 @@ overview doc, or dispatch/flag a narrow Sonnet sub-agent per the same rule.
 
 ## 1. Get the ticket and ground it
 
-- **Intake.** Pasted text: use it. A file path: read it. A GitHub issue: `gh issue view <n>
-  --repo <owner/repo> --json body,comments,...` (read the comments too; a maintainer may
-  have already flagged a factual error). A URL or other tracker: delegate the fetch to a
-  Sonnet sub-agent, never inline.
+- **Intake.** Pasted text: use it. A file path: read it. A GitHub issue: check
+  `.claude/github-issues/<workstream>/<epic>/` first (each workstream's `README.md` maps
+  epics to folders) — if a cache file for that issue number exists, read it to save a
+  fetch, but still confirm against `gh issue view <n> --repo <owner/repo> --json
+  body,comments,...` before relying on it. **GitHub is the source of truth; the cache is a
+  snapshot and can be stale.** No cache file: fetch directly (read the comments too; a
+  maintainer may have already flagged a factual error). A URL or other tracker: delegate
+  the fetch to a Sonnet sub-agent, never inline.
+- **The cache never carries comments, only the issue body — always fetch comments live.**
+  On a ticket with a long thread, read the comments in order and let the most recent one
+  win on any point it addresses: a later comment can resolve an open question, correct a
+  claim, or narrow scope in a way the body was never edited to reflect. Ground the rewrite
+  in the current state of the discussion, not just the original body.
 - **Spot-check the falsifiable claims**, cheaply and targeted. Does each referenced file
   and function exist? Are the line numbers accurate? Is a categorical assertion ("there is
   no way to X") actually true? A couple of `grep`s or one Haiku `Explore` for location is

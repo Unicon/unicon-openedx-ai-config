@@ -83,9 +83,20 @@ enough. Tell the experts to do the same, and that when the doc is not enough, th
 
 Identify what you are working from and gather the ground truth:
 
-- Pasted text: use it. A file path: read it. A GitHub issue: `gh issue view <n> --comments`.
-  A URL or other tracker (Jira and similar): delegate the fetch to a Sonnet sub-agent, never
-  inline. A bare feature idea with no ticket: treat it as a request to draft a new ticket.
+- Pasted text: use it. A file path: read it. A GitHub issue: check
+  `.claude/github-issues/<workstream>/<epic>/` first (each workstream's `README.md` maps
+  epics to folders) — if a cache file for that issue number exists, read it to save a
+  fetch, but still confirm against `gh issue view <n> --comments` before relying on
+  anything from it. **GitHub is the source of truth; the cache is a snapshot and can be
+  stale.** No cache file: `gh issue view <n> --comments` directly. A URL or other tracker
+  (Jira and similar): delegate the fetch to a Sonnet sub-agent, never inline. A bare
+  feature idea with no ticket: treat it as a request to draft a new ticket.
+- **Comments always need a live fetch — the cache never carries them, only the issue
+  body.** On a ticket with a long comment thread, read the comments in order and let the
+  most recent one win on any point it addresses: a later comment can resolve an open
+  question, correct a technical detail, or narrow scope in a way the original body was
+  never edited to reflect. Don't draft or review a heavily-commented ticket off the body
+  alone.
 - Collect any related or blocking tickets and backlog the user points at, by **GitHub issue
   number** — the architect needs them to judge split and merge boundaries. Never carry over
   an internal ticket ID or a spreadsheet reference.
@@ -237,4 +248,10 @@ the pass changed only the writing.
 4. Deliver the cleaned, verified version as the final ticket; the step 6 draft is
    scaffolding.
 
-Touch the real tracker only on explicit request and approval.
+Save the delivered ticket to its cache file under `.claude/github-issues/<workstream>/<epic>/`
+— this is the shared drafting surface for you and the BA now, replacing the old Google Doc.
+Update the existing `ucid-....xx-ghi-<n>.md` file if you started from one, or create a new
+one (using `ghi-pending` in place of the issue number) for a bare idea that has no GitHub
+issue yet. **GitHub remains the source of truth for the real ticket, not this cache.**
+Touch the real tracker — push the finalized text to the GitHub issue, by `gh` or copy/paste
+— only on explicit request and approval, never as an automatic last step.
