@@ -7,6 +7,10 @@ Cached: 2026-09-22
 
 As a learner, I want the CBE learner progress experience to appear above (or, in the future, in place of) the `ProgressTabCourseGradeSlot` and above the `ProgressTabRelatedLinksSlot` so that it can serve as my primary reference for understanding my progress in the course.
 
+## Description
+
+This ticket replaces the generic placeholder component from #810 and the Tutor packaging ticket with the two real starter CBE progress widgets, plus the local development loop future frontend tickets will use to build against them. The widgets render on every course's Progress tab for now; the check that limits them to courses with competency criteria will be added in #734.
+
 ## Acceptance Criteria
 
 ```
@@ -59,12 +63,6 @@ Scenario: The placeholders reflow on a small screen
   Then the placeholders reflow with the rest of the page
   And no horizontal scrolling or overlapping content is introduced
 ```
-
-## Description
-
-The CBE learner progress experience ships as a standalone plugin package that an operator's Learning MFE loads through its slot configuration, not as a change to the Learning MFE itself. #810 creates that package and its repository, including a generic placeholder component. The Tutor packaging ticket installs that placeholder into both Progress tab slots, proving the whole install-and-render path before any CBE-specific widget exists. This ticket replaces the placeholder with the real widgets and adds the local development loop that this and future frontend tickets use, extending the Tutor plugin's existing registration rather than creating one from scratch.
-
-The widgets delivered here are placeholders. The competency progress interface itself arrives in #734, #739, #740, #743, #747, #751, and #755. The placeholders render on every course's Progress tab at this stage; the requirement that the plugin display only in courses that have competency criteria, leaving every other course's Progress tab exactly as it looks today, is owned by #734.
 
 <details>
 <summary>Technical Details</summary>

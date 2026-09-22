@@ -5,7 +5,11 @@ Cached: 2026-09-22
 
 ## User Story
 
-As a site operator, I want to add this frontend plugin to my site by installing and enabling a Tutor plugin, in order to get its widget onto the Progress tab without forking or patching the Learning MFE myself.
+As a site operator, I want to add the CBE Student Progress features to my Open edX instance by installing and enabling a Tutor plugin, in order to get its widget(s) onto the Progress tab without forking or patching the Learning MFE myself.
+
+## Description
+
+This ticket packages the frontend plugin from #810 as a Tutor plugin, so an operator can install and enable it on their Open edX instance with a normal Tutor workflow. It wires #810's one generic placeholder component into both Progress tab slots (above the `ProgressTabCourseGradeSlot` and above the `ProgressTabRelatedLinksSlot`) and documents the install steps.
 
 ## Acceptance Criteria
 
@@ -19,10 +23,6 @@ The deliverable is packaging and documentation rather than new runtime behavior,
 - [ ] At least one other micro-frontend on the same site, for example the Authoring MFE, builds and behaves unchanged.
 - [ ] The README documents the install, enable, and image rebuild steps, and states plainly that the rebuild is required, that it affects every micro-frontend image, and that a git-reference install rebuilds the JavaScript package from source on each build.
 - [ ] Continuous integration lints and installs the Tutor plugin, alongside the JavaScript job #810 creates.
-
-## Description
-
-An operator adds this plugin to their site by installing a Tutor plugin that puts the frontend package into their Learning MFE image and registers its slot configuration. The repository, the frontend package, and the placeholder component all come from #810. This ticket proves the whole install-and-render path end to end using that placeholder, before any CBE-specific widget exists to install. A separate, not-yet-filed ticket replaces the placeholder with the real competency progress widgets, editing the registration this ticket creates rather than writing a new one.
 
 <details>
 <summary>Technical Details</summary>

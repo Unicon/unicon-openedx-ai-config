@@ -5,11 +5,11 @@ Cached: 2026-09-22
 
 ## User Story
 
-As a plugin developer, I want a repository that already builds an Open edX frontend plugin package, in order to add plugin widgets to it without first solving repository standards, packaging, and continuous integration.
+As the developer of the CBE Student Progress plugin, I want a repository to serve as a starting point for an Open edX frontend plugin package, in order to add plugin widgets to it without first solving repository standards, packaging, and continuous integration.
 
 ## Description
 
-This ticket builds the repository that will hold a frontend plugin that adds competency progress information to the learner Progress tab in the Learning micro-frontend. This ticket creates only the repository, the package skeleton, and the build. It adds no plugin widgets, registers nothing into any plugin slot, and contains no competency-specific code. The widgets and the Tutor plugin that installs them onto a site are separate tickets.
+This ticket builds the repository that will hold a frontend plugin that adds competency progress information to the learner Progress tab in the Learning micro-frontend. It creates the repository, the package skeleton, and the build, including one generic placeholder component with no CBE-specific content, used later to prove the plugin install path before any real widget exists. It registers nothing into any plugin slot itself. The real CBE widgets and the Tutor plugin that installs them onto a site are separate tickets.
 
 ## Acceptance Criteria
 
