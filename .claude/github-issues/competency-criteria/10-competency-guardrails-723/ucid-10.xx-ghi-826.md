@@ -3,8 +3,8 @@
 ## User Story
 
 As a course author managing a competency's criteria, I want a criterion whose gradeable
-subsection has been deleted to be shown as unresolvable and to be removable, in order to
-recognize a rule that no learner can satisfy again and clear it from the competency.
+subsection has been deleted to be shown as unresolvable and allow me to remove it, in order to
+recognize a rule that a learner can no longer complete and remove it from the competency.
 
 ## Acceptance Criteria
 
@@ -69,21 +69,16 @@ recognize a rule that no learner can satisfy again and clear it from the compete
 
 ## Description
 
-The Competency Management page lists a competency's criteria inside their criteria groups, and
+The Competency Management page lists a competency's criteria inside the criteria groups, and
 shows each criterion as the gradeable subsection it points at (#672). A criterion identifies that
-subsection by an opaque usage key stored on the tagging row, with no database reference to the
-content itself, and the page resolves the key to a title on the client by looking it up in the
+subsection by a usage key stored on the tagging row, with no database reference to the
+content itself, and the page resolves the key to a title by looking it up in the
 course's outline.
 
-Deleting a gradeable subsection from a course therefore leaves the criterion, its tagging row,
-and every learner's recorded competency status in place. This is done so that a learner's
-demonstrated mastery is not be invalidated by a later authoring action. What the deletion does
-remove is the outline node the page looks the title up in, so the criterion has no title to show
-and no representation on the page. Meanwhile it keeps counting toward its
-competency's mastery evaluation, which means a competency can carry a rule that no learner can
-ever satisfy again, with nothing on the page saying so.
+Deleting a gradeable subsection from a course leaves the criterion, its tagging row,
+and every learner's recorded competency status in place. This is done so that mastery a learner has already demonstrated is not taken away because someone edited the course afterwards. What the deletion does remove is the assignment's entry in the course outline, and that entry is where the page gets the assignment's name from. With no name to display, the requirement isn't visable on the page. So a competency can end up carrying a requirement that can't ever meet again, with nothing on the page to indicate that.
 
-This ticket gives those criteria a visible, removable representation.
+This ticket makes those broken criteria visible, and allows the user to removable them.
 
 <details>
 <summary>Technical Details</summary>
