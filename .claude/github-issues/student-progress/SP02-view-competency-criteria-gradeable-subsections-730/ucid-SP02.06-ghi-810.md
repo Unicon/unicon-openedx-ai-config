@@ -47,7 +47,7 @@ This section is background and a suggested approach, not the ticket's source of 
 - **Package manifest.** `main` pointing at `dist/index.js`, `files` limited to `["dist"]`, a `build` script running `fedx-scripts babel src --out-dir dist --source-maps --ignore **/*.test.jsx,**/*.test.js` as `openedx/sample-plugin` does, and a `prepare` script running `npm run build`.
 - **Dependencies.** `@edx/frontend-platform`, `@openedx/paragon`, `react`, and `react-router-dom` as peer dependencies, every one at `"*"`. No regular dependencies. `@openedx/frontend-build` as the only development dependency, since npm installs development dependencies every time it builds a git dependency, so anything added here is paid for on every install.
 - **Entry point.** `src/index.jsx` re-exports named components and performs no work at import time.
-- **The component this ticket ships.** Name it `DemoWidget` and make it a Paragon `Card` with static text, accepting no required props. One trivial component is enough to give the build and the test something real to act on, and it also doubles as what the Tutor packaging ticket installs into the real Progress tab plugin slots, so the whole install-and-render path is proven before any CBE-specific widget exists. Because a plugin slot passes no props, `DemoWidget` must not require any either.
+- **The component this ticket ships.** Name it `PlaceholderWidget` and make it a Paragon `Card` with static text, accepting no required props. One trivial component is enough to give the build and the test something real to act on, and it also doubles as what the Tutor packaging ticket installs into the real Progress tab plugin slots, so the whole install-and-render path is proven before any CBE-specific widget exists. Because a plugin slot passes no props, `PlaceholderWidget` must not require any either.
 - **Continuous integration.** A workflow that runs lint, Jest through `@openedx/frontend-build`, and the build on pull requests. The Tutor packaging ticket adds a Python job to this same workflow.
 - **Publishing is out of scope.** Nothing is published to the npm registry. Consumers install from a git reference, which is an established pattern in the Open edX organization: `openedx/frontend-plugin-aspects` is configured for publishing and has tagged releases, but has never been published, and is consumed from git. Give the package an unscoped name for now; adding a scope, if it is ever published, is a rename rather than a redesign.
 - **Out of scope, in the widgets ticket.** Plugin slot registration, the example configuration file, the local development loop against a `frontend-app-learning` checkout, and every competency-specific component. This ticket names no plugin slot.
@@ -68,7 +68,7 @@ This ticket creates a new repository and modifies no file in any existing reposi
 | `.npmrc` | Copied unchanged from `openedx/sample-plugin`; it sets the registry cooling-off period. |
 | `.nvmrc` | Pins the Node version used to build the package. |
 | `src/index.jsx` | The side-effect-free barrel, re-exporting the package's components as named exports. |
-| `src/DemoWidget.jsx` and its test | The generic placeholder component, later installed by the Tutor packaging ticket and eventually replaced by the CBE widgets ticket. |
+| `src/PlaceholderWidget.jsx` and its test | The generic placeholder component, later installed by the Tutor packaging ticket and eventually replaced by the CBE widgets ticket. |
 | `README.rst` | What the package is for, and how to build and test it locally. |
 | `LICENSE` | AGPL-3.0, matching Open edX frontend repositories. |
 | `CHANGELOG.rst` | Version history. |
@@ -85,7 +85,7 @@ This ticket creates a new repository and modifies no file in any existing reposi
 - `openedx/sample-plugin` is the reference implementation to copy from: its `frontend-plugin-sample/` directory is the shape of the manifest, the barrel, and the build script, and its `tutor-contrib-sample/` directory is what the reserved subdirectory will eventually hold.
 - `openedx/frontend-plugin-aspects` is prior art for an Open edX plugin package consumed from a git reference rather than from the npm registry.
 - The widgets ticket adds the plugin widgets and the slot configuration to this package.
-- The Tutor packaging ticket adds the Tutor plugin that installs this package onto an operator's site, registering `DemoWidget` into both Progress tab plugin slots to prove the install path before any CBE-specific widget exists.
+- The Tutor packaging ticket adds the Tutor plugin that installs this package onto an operator's site, registering `PlaceholderWidget` into both Progress tab plugin slots to prove the install path before any CBE-specific widget exists.
 - This ticket belongs to epic #730.
 
 </details>
