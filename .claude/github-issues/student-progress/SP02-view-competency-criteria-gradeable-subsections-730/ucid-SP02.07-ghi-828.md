@@ -91,7 +91,9 @@ Paths are relative to the root of the repository created in #810.
 
 </details>
 
-## Open Questions
+<details>
+<summary>Open Questions</summary>
 
 - **Non-blocking, owned by the implementer together with the program leads.** Where does the operator-facing install documentation live: the plugin repository's own README only, or also a page on the Open edX documentation site? An operator who does not already know this plugin exists will not find a README in an unfamiliar repository, so the answer affects whether the install is discoverable at all. The Acceptance Criteria above hold either way, since both places are "the repository's installation instructions" or a link from them.
 - **Non-blocking, owned by the implementer.** Which Learning MFE versions does the plugin declare support for? The two extension points it targets are present and identical across the current lines, so nothing diverges today, but an operator needs a stated compatibility range before they plan an upgrade around it.
+</details>

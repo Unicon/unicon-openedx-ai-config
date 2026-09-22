@@ -90,7 +90,8 @@ This ticket creates a new repository and modifies no file in any existing reposi
 
 </details>
 
-## Open Questions
+<details>
+<summary>Open Questions</summary>
 
 - **[BLOCKING]** Where does this repository live, and who is its long-term maintainer? Unicon is building the plugin but cannot commit to being its long-term maintainer, so whichever option is chosen has to name someone who will be.
 
@@ -100,3 +101,4 @@ This ticket creates a new repository and modifies no file in any existing reposi
 | Create the repository in a Unicon-owned organization now and transfer it to `openedx` once a maintainer volunteers. | Nothing. Work can start immediately. | A transfer to `openedx`, plus a scope-only npm rename. Because `@openedx` npm scope access is restricted to Open edX npm organization members, this package cannot pre-claim an `@openedx/...` name; it would publish under Unicon's own scope until it transfers. Axim has a documented migration process for that rename, so the rename is a routine cost rather than a one-off problem. |
 
 A plugin does not have to live in the `openedx` organization to be consumed through plugin slots: `@opencraft/frontend-plugin-sandbox` and `@edunext/frontend-slot-footer` are both published and consumed this way from organizations outside `openedx`.
+</details>
