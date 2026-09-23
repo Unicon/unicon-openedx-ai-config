@@ -100,11 +100,11 @@ Additionally, evaluate the following detailed questions and raise any concerns i
 1. Does this pull request implement all of the acceptance criteria in the ticket?
 2. Is the automated testing appropriate for the new additions, but still efficient and concise?
 3. Do the added automated tests actually test what they claim to?
-4. For any automated testing additions or changes, are they properly using constants forappropriate values, and not depending on various hard coded values (such as dates, etc.) that might become invalid at a later time?
+4. For any automated testing additions or changes, are they properly using constants for appropriate values and not depending on various hard coded values (such as dates, etc.) that might become invalid at a later time?
 5. Is there any extraneous automated testing that is just testing the obvious and doesn't match the level of testing granularity seen elsewhere in this repo?
 6. Does it adhere to Axim/Open edX preferences for new additions, as an example, consider the following pull request that went well https://github.com/openedx/frontend-app-authoring/pull/3218
 7. Does the code account for all relevant edge cases, with regard to use cases it implements and the acceptance criteria of the ticket?
-8. Does the pull request description include attribution to a specific AI agent, or specify none if no AI was used? This is required by the Open edX community.
+8. Does the pull request description include attribution to a specific AI agent or specify none if no AI was used? This is required by the Open edX community.
 9. Does the pull request include manual testing steps? This is required by the Open edX community.
 10. For each of the comments added in changed source files, are all of them necessary, or would this code be clear to a developer without it? Are they as clear and concise as they can be?
 11. Do the new exported functions have clear names?
