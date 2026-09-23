@@ -27,12 +27,23 @@ point is editorial and structural quality, not requirements discovery.
 
 ## Read first
 
-`.claude/ticket-template.md` — the canonical shape you rewrite toward. The User Story and
-Acceptance Criteria are the ticket; Technical Details is required alongside them, and
-everything else is optional and earns its place. Three sections are collapsible —
-Technical Details, Files to create and modify, and Context — each in its own `<details>`
-block. The template also defines how much (and how little) belongs in Technical Details,
-and that there is no Example Resolution Prompt in the current template.
+`.claude/ticket-template.md`, the canonical shape you rewrite toward. User Story,
+Description, and Context are human-written and come first, in that order; the
+UX Design placeholder follows on a frontend ticket; then Acceptance Criteria; then
+Technical Details, the one required, collapsible section, wrapped in its own `<details>`
+block; Open Questions is last. The template defines how much (and how little) belongs in
+Technical Details (an optional Summary, a required Approach, an optional Files table, an
+optional Additional context) and that there is no Example Resolution Prompt.
+
+**The title, User Story, Description, and Context are human-written and must be left verbatim.**
+Never rewrite, reword, reorder, or reformat them, even to fix something that looks wrong.
+If you see a genuine problem with one, note it as a review finding for the person running
+the session to act on, not as a change to the rewrite.
+
+**A ticket already posted in the old format** (an "In short" / "Implementation specifics"
+split, separate Files and Context collapsible blocks, a Description sitting below
+Acceptance Criteria) is cleaned up within its existing structure. Don't restructure it into
+the new template shape unless the user explicitly asks for that.
 
 ## Model and context
 
@@ -83,15 +94,15 @@ Rubric:
 
 | Dimension | The question it asks |
 | --- | --- |
-| Problem framing / User Story | Real role and a non-hand-waved "in order to"? Is the direct "As X, I want Y, in order to Z" statement in the first line, or buried under preamble? If the ticket genuinely covers more than one story, is it a short plain-English bulleted list rather than one sentence forced to cover too much? |
+| Problem framing / User Story | Are User Story, Description, and Context present (or their absence flagged, not filled in) and left exactly as the human wrote them? Is the User Story's "As X, I want Y, in order to Z" direct and unburied, or, for a genuinely multi-story ticket, a short plain-English bulleted list? |
 | Scoping discipline | Is out-of-scope explicit? Is related-but-separate work (other ADRs, companion tickets) disentangled and referenced by GitHub issue number? |
-| Acceptance criteria | Pure Given/When/Then, observable and testable? Unhappy paths covered? Any technical checkpoint (a field name, a status code, a schema detail) that should have moved to Technical Details? |
+| Acceptance criteria | Pure Given/When/Then (or a checkbox list for an artifact ticket), observable and testable? Unhappy paths covered? Any technical checkpoint (a field name, a status code, a schema detail) that should have moved to Technical Details? |
 | Grounding accuracy | Are the concrete claims (files, functions, line numbers, "there is no way to X") true? Which will rot? |
-| Structure | Is content in one canonical place, or restated across sections that will drift? Does Description (if present) sit below Acceptance Criteria, stay free of technical detail, and avoid narrating why the ticket is blocked, unsplit, or tied to a release? |
+| Structure | Is content in one canonical place, or restated across sections that will drift? Does the ticket follow the template's order: User Story, Description, Context, UX Design placeholder (frontend only), Acceptance Criteria, Technical Details, Open Questions? |
 | Length / bloat | Is the ticket longer than the diff it will produce? What is pure repetition? |
 | Language / writing | Sentence length, bold overuse, one-idea-per-sentence, scannability. |
-| Level of implementation detail | Is Technical Details present (it's required, not optional), with both a plain-language "In short" pass and a factual "Implementation specifics" bullet list — or missing one of the two, a wall of bullets with no prose on-ramp, a prose spec with no concrete facts, or padded past what the ticket actually needs? |
-| Collapsibility | Are Technical Details, Files to create and modify, and Context each wrapped in their own `<details>` block, with the blank lines GitHub needs to render the Markdown inside? Is anything else (User Story, Acceptance Criteria, Description, Open Questions) collapsed that should be open? |
+| Level of implementation detail | Is Technical Details present (it's required, not optional)? Does it carry a Summary only when the Approach runs past about 15 lines, an Approach written as pseudo code or numbered steps naming real files and functions, no obvious filler a developer here wouldn't need spelled out, and is the whole section short enough for an Axim engineer with two minutes to approve? |
+| Collapsibility | Is Technical Details the only collapsed section, wrapped in its own `<details>` block with the blank lines GitHub needs to render the Markdown inside? Does a frontend ticket have the UX Design placeholder? Is anything else (User Story, Description, Context, Acceptance Criteria, Open Questions) collapsed that should be open? |
 | Helpfulness for a junior human | Can a junior hold it in working memory and start cold, or is it exhausting? |
 | Helpfulness for an AI implementer | Do the User Story, Acceptance Criteria, and Technical Details give a complete, unambiguous brief on their own, without a separate implementer prompt restating them? |
 
@@ -101,57 +112,57 @@ Write the improved ticket to a **new** file (e.g. `issue-<n>-cleaned.md` or, for
 ticket, `<slug>-cleaned.md`) in the repo root or scratchpad. Never overwrite the source.
 Apply these editorial principles, they are the method:
 
-- **BLUF.** Lead with the User Story, stated directly: "As &lt;role&gt;, I want
-  &lt;capability&gt;, in order to &lt;outcome&gt;." That is the shape of the work; it
-  should land in the first line, not after preamble. If the source ticket genuinely
-  covers more than one story, rewrite it as a short plain-English bulleted list rather
-  than force it into one sentence — but don't split a single coherent story into bullets
-  just for variety.
-- **Say each idea once, canonically.** DRY applies to prose. State each invariant/rule in
-  exactly one place (usually Technical Details → Implementation specifics, with "In
-  short" giving the plain-language version of the same fact rather than a second,
-  divergent one). Redundant copies drift out of sync when the ticket is edited and become
-  contradictions.
-- **Acceptance Criteria are pure Given/When/Then.** Strip out any technical checkpoint —
-  a field name, a status code, a schema fact — and move the underlying requirement into
-  Technical Details if it isn't captured there already. This applies even to backend or
-  data-model tickets with no UI: rephrase around what's observed, not the mechanism.
-- **Description is optional, and most tickets don't need one.** Keep it only if it
-  carries something essential the User Story and Acceptance Criteria don't. Cut it to a
-  few terse sentences, move it below Acceptance Criteria, and strip: implementation
-  detail (→ Technical Details), any narration of why the ticket is blocked or wasn't
-  split (→ drop, or Open Questions/Context with a GitHub issue reference if it's a real
-  dependency), and any release or version timing (→ drop). If nothing survives that
-  filter, delete the section.
-- **Technical Details is required — never delete the section, only its bloat.** If the
+- **Lead with the human-written sections, untouched.** User Story, Description, and
+  Context are frozen: copy them exactly as the human wrote them, in that order, as the
+  ticket's first lines. Don't rewrite, reorder within, or otherwise touch their wording,
+  even to fix something that looks wrong; raise a genuine problem as a finding in the
+  review instead, never as a silent edit.
+- **Say each idea once, canonically.** DRY applies to prose. State each invariant or rule
+  in exactly one place, normally the Technical Details Approach, and don't restate it in
+  the Files table or Additional context. Redundant copies drift out of sync when the
+  ticket is edited and become contradictions.
+- **Acceptance Criteria are pure Given/When/Then, or a checkbox list for an artifact
+  ticket.** Strip out any technical checkpoint, a field name, a status code, a schema
+  fact, and move the underlying requirement into Technical Details if it isn't captured
+  there already. This applies even to backend or data-model tickets with no UI: rephrase
+  around what's observed, not the mechanism. The one exception, per the template: an
+  artifact ticket (schema-only or migration-only work, repository scaffolding,
+  packaging/install/config) uses a checkbox list of facts a reviewer confirms at code
+  review time instead of Gherkin.
+- **Description is human-written; leave it alone.** It's not yours to draft, trim, or
+  rephrase. If it's missing, flag the gap rather than writing one. If something in it
+  looks wrong, technical, or narrates why the ticket is blocked, raise that as a finding
+  for the human to act on, don't edit it out. It sits second, right after the User Story,
+  per the template's order.
+- **Technical Details is required: never delete the section, only its bloat.** If the
   source ticket is missing it entirely, flag that as a gap rather than silently adding
   content you're inventing; if it exists, keep it (don't cut it down to nothing to hit a
-  length target). Open it with a line noting it's background and a suggested approach,
-  not the source of truth. Restructure it into the template's two parts: "In short", a
-  few plain-language paragraphs (one per major mechanism or decision, each with a bold
-  lead-in phrase) a non-specialist can follow, and "Implementation specifics", one bullet
-  per concrete fact the prose doesn't spell out — a signature, a file location, a rule, a
-  constraint. If the source is a wall of dense bullets with no prose on-ramp, write the
-  missing "In short" paragraphs from what the bullets already say, don't invent new
-  requirements. If it's unstructured prose, extract its concrete facts into
-  "Implementation specifics" bullets underneath. Keep every real technical requirement the
-  source ticket had in one part or the other; only the duplication and narration is cut,
-  and being required doesn't mean padding either part past what the ticket needs.
+  length target). Open it with a line noting it's a suggested approach, not the source of
+  truth. Restructure it into the template's single block, in order: an optional
+  **Summary** (only when the Approach runs past about 15 lines; if the source Approach is
+  15 lines or fewer, drop any Summary it has), the required **Approach** as pseudo code or
+  numbered steps naming real files, classes, functions, and endpoints, an optional
+  **Files to create and modify** table, and an optional **Additional context**. Cut
+  anything a competent developer on this codebase would do without being told ("add
+  tests", "run the migration", "register the URL"). Keep every real technical requirement
+  the source ticket had; only the duplication, narration, and obvious filler is cut, and
+  the whole section should be short enough that an Axim engineer with two minutes could
+  approve it.
 - **Drop the Example Resolution Prompt entirely.** The current template has no such
   section. Before deleting one from a source ticket, check whether it's the only place
   carrying a real decision or constraint — if so, move that content up into Technical
   Details first, then delete the prompt. Do the same for any "implementation notes"
   paragraph duplicating what Technical Details already says.
-- **Collapse the three supporting sections.** Technical Details, Files to create and
-  modify, and Context each get their own `<details><summary>Section name</summary> ...
-  </details>` wrapper, so the page a reader lands on is the User Story, the Acceptance
-  Criteria, any Description, and three collapsed summaries. Leave a blank line after the
+- **Collapse only Technical Details.** Wrap it in
+  `<details><summary>Technical Details</summary> ... </details>`, so the page a reader
+  lands on is the human-written sections, the UX Design placeholder on a frontend ticket,
+  and the Acceptance Criteria, plus one collapsed summary. Leave a blank line after the
   `<summary>` line and before the closing `</details>`, or GitHub renders the Markdown
   inside as literal text, and replace the section's `##` heading with the `<summary>` line
-  rather than keeping both. Never wrap the User Story, Acceptance Criteria, Description,
-  or Open Questions this way; those stay open.
-- **One Files table per direction, one line per file.** Collapse the Files table to a
-  single line per file; don't restate the approach there.
+  rather than keeping both. Never wrap the User Story, Description, Context, UX Design
+  placeholder, Acceptance Criteria, or Open Questions this way; those stay open.
+- **One Files table, one line per file.** A single table with a File | Change column
+  marking each file new or modified; don't restate the approach there.
 - **Technical decisions live in Technical Details, and only there are they authoritative.**
   Technical Details states the contract, the specific decisions (a validation rule, a
   claiming precedence, an error-handling choice) as facts. The Files table is a
@@ -159,6 +170,11 @@ Apply these editorial principles, they are the method:
   made. State each decision once, in Technical Details, rather than restating it in the
   Files table or anywhere else. When you move a decision up, confirm it is not silently
   dropped from what used to be its only home.
+- **Say what things are, and how they are now.** Delete any sentence about what
+  something isn't, or about how an earlier draft or assumption had it, per the Writing
+  style rule in `CLAUDE.md`. Keep negatives that are themselves requirements: out-of-scope
+  items, "must not" rules, and AC outcomes like "the learner does not see the badge".
+  Don't apply this to the human-written sections; flag it there as a finding instead.
 - **No line numbers.** Name files and functions; the implementer navigates. Drop stale or
   fragile precision.
 - **GitHub issue numbers only.** Replace any internal ticket ID or spreadsheet reference
@@ -168,17 +184,19 @@ Apply these editorial principles, they are the method:
   list, not a bold-studded paragraph. Reserve bold for the few things that must not be
   missed.
 - **Fix factual overstatements** surfaced in step 1 (including anything a maintainer
-  already corrected in the comments).
+  already corrected in the comments), but never in a human-written section; raise those as
+  findings instead.
 - **Preserve the genuine strengths** verbatim or near-verbatim, do not rewrite what
-  already works (a strong User Story, good Gherkin, a careful ADR disentangling).
+  already works (good Gherkin, a careful ADR disentangling).
 - **Do not relitigate a settled design.** If an ADR or prior decision fixed the approach,
   keep it and do not reopen it in the ticket. If the design is *genuinely* unsettled, that
   belongs upstream (an ADR or `ticket-writer`), not smuggled into a cleanup, flag it and
   leave it.
-- **Align to the canonical template**: User Story and Acceptance Criteria first, then
-  only the optional sections that earn their place (Description, Technical Details,
-  Files, Context) in template order, Open Questions last. Use the house section names.
-  Omit empty tables and empty optional sections.
+- **Align to the canonical template**: User Story, Description, and Context
+  (human-written, verbatim) first, then the UX Design placeholder on a frontend ticket,
+  then Acceptance Criteria, then Technical Details, the only collapsible section, with
+  Open Questions last. Use the house section names. Omit empty tables and empty optional
+  sections.
 
 ## 4. Second pass: re-review your own rewrite
 
@@ -197,8 +215,7 @@ prior one did, no requirement, constraint, or fact lost in the edit.
 Close with a short changelog: each significant cut or restructure traced to the principle
 behind it (bloat, redundancy, over-specification, buried ask, stale line numbers, a
 dropped Example Resolution Prompt, an internal ID swapped for a GitHub issue number,
-a section wrapped in a collapsible block, a User Story split into bullets for a
-genuinely multi-story ticket, a factual fix). State what you deliberately kept and why.
+a factual fix). State what you deliberately kept and why.
 Call out, as one explicit judgment, any design question you left untouched because it is
 upstream/ADR work rather than a cleanup concern. If Technical Details was missing from
 the source ticket entirely, call that out explicitly rather than silently filling it in.
