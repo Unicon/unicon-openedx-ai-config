@@ -1,11 +1,71 @@
-# [Placeholder - FE] Build collapsable table display of Competency Criteria on the Course Progress page
+# [FE] Build cards displaying Competency Criteria on the Course Progress page
 
 GitHub: https://github.com/openedx/openedx-core/issues/734 (#734, OPEN)
 Cached: 2026-09-22
 
-_No description yet — placeholder issue._
+## User Story
+As a learner, when I view the Progress tab of my course, I want to see a table of the competencies and subcompetencies that shows which subsections correspond to each competency and what the rule is to demonstrate mastery with these subsections.
 
-## Known scope, decided while drafting SP02.06/07/08
+## Description
+
+This ticket builds the foundation of the CBE course progress page that goes above the `ProgressTabCourseGradeSlot`. 
+
+Each course is only allowed to have its content associated with one level of the competency taxonomy hierarchy.
+
+If this course's subsections' competency criteria associations are at the topmost level in the hierarchy or if they belong to a hierarchy with only one level, then only display a table with that tag's name as the heading and the rules and subsections underneath.
+
+If this course's subsections' competency criteria associations are in the level that is second from the top level, then construct a table with the topmost level as a parent in the table and the association level as the child with the rules and subsections underneath it.
+
+If this course's subsections' competency criteria associations are in a level that is deeper than the second from the top level, then add a breadcrumb for each additional level above the parent and display a table with this level's parent and this level itself and the rules and subsections underneath it.
+
+This level's competency tags should have the target icon to the left of them.
+
+The frontend will need to find all the CompetencyCriteria for a given tag/rule in the course and display them in the table like "COMPLETE ANY/ALL OF THE FOLLOWING AT XX% OR BETTER". If complex rules are used in the bottom tier groups, then display an "AND" or "OR" inbetween these groups under the competency tag.
+
+If this course has no CompetencyCriteria (if an empty array comes back from #733's endpoint), then display nothing.
+
+### Out of Scope (will be implemented in future tickets)
+- Sunburst
+- Right hand column (`ProgressTabRelatedLinksSlot`)
+- Displaying grades in the table
+- Displaying competency statuses in the table
+
+## Context
+- This is the frontend counterpart to #733. 
+- Also depends on <SP02.09>, the ticket to implement the endpoint to GET taxonomy tags in the LMS.
+
+## Notes for drafting
+
+### From the human
+
+Happy path Figma: https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=983-3817&t=eJLFBvoAFbCnde7b-4
+
+6 deep taxonomy Figma: https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=1089-4395&t=eJLFBvoAFbCnde7b-4
+
+Take note of Adolfo's comment here: https://github.com/openedx/openedx-core/issues/810#issuecomment-5795543382 "The idea is solid, but hold off on any technical details as this work is still blocked by https://github.com/openedx/frontend-app-learning/issues/1905.  In other words, let's wait for Learning's frontend-base conversion to land, first." I don't think we should hold off on the technical details altogether but maybe just try to take into account that we're building a plugin for a repo that will be getting converted to using frontend-base but also take our technical details with more of a grain of salt if it's unclear what the impacts of this will be.
+
+### Decisions from the pre-handoff check
+
+- Tag ancestors: `<SP02.09>` (the new LMS tags endpoint, no GitHub number yet) returns each requested tag with its ancestor chain and depth, built from `Tag.lineage`. #734 uses it for parent grouping, the breadcrumb, and detecting a top-level tag. #733 is unchanged for this.
+- Placement: #734 renders the panel above the stock "Grades" card, the default content of `ProgressTabCourseGradeSlot`, as #829 already does. The operator's "in place of" option is a separate follow-up ticket, drafted as a placeholder in `ucid-SP02.10-ghi-pending.md`, and belongs in Out of Scope.
+- Size: kept as one ticket, accepting roughly 2.5 to 3 dev-days.
+- Subsection data: the slot passes no props, so after #733 returns a non-empty result, the plugin fetches the LMS Progress tab API itself (`/api/course_home/progress/{courseId}`, or `/{courseId}/{targetUserId}/` in staff view) through the app's react-query `QueryClientProvider`. That gives each subsection's `block_key` and `display_name`, joined to each criterion's `object_id`.
+- Subsections the learner can't see: #733 returns every stored criterion, unfiltered. #734 drops any criterion whose `object_id` doesn't match a subsection in the Progress tab list (unreleased, hidden, content-group restricted, or deleted), then removes anything left empty. Until a follow-up adds a message telling the learner that something they can't see yet still counts toward their progress, an ALL rule can look easier to meet than it is. That follow-up is beyond our MVP scope.
+- Mixed depths: #666 blocks only an ancestor/descendant pair in one course. Tags at different depths on different branches of one taxonomy can coexist, for example "Inference" (depth 1) and "Communication" (depth 0). So the layout is decided per card. Each associated tag is a target-icon row in a card headed by its parent, with the parent's ancestors as a breadcrumb. An associated tag with no parent is its own card, and its heading gets the target icon. The Description's three depth cases are outcomes of this rule, and its "one level per course" sentence needs revising to match.
+- Rule display mirrors the Competency Management page: each bottom-tier group shows "COMPLETE ALL/ANY OF THE FOLLOWING", then one line per rule box (criteria sharing one effective rule) with its threshold and its subsections underneath. The course-level group's operator is shown as AND or OR between bottom-tier groups. The root group's operator is never shown. Authoring's copy reads "75% or higher" while the Progress Figma reads "OR BETTER", so @illiphilli confirms the copy.
+- Rule text: gte reads "AT XX% OR BETTER", lte reads "AT XX% OR LOWER", eq reads "AT EXACTLY XX%". Thresholds are shown as stored (for example 82%). An unknown rule type shows the line without a threshold and is logged. Confirmed: the authoring API accepts all three operators, and Grade is the only rule type.
+- Operator mapping: a bottom-tier group's `logic_operator` AND reads ALL, OR reads ANY, and null reads ANY.
+- Unhappy paths: while loading, and on any fetch failure (including a 404 when #733's route isn't deployed), render nothing and log the error. The fetch catches its own errors. Empty rule boxes, then empty groups, competencies and cards are removed; if nothing is left, render nothing. In staff view, the panel renders for the learner being viewed.
+- Multiple taxonomies: taxonomies are ordered by name, each with a taxonomy heading above its cards.
+- A parent card lists only the child tags that have criteria in this course.
+- The breadcrumb shows every ancestor as plain text, not links. There are at most 4, because taxonomies cap at 6 levels.
+- Subsection names are plain text, not links.
+- i18n: the plugin's own fixed strings (rule text, AND/OR labels) use `@edx/frontend-platform/i18n` messages, with the translation pipeline in a later ticket. Tag values and subsection names display exactly as the backend returns them.
+- Figma gaps (the top-level case, the AND/OR separator, rule boxes, neutral pill styling while statuses are out of scope, breadcrumb content, mobile width): the BA drafts the AC with the defaults above, and @illiphilli confirms or corrects them through the UX Design placeholder.
+- frontend-base: frontend-app-learning#1905 is open and blocked on #1946. It moves all plugin slots to frontend-base's `Slot` API with no promise that slot IDs are kept. Technical Details should hold the slot wiring loosely, per the note above.
+- Implementer-owned: ordering within a card (taxonomy tree order by lineage, bottom-tier groups by `ordering`, subsections in Progress tab order), the Paragon icon for the target, and heading levels.
+
+### Known scope, decided while drafting SP02.06/07/08
 
 Not yet drafted as a real ticket. These are commitments made while scoping the plugin starter tickets that land here when #734 is actually written:
 
