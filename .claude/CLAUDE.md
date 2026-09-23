@@ -6,7 +6,10 @@ and community plugins. Treat public APIs as contracts and keep changes small.
 ## Which skill to use
 
 - Implementing a non-trivial change: use the `spike-and-stabilize` skill.
-- Reviewing a PR, branch, or diff: use the `code-review` skill.
+- Reviewing a PR, branch, or diff: use the appropriate `frontend-code-review`
+  pr `backend-code-review` skill. These both inherit from `code-review`, and 
+  `code-review` should only be used as a foundational skill for more detailed
+  code review skills that 'inherit' from it.
 - Writing or amending an ADR: apply the same clarify-first discipline as
   `spike-and-stabilize` before drafting the decision text. For a product-facing
   decision, dispatch both `business-analyst` (requirements, lifecycle, edge cases)
@@ -26,12 +29,12 @@ dispatch a further sub-agent, so letting one try either fails outright or falls 
 that sub-agent doing the work itself, on its own (more expensive) model.
 
 **Only the top-level session dispatches.** You, the top-level orchestrating session, or a
-skill running directly in you (`ticket-writer`, `spike-and-stabilize`, `code-review`,
-etc.), are the only ones who call the Agent tool. A dispatched sub-agent — `business-analyst`,
-`software-architect`, `Explore`, `general-purpose`, or any other — never calls it itself,
-regardless of what its own file says or what tools happen to be available to it. Anything
-below about pushing work to a cheaper agent is an instruction for *you*, before or after a
-dispatch, not something a sub-agent can act on by itself.
+skill running directly in you (`ticket-writer`, `spike-and-stabilize`, `frontend-code-review`,
+`backend-code-review`etc.), are the only ones who call the Agent tool. A dispatched sub-agent
+— `business-analyst`, `software-architect`, `Explore`, `general-purpose`, or any other — never
+calls it itself, regardless of what its own file says or what tools happen to be available to
+it. Anything below about pushing work to a cheaper agent is an instruction for *you*, before
+or after a dispatch, not something a sub-agent can act on by itself.
 
 **How a sub-agent asks for help it can't fetch itself.** If a dispatched agent's task
 would benefit from cheaper help it wasn't given up front — a location lookup, a web fetch,
@@ -96,7 +99,7 @@ Other context-hygiene defaults:
 
 ## Working style
 
-- Think before coding: state your assumptions, and ask when the request is ambiguous.
+- Think before coding: state your assumptions and ask when the request is ambiguous.
   Present options instead of guessing silently. Trivial tasks skip this.
 - A question is not a work order: answer questions, don't edit code until told to.
   "Why did you do X?" means explain X, not undo it.

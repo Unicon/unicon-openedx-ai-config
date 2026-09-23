@@ -40,8 +40,12 @@ weight.
 
 ## Claude Setup
 
-This is specifically for [Claude Code](https://claude.com/claude-code). It doesn't set up Codex
-or other AI tools — see the note at the end of this section for why. If you do not have a Unicon Claude Code account, you will need to submit an EOR to get one as a prerequisite to using the Claude Setup in this repo.
+This is specifically for [Claude Code](https://claude.com/claude-code). 
+[Codex](https://openai.com/blog/openai-codex/) can be used to some extent with this setup
+as well, see the [Codex Setup](##Codex Setup) section, though Claude remains our teams
+preferred day-to-day AI assistant. If you do not have a Unicon Claude Code account, you
+will need to submit an EOR to get one as a prerequisite to using the Claude Setup in this
+repo.
 
 **1. Create your workspace directory.**
 
@@ -90,14 +94,33 @@ local to you.
 created. Open the Claude Code panel from there — it reads `.claude/` automatically and applies
 it across every repo in the workspace, with no extra setup.
 
-**A note on Codex:** most of this doesn't transfer directly. Codex reads `AGENTS.md`, not
-`CLAUDE.md`, for project instructions — the prose is copyable, but not automatic. It has no
-shipped equivalent to the `agents/` sub-agent dispatch mechanism (`business-analyst`,
-`software-architect`), so those wouldn't function even if copied over. It does have its own
-`SKILL.md` mechanism with a similar frontmatter format, so `.claude/skills/` may be closer to
-portable than the rest of this — except `ticket-writer`, which itself dispatches the missing
-sub-agents and so still wouldn't work as-is. This area is changing fast on OpenAI's side, so
-treat this as a snapshot, not a permanent answer, if it matters enough to revisit.
+## Codex Setup
+
+This section is specifically for Codex/ChatGPT, which currently relies on our 
+[Claude Setup](#claude-setup) for its functionality. Claude is currently our teams' first choice
+for AI assistance and receives first order development and support in this repo, but Codex can
+be used effectively with that same development effort to some extent.
+
+The main difference is in architecture and how the different agents will automatically
+understand the context of their environment. Namely, Claude will look under a `.claude`
+directory for its context definitions, where Codex/ChatGPT will look under a `.agents`
+directory. There are other differences to be sure, but at the time of writing this appears
+to be the only major stumbling block that must be addressed for basic functionality.
+
+**1. Symlink to .claude/ from .agents**
+
+At this time, follow the setup instructions for Claude. Once those are complete, you
+can seemingly just create a symlink named `.agents` to `<root path>/.claude` in your working
+directory:
+
+```
+ln -s .agents <root path>/.claude
+```
+
+Our Claude Skills, agents, and so forth are generic enough that Codex seems to read them in and
+perform the same functionality with minimal concern. Again, though, this is only proven minimally
+at the time of this writing, namely the code review functionality, and has not been tested with
+the other various tasks.
 
 ## Using it day to day
 
@@ -109,6 +132,6 @@ treat this as a snapshot, not a permanent answer, if it matters enough to revisi
 - **Implementing a non-trivial change:** the `spike-and-stabilize` skill — survey the code, get
   one combined clarify-and-plan approval, write a thin throwaway spike, then stabilize it
   (types, tests, checks, review). Skip it for trivial changes like renames or typo fixes.
-- **Reviewing a diff or PR:** the `code-review` skill.
+- **Reviewing a diff or PR:** the `frontend-code-review` or `backend-code-review` skill as appropriate.
 - **Everything else** (`CLAUDE.md`, the principles docs) loads as background context
   automatically. You never invoke it directly, it's just informing every response.
