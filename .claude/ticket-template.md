@@ -1,292 +1,287 @@
 # Ticket template
 
-The canonical shape for a development ticket in this project. The `ticket-writer`
-skill and the `business-analyst` and `software-architect` agents read this to review,
-improve, and author tickets, whether tightening an existing one or drafting a new one.
+The canonical shape for a development ticket in this project. The `ticket-writer` skill,
+the `clean-up-ticket` skill, and the `business-analyst` and `software-architect` agents
+read this to draft, review, and improve tickets.
 
-**The User Story and Acceptance Criteria are the ticket.** Technical Details always
-accompanies them, as required supporting background. Description, Files, and Context
-exist to support the ticket further, not to duplicate it. Say each fact once, in its
-canonical section.
+## Who writes what
 
-**Three sections are collapsible: Technical Details, Files to create and modify, and
-Context.** Each is wrapped in its own GitHub Markdown `<details>` block, so a reader who
-only needs the User Story and Acceptance Criteria isn't confronted with any of them,
-while a developer (or an AI implementer) expands the ones they need. Everything else —
-User Story, Acceptance Criteria, Description, Open Questions — stays open on the page.
+Axim asked that the parts of a ticket that frame the work be written by a person, not an
+LLM, and that everything an LLM drafts be audited by a person before the ticket is posted.
+So a ticket has two kinds of sections:
 
-Section ownership: the business-analyst owns User Story, Acceptance Criteria, the
-optional Description, and Open Questions raised from a requirements angle. The
-software-architect owns Technical Details, Files to create and modify, the optional
-Context, and Open Questions raised from a design angle.
+| Section | Written by | Claude's role |
+| --- | --- | --- |
+| Title | Human | Preserve verbatim |
+| User Story | Human | Preserve verbatim |
+| Description | Human | Preserve verbatim |
+| Context | Human | Preserve verbatim |
+| UX Design (frontend tickets only) | Claude adds the placeholder, the designer fills it in | Add the placeholder |
+| Acceptance Criteria | Claude drafts, a human audits | Draft |
+| Technical Details | Claude drafts, a human audits | Draft |
+| Open Questions | Either, rarely | Only for what is genuinely the implementer's to decide |
+
+**Claude never edits the title or the human-written sections**, and neither does any
+cleanup pass. In a cache file the title is the `#` line at the top.
+That covers wording, formatting, and order within the section. If Claude thinks one of
+them has a problem (a missing "in order to", a Context bullet that contradicts the code,
+a Description that promises more than the AC cover), it reports that in chat to the person
+running the session, who decides whether to change it. Claude never writes those concerns
+into the ticket file.
+
+When a human-written section is missing, Claude asks the human for it rather than
+drafting it. The one exception is the design spike shape below.
+
+## How a ticket moves from draft to GitHub
+
+The cache file under `.claude/github-issues/<workstream>/<epic>/` passes between the human
+architect and the human BA through git. The `ticket-writer` skill covers each step:
+
+1. The architect has Claude scaffold empty User Story, Description, Context, and
+   `## Notes for drafting` headings into the cache file, then writes the title (replacing
+   any placeholder title) and those sections. The
+   notes hold anything the BA and Claude should know that doesn't belong in the posted
+   ticket: hunches about the approach, related code, edge cases to cover.
+2. The architect runs a pre-handoff check. Claude flags problems in the human-written
+   sections and asks the architect every question it can foresee, so that the answers are
+   in the file before the BA starts. Then the architect pushes the file to the BA.
+3. The BA runs the draft pass with Claude, which drafts the Acceptance Criteria, Technical
+   Details, and the UX Design placeholder, then pushes the file back.
+4. The architect does a final review: the same audit the BA did, plus a list of questions
+   and concerns for Claude, if any. The architect resolves any questions left for them and
+   pushes the file back to the BA.
+5. The BA runs a pre-post check and posts the ticket to GitHub.
+
+The `## Notes for drafting` section is removed before the ticket is posted. Anything in it
+that a reader of the posted ticket needs ends up in the AC or in Technical Details, or, if
+the architect chooses, in the Context.
+
+## Order
+
+1. **User Story** (human, required)
+2. **Description** (human, required)
+3. **Context** (human, optional)
+4. **UX Design** (required on frontend tickets, omitted otherwise)
+5. **Acceptance Criteria** (required)
+6. **Technical Details** (required, collapsible)
+7. Open Questions (optional, always last)
+
+Only Technical Details is collapsed. Everything else stays open on the page.
 
 Reference other work by **GitHub issue number only** (e.g. "see #618"). Never reference
 internal ticket IDs, spreadsheets, or any tracker a reader outside the team can't open.
-Don't mention target releases or roadmap timing anywhere in the ticket — that's tracked
-elsewhere.
+Don't mention target releases or roadmap timing anywhere in the ticket.
 
-A ticket has three required sections, in this order, plus three optional ones used only
-when they earn their place:
+## 1. User Story (human)
 
-1. **User Story** (required)
-2. **Acceptance Criteria** (required)
-3. Description (optional)
-4. **Technical Details** (required — collapsible)
-5. Files to create and modify (optional — collapsible)
-6. Context (optional, rare — collapsible)
-7. Open Questions (optional, always last)
-
-## 1. User Story
-
-One sentence, the desired outcome stated directly:
+Why the user cares, in one sentence:
 
     As a <role>, I want <capability>, in order to <outcome>.
 
-Name a real Open edX role (course author, library maintainer, learner, operator, plugin
-developer), not "the user." The "in order to" is the stakeholder's true intent — if you
-can't state it, the ticket is not ready. This is the first thing a reader sees; don't
-bury it under context or preamble.
+Example: "As a platform admin, I want to see the instance's default rule profile, in
+order to know which rules apply to courses that don't set their own." A ticket that
+genuinely serves more than one story can use a short bulleted list instead.
 
-**When a ticket genuinely covers more than one user story** (rare — most tickets have
-exactly one), don't force it into a single sentence. Use a short bulleted list instead,
-each bullet in plain English stating what the ticket covers, keeping the "as &lt;role&gt;,
-I want &lt;capability&gt;, in order to &lt;outcome&gt;" shape where it fits naturally.
-This is the exception; reach for it only when the work truly serves distinct stories, not
-as a way to avoid picking one clear outcome.
+## 2. Description (human)
 
-## 2. Acceptance Criteria
+What developers need to do, in brief. One to three plain sentences. Example: "We need to
+build a GET endpoint that returns the instance-wide rule profile."
 
-Gherkin scenarios only — Given / When / Then — one per distinct, observable behavior,
-including the unhappy paths. No technical criteria: no field names, status codes, schema
-details, or implementation checkpoints here. If a scenario can't be stated as behavior
-someone (or some caller) can observe, it belongs in Technical Details, not here.
+## 3. Context (human, optional)
+
+What else developers should know right now: a blocking PR, a related issue, a PR that
+partially implements this, a relevant ADR. A short bullet list, referencing work by GitHub
+issue or PR number. Context that Claude thinks is worth flagging goes in the Additional
+context part of Technical Details, not here.
+
+## 4. UX Design (frontend tickets only)
+
+Every ticket that changes a user interface (an MFE, Studio, the LMS) gets this section,
+exactly as written below, so the designer knows to attach the design after the ticket is
+posted. Omit it on backend-only tickets.
+
+    ## UX Design
+
+    @illiphilli, please add the UX design screenshot(s) and the Figma link for this ticket.
+
+    - Figma: TBD
+    - Screenshots: TBD
+
+Once the design is attached, the Acceptance Criteria should agree with it. If they don't,
+update the AC.
+
+## 5. Acceptance Criteria
+
+How a reviewer tests the work. Write one Gherkin scenario per distinct, observable
+behavior, including the unhappy paths:
 
     Scenario: <short name>
       Given <precondition>
       When <action>
       Then <observable outcome>
 
-This applies to every ticket type, including backend and data-model tickets that have no
-UI. Phrase the outcome in terms of what the caller, the system, or a downstream reader
-observes — a returned result, a state change, a query outcome — not the mechanism
-underneath. Cover the empty, error, and permission cases, not just the happy path.
-Include mobile/responsive behavior where the UI is expected to work on small screens.
+Phrase outcomes as what a caller, the system, or a downstream reader observes (a returned
+result, a state change, what appears on screen), not the mechanism underneath. Don't put
+field names, status codes, or schema details here; they belong in Technical Details. Cover
+the empty, error, and permission cases, and mobile or responsive behavior where the UI is
+expected to work on small screens. Each scenario must be able to fail.
 
-Treat these as living: they evolve as understanding changes, so write them to be
-revised, not frozen. Each one must be observable and testable — able to fail.
+**Exception: artifact tickets use a checklist.** When the deliverable is an artifact
+rather than runtime behavior, write the AC as a checkbox list of facts a reviewer confirms
+at code review time instead of Gherkin. That covers schema-only and migration-only work,
+repository scaffolding (standard files, build, CI), and packaging, install, or
+configuration work (a Tutor plugin, install docs, an image build). The test is what
+closing the ticket proves: if a person runs it and watches it succeed or fail, use
+Gherkin; if a reviewer confirms that something exists and is correct, use a checklist.
+When the call is unclear, ask the human.
 
-**Exception — design spike / research tickets** (deliverable is artifacts and decisions,
-not code): Gherkin doesn't apply because there's no runtime behavior yet. Use a delivery
-checklist instead — checkboxes for the artifacts to produce (e.g., updated Figma, a
-documented decision with rationale, notes for the dependent implementation ticket). Open
-with: "This is a design spike. The deliverable is design artifacts and documented
-decisions, not working code." Every item in Open Questions needs a matching checklist
-item, since resolving and documenting them is the deliverable.
+## 6. Technical Details (collapsible)
 
-## 3. Description (optional)
+The in-the-weeds material: the suggested approach, the files involved, and any context
+Claude wants to flag. Every ticket has this section, except a design spike.
 
-Include only if there's something critical a reader needs beyond the User Story and
-Acceptance Criteria — essential background, a constraint, a fact that would otherwise
-confuse the ticket. A few terse sentences, not paragraphs. If there's nothing that meets
-that bar, omit the section entirely.
+**Write it for an Axim engineer who has two minutes.** The goal is that an engineer can
+read the approach, agree or push back before any code is written, and not be surprised at
+code review. That only works if the section is short. Leave out anything a competent
+developer on this codebase would do without being told: "add tests", "run the
+migration", "register the URL", "follow the existing serializer pattern". Keep what they
+couldn't guess: the non-obvious decision, the place it lives, the edge case that bites.
 
-Never include here:
+**It is a suggested approach, not the source of truth.** The User Story, Description, and
+Acceptance Criteria define what must be true when the work is done. Say so in the
+section's opening sentence.
 
-- Implementation or technical detail — that's Technical Details.
-- Why this ticket is blocked, or why it wasn't split or merged with another — that's a
-  meta-fact about the ticket's status, not about the work. Note a real dependency, if one
-  exists, in Context or Open Questions, referencing the other work by GitHub issue number.
-- Release or version timing.
-
-If a Description exists, it goes here, below Acceptance Criteria — not above the User
-Story or Acceptance Criteria.
-
-## 4. Technical Details (required)
-
-**Every ticket includes this section.** It is not optional — even a small ticket gets a
-few bullets naming the real approach. Being required doesn't mean being long: keep it
-exactly as concise and non-redundant as an optional section would be, it just always
-shows up.
-
-**This section is background information and a suggested approach — not the source of
-truth.** The User Story and Acceptance Criteria define what must be true when the work
-is done; Technical Details exists to save the implementer some thinking, not to bind
-them. Say so with an opening sentence before the content.
-
-**Wrap the whole section in a GitHub Markdown collapsible block**, per the collapsible
-rule above:
+Wrap the whole section in one collapsible block. Keep a blank line after the `<summary>`
+line and before `</details>`, or GitHub renders the Markdown inside as literal text:
 
     <details>
     <summary>Technical Details</summary>
 
-    ...content as described below...
+    This is a suggested approach, not the source of truth. The User Story, Description,
+    and Acceptance Criteria define what must be true when the work is done.
+
+    **Summary**
+
+    ...
+
+    **Approach**
+
+    ...
+
+    **Files to create and modify**
+
+    ...
+
+    **Additional context**
+
+    ...
 
     </details>
 
-Keep a blank line after the `<summary>` line and before the closing `</details>`, or
-GitHub renders the Markdown inside as literal text. The section's own `##` heading is
-replaced by the `<summary>` line; don't write both.
+The parts, in this order:
 
-Structure it in two parts, matching altitude to purpose (fold together only when the work
-is genuinely tiny — a one-paragraph "In short" and a two-bullet "Implementation
-specifics" is a complete Technical Details section in that case):
+- **Summary** (only when the Approach runs past about 15 lines). Two to four plain
+  sentences saying what the approach does, for a reader who won't read the Approach. When
+  the Approach is 15 lines or fewer, leave the Summary out: the Approach is already short
+  enough to read.
+- **Approach** (required). Pseudo code or a numbered list of steps, whichever is shorter
+  for this ticket, using the real names of the files, classes, functions, and endpoints
+  involved. Each step says what happens and, where it isn't obvious, why. Include the
+  specific edge cases the tests must cover, public API or contract impact, the layer the
+  code sits in (respecting `.importlinter`), and a link to a warranted ADR, but only where
+  each one applies. Name companion-ticket work that touches the same flow and mark it out
+  of scope by GitHub issue number. State only the recommended approach, not the
+  alternatives that were considered; those go to the human synthesizing the ticket, and,
+  when the choice is architecturally significant, into a proposed-status ADR this section
+  links to.
+- **Files to create and modify** (optional). One table, one line per file. Mark each file
+  as new or modified. The table is a map; any decision about a file is stated in the
+  Approach, not here.
 
-- **In short** — a few short paragraphs in plain language, one per major mechanism or
-  decision, each opening with a bold lead-in phrase naming what it covers (e.g. "**Backfilling
-  existing rows.**"). Write full sentences a reader who isn't a specialist in this code
-  can follow on one pass: say what happens, and where it isn't obvious, why, before
-  reaching for a class or function name. This is the part most readers actually read, so
-  it has to carry the same requirements as Implementation specifics below, in prose
-  instead of bullets, not a softer or partial version of them.
-- **Implementation specifics** — one bullet per concrete fact an implementer needs that
-  the prose above doesn't spell out: exact file, class, and function names and where
-  they live, exact signatures or formulas, which specific methods must or must not do
-  something, the specific query or API calls to use, migration file names and operation
-  order, error-handling specifics, and the specific edge cases to test. State each as a
-  fact, not a narrative: a bold lead phrase, then one sentence of elaboration. Don't
-  restate the DB schema; fold anything essential into the bullet.
+      | File | Change |
+      | --- | --- |
+      | src/openedx_learning/applets/cbe/api.py | modified: add get_default_rule_profile() |
+      | src/openedx_learning/applets/cbe/rest_api/v1/views.py | new: RuleProfileView |
 
-Between the two parts, keep every real technical requirement the work has: "In short"
-doesn't get to omit something the bullets below state, and the bullets don't get to
-introduce a requirement the prose above never mentioned in some form. Name
-companion-ticket work that touches this flow and mark it out of scope in Implementation
-specifics, referencing the companion by GitHub issue number.
+- **Additional context** (optional). Context Claude thinks a developer should know that
+  the human-written Context section doesn't already cover: prior-art files, a related
+  ADR, a related issue. A short bullet list of file paths (never line numbers, they rot),
+  ADR links, and GitHub issue numbers. Don't repeat anything in the human Context.
 
-Also fold into Implementation specifics, as bullets, wherever relevant: public-API/contract
-impact, the layer or app it sits in (respecting `.importlinter`), backward-compatibility
-notes, test strategy (specific fixtures, files, and test cases, not just "add tests"),
-and a link to a warranted ADR.
-
-State only the recommended approach — not the alternatives considered and rejected.
-Those belong in the architect's returned analysis for the human synthesizing the ticket,
-and, when the choice is architecturally significant, in a proposed-status ADR that this
-section links to.
+Omit an optional part entirely when it's empty. Say each fact once: a rule stated in the
+Approach is not restated in the Files table or in Additional context.
 
 Do not add an Example Resolution Prompt or any closing "how to implement this" prompt.
-The User Story, Acceptance Criteria, and the facts above are what an implementer —
-human or AI — needs; a separate prompt only restates them.
 
-**Exception — design spike tickets:** this is the one case where Technical Details is
-not required. Replace it and Files to create and modify with a single **Context for the
-Designer** section: the current state of the relevant UI or flow, the options under
-consideration with tradeoffs, constraints the design must respect, and links to related
-tickets (by GitHub issue number) and the current Figma file. That section is the body of a
-spike ticket, so leave it open rather than collapsing it. The software-architect's
-role on a spike is scope judgment only — is this one ticket, does it block anything —
-not technical design.
+## 7. Open Questions (optional, rare, always last)
 
-## 5. Files to create and modify (optional)
+A posted ticket should have no Open Questions except ones that are genuinely the
+implementer's to decide while building (for example, a naming choice or an internal
+structure that the AC and Approach don't constrain). Everything else gets answered before
+posting: the architect answers foreseeable questions during the pre-handoff check, and the
+BA answers requirements questions during the draft pass. Omit the section when nothing is
+left.
 
-Two tables, one for new files and one for modified files. Both are the architect's map
-and must match Technical Details and the import layering. Keep each row to one line.
-Omit a table if it's empty; omit the whole section if there's nothing to name yet.
+While a ticket is still being drafted, label each question with who resolves it:
+`(architect, final review)` for one waiting on the architect, or `(implementer)`. The
+architect resolves every `(architect, final review)` question during final review, folds
+the answer into the AC, Technical Details, or Context, and removes the question, so none
+of them are posted. Each question is crisp and answerable.
 
-Wrap the section in its own collapsible block, the same way Technical Details is wrapped:
+## Design spike tickets
 
-    <details>
-    <summary>Files to create and modify</summary>
+A design spike's deliverable is design artifacts and documented decisions, not code. It
+differs from the standard shape in three ways:
 
-    ...the two tables...
+- The Acceptance Criteria are a delivery checklist (updated Figma, a documented decision
+  with rationale, notes for the dependent implementation ticket), opening with: "This is
+  a design spike. The deliverable is design artifacts and documented decisions, not
+  working code." Every Open Question needs a matching checklist item.
+- Technical Details is replaced by an open (not collapsed) **Context for the Designer**
+  section, which Claude drafts: the current state of the relevant UI or flow, the options
+  under consideration with tradeoffs, the constraints the design must respect, and links
+  to related tickets and the current Figma file.
+- Open Questions is required, and its questions are the designer's to resolve, which is
+  the one exception to the implementer-only rule in section 7.
 
-    </details>
+## Stubs
 
-**New files**
-
-    | File | Purpose |
-    | --- | --- |
-    | src/openedx_learning/applets/cbe/models.py | CompetencyTaxonomy and related models |
-    | src/openedx_learning/applets/cbe/migrations/0001_initial.py | schema migration |
-
-**Modified files**
-
-    | File | Nature of modification |
-    | --- | --- |
-    | src/openedx_tagging/rest_api/v1/serializers.py | add taxonomy_type SerializerMethodField |
-    | src/openedx_tagging/rest_api/v1/views.py | add select_related to get_queryset |
-
-## 6. Context (optional, rare)
-
-Omit unless there's something a developer genuinely needs before starting that isn't
-already covered above: a prior-art file, an ADR, or a related/blocking ticket. When
-included, it's a bullet list — file paths and names (never line numbers, they rot), ADR
-links, and GitHub issue numbers — not prose. A good Context section is short because the
-User Story, AC, and Technical Details already carry the substance.
-
-Wrap it in its own collapsible block too:
-
-    <details>
-    <summary>Context</summary>
-
-    ...the bullet list...
-
-    </details>
-
-## 7. Open Questions (optional, always last)
-
-Omit when everything is settled. Required for design spike tickets, where the questions
-are the decisions the designer must resolve and document.
-
-An unordered list of questions the ticket author could not resolve at writing time. Each
-entry is a crisp, answerable question with a note on who owns the answer (designer,
-implementer, BA, architect). Blocking questions go first. Reference any related ticket by
-GitHub issue number.
-
-Answers are documented as comments on the issue; once a blocking question is resolved,
-update the Acceptance Criteria (or Description, if that's where it matters) to reflect
-the decision and remove the question from this section.
+When a ticket depends on a design decision that isn't made yet, it exists only as a stub:
+a title plus a one-sentence blocker note. The full ticket is written after the blocking
+decision is documented.
 
 ## Splitting into companion tickets
 
-When a piece of work spans repos or layers (for example, a backend contract in this
-repo plus a passthrough or consumption change in `openedx-platform` or a frontend repo),
-split it into one ticket per repo/layer rather than one ticket with mixed scope. Pick one
-ticket to hold the full shared context — usually the one that defines the contract the
-others depend on — and keep the rest sparse:
+When a piece of work spans repos or layers (for example, a backend contract in
+`openedx-core` plus a consuming change in `openedx-platform` or a frontend repo), split it
+into one ticket per repo or layer. The human writes each ticket's User Story,
+Description, and Context as usual. For the sections Claude drafts:
 
-- A companion ticket restates only what is specific to its own repo or layer: its own
-  User Story framing if genuinely different, its own Files to modify.
-- Background, rationale, resolved open questions, and Acceptance Criteria that verify the
-  same underlying contract are referenced by GitHub issue number ("see #618") rather than
-  copied. Restate only where the companion's scenario is genuinely different (a different
-  endpoint, a different response shape) — don't duplicate identical scenarios verbatim.
-- Every companion ticket's Context section links back to the ticket holding the shared
-  context and to any sibling companions by issue number, so a developer starting from any
-  one of them can find the rest.
-- A companion ticket is still a complete, standalone unit of work: a developer picking it
-  up must be able to tell what to build and how to verify it without reading the parent
-  ticket's day-to-day discussion, only its resolved contract.
-- Don't explain, in any companion ticket, why the work was split this way — that's a
-  process fact for the people who did the splitting, not part of the work itself.
+- Pick one ticket to hold the full shared contract, usually the one that defines what the
+  others depend on. The other tickets reference it by GitHub issue number instead of
+  copying its Technical Details or its identical AC scenarios. Restate a scenario only
+  where the companion's behavior is genuinely different.
+- Each companion is still a complete unit of work: a developer can tell what to build and
+  how to verify it from that ticket plus the shared contract, without reading the other
+  ticket's discussion.
+- Don't explain in any ticket why the work was split.
 
-## What "awesome" looks like
+## What a good ticket looks like
 
-- The User Story states a real role and outcome directly, in one sentence, up front —
-  or, for the rare ticket covering more than one story, a short plain-English bulleted
-  list instead of a forced single sentence.
-- Acceptance Criteria are pure Given/When/Then, observable, and could each fail —
-  including for backend and data-model tickets with no UI.
-- There's no Description at all unless it earns its place; when present, it's a few
-  sentences of essential context, nothing technical, and it sits below Acceptance
-  Criteria.
-- Technical Details is always present, opens by saying it's background and a suggestion,
-  then reads as a short "In short" walkthrough in plain language followed by an
-  "Implementation specifics" list of exact facts, never only a wall of dense bullets with
-  no prose on-ramp, and never padded just to look complete.
-- Technical Details, Files to create and modify, and Context are each in their own
-  `<details>` block, so the page a reader lands on is the User Story, the Acceptance
-  Criteria, and three collapsed summaries.
-- Each rule or invariant appears once, in its one canonical section. The same constraint
-  restated across Description, Technical Details, and Files drifts into contradiction the
-  moment one copy is edited.
-- There's no Example Resolution Prompt and no other closing implementation-plan prompt.
-- Context and Files, when present, are concrete — real paths, real GitHub issue numbers
-  — and short, because the substance already lives in the sections above, and each is
-  collapsed behind its own summary.
-- Nothing in the ticket references an internal ticket ID, a spreadsheet, or a release
-  date.
-- The whole thing is a 1-2 developer-day unit of work, or it is split and says so via
-  companion tickets.
-- It is SMART: Specific, Measurable, Achievable, Relevant, Time-bound.
-- When a ticket has a hard dependency on an unresolved design decision, it exists as a
-  stub only — title plus a one-sentence blocker note. The full ticket is written
-  immediately after the blocking decision is documented, not before.
+- The page a reader lands on shows the human-written User Story, Description, and
+  Context, the UX Design placeholder on a frontend ticket, the Acceptance Criteria, and
+  one collapsed Technical Details summary.
+- The title, User Story, Description, and Context read exactly as the human wrote them,
+  and the title still reads as a human wrote it: plain, specific, and understandable
+  without opening the ticket.
+- The Acceptance Criteria are Gherkin (or a checklist for an artifact ticket), and each
+  one could fail.
+- Technical Details is short enough that an Axim engineer could approve the approach from
+  it, with a Summary only when the Approach is long, and nothing in it that a developer on
+  this codebase would do without being told.
+- Each fact appears once, in its one canonical place.
+- The Claude-drafted sections say what the work is and how things are now. Nothing
+  describes what something isn't or how an earlier draft had it, except negatives that
+  are themselves requirements, such as out-of-scope items and "must not" rules.
+- Nothing references an internal ticket ID, a spreadsheet, or a release date.
+- The work is a 1-2 developer-day unit, or it is split into companion tickets.

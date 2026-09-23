@@ -27,6 +27,8 @@ an upstream community repo: AI config, local dev setup notes, deployment notes, 
   - `settings.local.json` — personal, gitignored; recreate your own after cloning.
   - `claude-spikes/` — design spike write-ups.
   - `supporting-docs/` — sprint/ticket planning artifacts.
+- **`ticketDraftingWorkflow.md`**: how the human architect and BA work with Claude to draft
+  a ticket, from a blank cache file to a posted GitHub Issue.
 - **`localEnvSetup.md`** — Tutor-based local dev environment setup. Only needed to actually run
   Open edX locally, not for AI context.
 - **`awsDeploymentNotes.md`** — AWS deployment notes (being filled in).
@@ -104,9 +106,9 @@ treat this as a snapshot, not a permanent answer, if it matters enough to revisi
 
 ## Using it day to day
 
-- **Writing or reviewing a ticket:** ask Claude directly, or invoke the `ticket-writer` skill
-  by name. It dispatches the business-analyst and software-architect agents and asks you the
-  questions that actually change the ticket.
+- **Writing or reviewing a ticket:** follow [`ticketDraftingWorkflow.md`](ticketDraftingWorkflow.md).
+  The `ticket-writer` skill runs each step, dispatching the business-analyst and
+  software-architect agents and asking you the questions that actually change the ticket.
 - **Architecture or design question:** just ask; the software-architect agent gets pulled in
   automatically when it's relevant.
 - **Implementing a non-trivial change:** the `spike-and-stabilize` skill — survey the code, get

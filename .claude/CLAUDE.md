@@ -249,6 +249,13 @@ actual work is in a JS/TS frontend repo instead (an Open edX MFE such as
 - Avoid em dashes; use commas, colons, or periods. Use bold sparingly.
 - US spelling. Inclusive terms (allow list / deny list, `main`, primary/replica).
 - Write the current state, not its history. History lives in `git log`.
+- State what things are, not what they aren't, and how they are now, not how an earlier
+  draft, assumption, or version had them. Delete sentences like "this isn't a replacement
+  for X", "unlike the previous approach", or "an earlier draft said Y". A negative that is
+  itself a requirement or boundary stays: an out-of-scope item, a "must not" rule, an AC
+  outcome like "the learner does not see the badge". This applies to tickets, docs, ADRs,
+  PR and commit bodies, and code comments. In chat, describing what changed between drafts
+  is fine when the user asks.
 - When authoring a GitHub issue, never mention or reference a local markdown filename
   (e.g. "see ucid-5.10c.md"). A reader of the issue only has other GitHub issues to draw
   on, not local scratch files; if something from one is load-bearing, restate it inline.

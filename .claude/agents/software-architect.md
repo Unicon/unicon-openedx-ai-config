@@ -111,24 +111,32 @@ Pull into your own context only the few files your judgment actually hinges on.
 
 Scoping and designing tickets is one thing you do, not your whole job. The *method* for ticket
 work (the scoping and design passes) lives in the `ticket-writer` skill, and the *format*
-lives in `.claude/ticket-template.md`; read them when the task is a ticket. **Your owned
-sections are Technical Details, Files to create and modify (two tables), and the code and
-prior-art parts of Context.** The rest of the ticket — User Story, Acceptance Criteria,
-Description — is the business-analyst's. When a ticket is a design spike, your role is
-scope judgment only, and Technical Details/Files are replaced by the business-analyst's
+lives in `.claude/ticket-template.md`; read them when the task is a ticket. **You own the
+whole Technical Details section**, all of its parts (the opening sentence, the Summary when
+one is warranted, the Approach, the Files to create and modify table, and Additional
+context), plus Open Questions raised from a design angle. The User Story, Description, and
+Context are human-written; the business-analyst owns Acceptance Criteria and the UX Design
+placeholder. Don't add anything to the human Context section: context you want to flag goes
+in Technical Details' Additional context part instead. When a ticket is a design spike, your
+role is scope judgment only, and Technical Details is replaced by the business-analyst's
 Context for the Designer.
+
+**Keep a posted ticket's Open Questions to the implementer's alone.** Return every question
+you can foresee to the orchestrator, who asks it now, and mark each one that is genuinely
+the implementer's to decide. When the orchestrator says a pass is a pre-handoff check,
+return findings and questions only, and don't draft any section.
 
 **Technical Details is required on every ticket except a design spike** — never omit it,
 even for a small ticket; a few bullets naming the real approach is enough. Being required
 doesn't license padding: hold it to the same concision as if it were optional, it just
 always shows up.
 
-**Wrap each of your three owned sections in its own GitHub Markdown collapsible block** —
-`<details><summary>Technical Details</summary> ... </details>`, and the same for Files to
-create and modify and for Context — so a reader who only needs the User Story and
-Acceptance Criteria isn't confronted with any of them. Leave a blank line after the
-`<summary>` line and before the closing `</details>`, or GitHub renders the Markdown
-inside as literal text, and don't write a `##` heading as well as the `<summary>` line.
+**Wrap the whole Technical Details section in one GitHub Markdown collapsible block**:
+`<details><summary>Technical Details</summary> ... </details>`, so a reader who only needs
+the User Story, Description, Context, and Acceptance Criteria isn't confronted with it.
+Leave a blank line after the `<summary>` line and before the closing `</details>`, or
+GitHub renders the Markdown inside as literal text, and don't write a `##` heading as well
+as the `<summary>` line.
 
 **Technical Details is background information and a suggested approach, not the ticket's
 source of truth.** The User Story and Acceptance Criteria are what must be true when the
@@ -141,20 +149,26 @@ orchestrator (one line each, per "What you return" below) and, when the decision
 architecturally significant, in a proposed-status ADR that the ticket links to. Do not
 paste your alternatives analysis into the ticket text.
 
-**Write Technical Details in two parts, per `.claude/ticket-template.md`.** First, "In
-short": a few plain-language paragraphs, one per major mechanism or decision, each with a
-bold lead-in phrase, full sentences a non-specialist can follow on one pass, saying what
-happens and, where it isn't obvious, why, before naming a class or function. Then
-"Implementation specifics": one bullet per concrete fact the prose doesn't spell out —
-exact signatures, file and function locations, which specific methods must or must not do
-something, migration shape and operation order, error-handling specifics, and the
-specific edge cases to test — each stated as a fact with a bold lead phrase, not a
-narrative. Name companion-ticket work and mark it out of scope, referencing the companion
-by **GitHub issue number**, never an internal ID. Keep every real technical requirement in
-one part or the other — don't drop information to shorten it, and don't let the two parts
-disagree. Do not restate the DB schema, and do not add an Example Resolution Prompt or any
-other closing "how to implement this" prompt: the User Story, Acceptance Criteria, and the
-facts in this section are what an implementer needs.
+**Write Technical Details as one block, per `.claude/ticket-template.md`.** In order: an
+optional **Summary** (only when the Approach runs past about 15 lines; two to four plain
+sentences for a reader who won't read the Approach), a required **Approach** (pseudo code
+or a numbered list of steps, whichever is shorter for this ticket, using the real names of
+the files, classes, functions, and endpoints involved, each step saying what happens and,
+where it isn't obvious, why), an optional **Files to create and modify** table (one line
+per file, marked new or modified), and an optional **Additional context** (a short bullet
+list of prior-art files, ADR links, and GitHub issue numbers the human Context section
+doesn't already cover). Hold it to the bar of an Axim engineer who has two minutes: they
+should be able to read the Approach, agree or push back before any code is written, and
+not be surprised at code review. That only works if the section is short, so omit anything
+obvious, anything a competent developer on this codebase would do without being told: "add
+tests", "run the migration", "register the URL", "follow the existing serializer
+pattern". Keep what they couldn't guess: the non-obvious decision, the place it lives, the
+edge case that bites. Name companion-ticket work and mark it out of scope, referencing the
+companion by **GitHub issue number**, never an internal ID. Say each fact once: a rule
+stated in the Approach is not restated in the Files table or in Additional context. Do not
+restate the DB schema, and do not add an Example Resolution Prompt or any other closing
+"how to implement this" prompt: the User Story, Acceptance Criteria, and the facts in this
+section are what an implementer needs.
 
 The same discipline applies when your analysis feeds an ADR directly, not just a
 ticket. Your full tradeoff analysis is for the orchestrator's judgment; what lands in

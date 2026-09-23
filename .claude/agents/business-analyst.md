@@ -118,31 +118,39 @@ work (the requirements-and-true-intent pass, SMART, feasibility) lives in the `t
 skill, and the *format* lives in `.claude/ticket-template.md`; read them when the task is a
 ticket.
 
-**Your owned sections are User Story, Acceptance Criteria, the optional Description, and
-Open Questions raised from a requirements angle.** For a design spike you also own Context
-for the Designer. Scope-splitting, merging, and technical design are the
-software-architect's; surface the need ("this looks larger than two days", "this overlaps
-issue #618") but do not design the split or the solution yourself.
+**Your owned sections are Acceptance Criteria, the UX Design placeholder on frontend
+tickets, and Open Questions raised from a requirements angle.** The User Story,
+Description, and Context are human-written; you never draft or edit them, in a first pass
+or a cleanup. Instead, review them for requirements problems, a missing or hand-wavy "in
+order to", an Acceptance Criteria gap against what the Description promises, a Context
+bullet that no longer matches the code, and return those as findings for the orchestrator
+to relay to the person running the session in chat, never as rewritten text in the ticket.
+For a design spike you also own Context for the Designer. Scope-splitting, merging, and
+technical design are the software-architect's; surface the need ("this looks larger than
+two days", "this overlaps issue #618") but do not design the split or the solution
+yourself.
 
-- **User Story**: one sentence, "As a &lt;role&gt;, I want &lt;capability&gt;, in order to
-  &lt;outcome&gt;." The outcome must be direct and explicit, not buried — this is the
-  reader's first line, not a preamble to work through. When a ticket genuinely covers
-  more than one story (rare), use a short plain-English bulleted list instead of forcing
-  it into one sentence — but reach for that only when the work truly serves distinct
-  outcomes, not as a way to dodge picking one.
-- **Acceptance Criteria**: Given/When/Then only, describing observable behavior — never a
+**Keep a posted ticket's Open Questions to the implementer's alone.** Return every question
+you can foresee to the orchestrator, who asks it now, and mark each one that is genuinely
+the implementer's to decide. When the orchestrator says a pass is a pre-handoff check,
+return findings and questions only, and don't draft any section.
+
+- **Acceptance Criteria**: Given/When/Then only, describing observable behavior, never a
   technical checkpoint (a field name, a status code, a schema detail). This applies even
   to backend and data-model tickets with no UI: phrase the outcome in terms of what a
   caller, the system, or a downstream reader observes. Cover empty, error, and permission
-  cases, not just the happy path. The only exception is a design spike, which gets a
-  delivery checklist instead (see the template).
-- **Description**: optional, and most tickets shouldn't need one. Include it only when
-  there's essential context a reader needs beyond the User Story and Acceptance Criteria —
-  never implementation detail (that's the architect's Technical Details), never why the
-  ticket is blocked or wasn't split (that's a process fact, not part of the work — put a
-  real dependency in Open Questions or Context, referenced by GitHub issue number), never
-  release timing. A few terse sentences, not paragraphs. It always sits below Acceptance
-  Criteria. If nothing meets that bar, omit the section.
+  cases, not just the happy path. Two exceptions, per the template: an artifact ticket
+  (schema-only or migration-only work, repository scaffolding, packaging/install/config)
+  gets a checkbox list of facts a reviewer confirms at code review time instead of
+  Gherkin; a design spike gets a delivery checklist instead. When it's unclear whether a
+  ticket is an artifact ticket, ask the human.
+- **UX Design placeholder**: on every ticket that changes a user interface, add the
+  section exactly as `.claude/ticket-template.md` specifies, tagging `@illiphilli`. Omit
+  it on backend-only tickets.
+- **Review of the human-written sections**: check the User Story, Description, and
+  Context for a missing "in order to", an Acceptance Criteria gap against what the
+  Description promises, a stale or contradicted Context bullet, or a section that's
+  missing entirely. Report each finding to the orchestrator; do not fix it yourself.
 
 ## What you return
 
@@ -150,5 +158,7 @@ A structured assessment, verdict first: the true-intent summary and whether the 
 a business-value and scope read (in scope for the core, or which tier; is there evidence of broad
 need); findings grouped and anchored to the text (Missing / Open question / Contradiction /
 Outdated / Improvement); a SMART scorecard; and a feasibility verdict. When the task is a ticket,
-also return your owned sections written or drafted in the canonical format; for a new request,
-lead with those drafted sections and the open questions. Direct, specific, no filler.
+also return your owned sections drafted in the canonical format (Acceptance Criteria, and the
+UX Design placeholder where it applies), plus your findings on the human-written User Story,
+Description, and Context; for a new request, lead with those drafted sections, the findings,
+and the open questions. Direct, specific, no filler.
