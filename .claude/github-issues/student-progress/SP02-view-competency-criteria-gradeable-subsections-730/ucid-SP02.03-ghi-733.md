@@ -22,6 +22,7 @@ Therefore, we will want to:
 3. Fetch all of the Course Level Groups' children (the Bottom-tier Groups for this course). Bottom-tier Groups don't store the course, so they can only be found through their parent.
 4. Fetch all of the CompetencyCriteria for these Bottom-tier Groups.
 5. Create the response payload in accordance with the norms of the other CBE endpoints, which return flat arrays with parent IDs. Whatever the shape, a recipient must be able to reconstruct a nesting like this one from it:
+```
 {
     taxonomies: [
         {
@@ -41,6 +42,7 @@ Therefore, we will want to:
         }
     ]
 }
+```
 That way a recipient can see, for each taxonomy, which competency root groups are relevant to this course, and only this course's groups and criteria below each root.
 
 Note that a course may contain subsections associated with more than one Competency Taxonomy, so the response payload will need to handle that.
@@ -48,6 +50,7 @@ Note that a course may contain subsections associated with more than one Compete
 The frontend will use this payload to show which competencies the course covers, which subsections test each one, and what threshold each criterion requires. So the payload needs each root group's competency tag name and taxonomy, each criterion's subsection usage key (the frontend already gets subsection names from the Progress tab and matches them on that key), and each criterion's effective rule (the payload from competency_rule_profile_id or the rule_type_override, and rule_payload_override).
 
 ## Context
+No human context provided. Delete this section on the next pass.
 
 ## Notes for drafting
 
