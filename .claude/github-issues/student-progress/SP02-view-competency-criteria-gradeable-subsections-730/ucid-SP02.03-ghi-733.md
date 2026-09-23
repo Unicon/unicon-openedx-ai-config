@@ -8,43 +8,44 @@ As a learner, I need my course progress page to be able to render the competenci
 
 ## Description
 
-This ticket builds a GET endpoint that takes in a course run key as input and then fetches the corresponding Competency Criteria hierarchy.
+This ticket builds a GET endpoint that takes in a course run key and returns the Competency Criteria hierarchy for that course.
 
-For MVP, the Competency Criteria hierarchy consists of 3 levels:
-- Root (Competency Tag Level)
-    - Course Level
-        - Bottom-tier Level
+For MVP, the Competency Criteria hierarchy consists of 3 levels of CompetencyCriteriaGroups, with the CompetencyCriteria below them:
+- Root Group (one per competency tag, shared by every course)
+    - Course Level Group (one per course under that root)
+        - Bottom-tier Group
             - Competency Criterion (has subsection association)
 
 Therefore, we will want to:
-1. Fetch all the Course Level CompetencyCriteriaGroups.
-2. Fetch all of the Course Level Groups' parents because these will be the Root Groups of the hiearchy to return.
-3. Fetch all of the Course Level Group's child Course Level Groups (the Bottom-tier Level Groups for this course).
-4. Fetch all of the CompetencyCriteria for these Bottom Tier Groups.
-5. Create the response payload in accordance with the norms of the other endpoints. If the response is not in a shape like:
+1. Fetch all of this course's Course Level CompetencyCriteriaGroups.
+2. Fetch all of the Course Level Groups' parents, because these will be the Root Groups of the hierarchy to return.
+3. Fetch all of the Course Level Groups' children (the Bottom-tier Groups for this course). Bottom-tier Groups don't store the course, so they can only be found through their parent.
+4. Fetch all of the CompetencyCriteria for these Bottom-tier Groups.
+5. Create the response payload in accordance with the norms of the other CBE endpoints, which return flat arrays with parent IDs. Whatever the shape, a recipient must be able to reconstruct a nesting like this one from it:
 {
-    CompetencyTaxonomyCompetencyCriteria: [
+    taxonomies: [
         {
-            RootCompetencyCriteriaGroup: {}
-            CourseLevelCompetencyCriteriaGroups: [
+            root_groups: [
                 {
-                    BottomTierCompetencyCriteriaGroups: [
-                        {
-                            CompetencyCriteria: [
-                                {}
-                            ]
-                        }
-                    ]
+                    course_level_group: {
+                        bottom_tier_groups: [
+                            {
+                                criteria: [
+                                    {}
+                                ]
+                            }
+                        ]
+                    }
                 }
             ]
         }
     ]
 }
-Then a shape like that one needs to be able to be reconstructed from all of the flat arrays returned so that a recipient of this payload can understand for each taxonomy, what competency tag root groups are relevant to this course and then also share just this course's course level group and its children down to the CompetencyCriteria level.
+That way a recipient can see, for each taxonomy, which competency root groups are relevant to this course, and only this course's groups and criteria below each root.
 
-Note that a course may content subsections associated with more than one Competency Taxonomy, so the response payload will need to be able to handle that.
+Note that a course may contain subsections associated with more than one Competency Taxonomy, so the response payload will need to handle that.
 
-The frontend will be expected to use the tag_id of each Root Level Group to find out what Taxonomies are included in this course and the objecttag_ids to find out what subsection names go with which competency tag names for display. The frontend will also need the competency_rule_profile_id, rule_type_override, and rule_payload_override fields to know what rule thresholds to display as well.
+The frontend will use this payload to show which competencies the course covers, which subsections test each one, and what threshold each criterion requires. So the payload needs each root group's competency tag name and taxonomy, each criterion's subsection usage key (the frontend already gets subsection names from the Progress tab and matches them on that key), and each criterion's effective rule (the payload from competency_rule_profile_id or the rule_type_override, and rule_payload_override).
 
 ## Context
 
