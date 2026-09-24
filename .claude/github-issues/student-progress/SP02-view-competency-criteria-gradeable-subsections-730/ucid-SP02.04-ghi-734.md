@@ -8,27 +8,28 @@ As a learner, when I view the Progress tab of my course, I want to see a table o
 
 ## Description
 
-This ticket builds the foundation of the CBE course progress page that goes above the `ProgressTabCourseGradeSlot`. 
+This ticket builds the foundation of the CBE course progress page, which goes in the `ProgressTabCourseGradeSlot` above the default Course Grades view.
 
-Each course is only allowed to have its content associated with one level of the competency taxonomy hierarchy.
+A course can have its content associated with more than one level of the competency taxonomy hierarchy (#666 only blocks a tag and its own ancestor or descendant in the same course; sibbling branches of the competency taxonomy hierarchy can be applied in this course at different levels).
 
-If this course's subsections' competency criteria associations are at the topmost level in the hierarchy or if they belong to a hierarchy with only one level, then only display a table with that tag's name as the heading and the rules and subsections underneath.
+Each card's layout will depend on the level of its tags, based on the following cases:
+- If a tag with competency criteria in this course is at the topmost level of its taxonomy, then display a card with that tag's name as the heading and the rules and subsections underneath.
+- If a tag with competency criteria in this course is right below the topmost level, then display a card with the tag's parent as the heading and the tag (along with any sibling tags that also have criteria in this course) as a child with the rules and subsections underneath it.
+- If that parent is itself below the topmost level, then add a breadcrumb above the card heading with each of the parent's ancestors.
 
-If this course's subsections' competency criteria associations are in the level that is second from the top level, then construct a table with the topmost level as a parent in the table and the association level as the child with the rules and subsections underneath it.
+The tags with competency criteria in this course should have the target icon to the left of them.
 
-If this course's subsections' competency criteria associations are in a level that is deeper than the second from the top level, then add a breadcrumb for each additional level above the parent and display a table with this level's parent and this level itself and the rules and subsections underneath it.
+Under each of these tags, display this course's bottom-tier groups the way the Competency Management page does: "COMPLETE ANY/ALL OF THE FOLLOWING" per group, then "AT XX% OR BETTER" with the subsections underneath for each set of criteria that share a rule. If there is more than one group, then display an "AND" or "OR" in between them.
 
-This level's competency tags should have the target icon to the left of them.
-
-The frontend will need to find all the CompetencyCriteria for a given tag/rule in the course and display them in the table like "COMPLETE ANY/ALL OF THE FOLLOWING AT XX% OR BETTER". If complex rules are used in the bottom tier groups, then display an "AND" or "OR" inbetween these groups under the competency tag.
+If this course uses more than one taxonomy, then display each taxonomy's name as a heading above its cards.
 
 If this course has no CompetencyCriteria (if an empty array comes back from #733's endpoint), then display nothing.
 
 ### Out of Scope (will be implemented in future tickets)
 - Sunburst
 - Right hand column (`ProgressTabRelatedLinksSlot`)
-- Displaying grades in the table
-- Displaying competency statuses in the table
+- Displaying grades in the cards
+- Displaying competency statuses in the cards
 
 ## Context
 - This is the frontend counterpart to #733. 
