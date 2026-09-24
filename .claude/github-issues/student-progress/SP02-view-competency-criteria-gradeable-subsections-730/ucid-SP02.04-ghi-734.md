@@ -4,7 +4,7 @@ GitHub: https://github.com/openedx/openedx-core/issues/734 (#734, OPEN)
 Cached: 2026-09-22
 
 ## User Story
-As a learner, when I view the Progress tab of my course, I want to see a table of the competencies and subcompetencies that shows which subsections correspond to each competency and what the rule is to demonstrate mastery with these subsections.
+As a learner, when I view the Progress tab of my course, I want to see a table of the competencies and subcompetencies that shows which subsections correspond to each competency and what the rule is to demonstrate mastery with these subsections so that I can understand what's required for me to demonstrate mastery.
 
 ## Description
 
