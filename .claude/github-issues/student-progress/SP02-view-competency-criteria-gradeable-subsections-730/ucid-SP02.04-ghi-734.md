@@ -10,12 +10,36 @@ As a learner, when I view the Progress tab of my course, I want to see a table o
 
 This ticket builds the foundation of the CBE course progress page, which goes in the `ProgressTabCourseGradeSlot` above the default Course Grades view.
 
-A course can have its content associated with more than one level of the competency taxonomy hierarchy (#666 only blocks a tag and its own ancestor or descendant in the same course; sibbling branches of the competency taxonomy hierarchy can be applied in this course at different levels).
+A course can have its content associated with more than one level of the competency taxonomy hierarchy (#666 only blocks a tag and its own ancestor or descendant in the same course; sibling branches of the competency taxonomy hierarchy can be applied in this course at different levels).
 
 Each card's layout will depend on the level of its tags, based on the following cases:
 - If a tag with competency criteria in this course is at the topmost level of its taxonomy, then display a card with that tag's name as the heading and the rules and subsections underneath.
 - If a tag with competency criteria in this course is right below the topmost level, then display a card with the tag's parent as the heading and the tag (along with any sibling tags that also have criteria in this course) as a child with the rules and subsections underneath it.
 - If that parent is itself below the topmost level, then add a breadcrumb above the card heading with each of the parent's ancestors.
+
+**Example:**
+```
+Given the following taxonomy and a course with the indicated criteria associations:
+- Critical Thinking
+    - Analysis (Criteria association here)
+    - Evaluation
+    - Inference (Criteria association here)
+- Communication (Criteria association here)
+    - Written Communication
+    - Oral Communication
+    - Audience Awareness
+- Problem Solving
+    - Problem Definition
+        - Root Cause Analysis (Criteria association here)
+    - Strategy Selection
+    - Solution Testing
+None of these tags is an ancestor or descendant of another, so they can all coexist in this course even though they are at different levels. This course would get three cards:
+- A "Communication" card, with Communication's rules and subsections underneath.
+- A "Critical Thinking" card, with Analysis and Inference as children. Evaluation isn't shown, because it has no criteria in this course.
+- A "Problem Definition" card, with Root Cause Analysis as a child and a "Problem Solving" breadcrumb above the heading.
+
+This course could not also have criteria on Critical Thinking itself, because Critical Thinking is the parent of Analysis and Inference.
+```
 
 The tags with competency criteria in this course should have the target icon to the left of them.
 
@@ -25,7 +49,7 @@ If this course uses more than one taxonomy, then display each taxonomy's name as
 
 If this course has no CompetencyCriteria (if an empty array comes back from #733's endpoint), then display nothing.
 
-### Out of Scope (will be implemented in future tickets)
+**Out of Scope (will be implemented in future tickets):**
 - Sunburst
 - Right hand column (`ProgressTabRelatedLinksSlot`)
 - Displaying grades in the cards
