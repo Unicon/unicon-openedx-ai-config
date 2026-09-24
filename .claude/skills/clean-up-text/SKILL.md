@@ -176,6 +176,13 @@ checklist during step 5 rather than trying to hold all of them at once.
   the material, not three copies of it, so a summary may restate a fact more briefly but
   never at the same level of detail. Where two passages sit at the same altitude, pick the
   canonical home and cut the other to a pointer.
+- **Cut "this doesn't do X."** A reader already assumes absence; naming it back adds
+  nothing. Delete the sentence unless the absence corrects a real expectation, or belongs
+  in a dedicated out-of-scope or known-gaps section rather than the main narrative.
+- **Don't unpack a clear statement into its obvious instances.** A list under an
+  already-unambiguous claim ("nothing ships yet: no X, no Y, no Z") can restate it rather
+  than add to it. Keep the specifics only when they narrow, quantify, or resolve an
+  ambiguity the claim alone leaves open.
 - **Two tests decide a section's fate, and both apply.** Does it carry something essential
   the rest does not, and is it required for this document type? An optional section carrying
   nothing essential gets deleted. Everything else gets trimmed, never deleted: cut the
