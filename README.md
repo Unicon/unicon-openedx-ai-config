@@ -10,6 +10,7 @@ an upstream community repo: AI config, local dev setup notes, deployment notes, 
 - [Why bother with all this?](#why-bother-with-all-this)
 - [Claude Setup](#claude-setup)
 - [Using it day to day](#using-it-day-to-day)
+- [Figma-to-Paragon workflow](figmaToCodeWorkflow.md)
 
 ## Contents
 
@@ -18,7 +19,12 @@ an upstream community repo: AI config, local dev setup notes, deployment notes, 
   - `agents/` — `business-analyst` and `software-architect`, expert sub-agents for ticket
     review/authoring and architecture design.
   - `skills/` — `ticket-writer` (interactive ticket drafting, dispatches both agents),
-    `code-review`, `spike-and-stabilize`.
+    `code-review`, `spike-and-stabilize`, plus the EXPERIMENTAL Figma-to-Paragon skills
+    (`paragon-ui`, `figma-to-paragon`, `paragon-a11y-check` — see
+    [`figmaToCodeWorkflow.md`](figmaToCodeWorkflow.md)).
+  - `design-system/` — the Figma-to-Paragon mapping generator and its scripts, tests, and
+    per-project config. See [`figmaToCodeWorkflow.md`](figmaToCodeWorkflow.md) and
+    `design-system/policy.md`.
   - `*-principles.md`, `architecture-overview.md`, `cbe-project-context.md`,
     `ticket-template.md` — reference docs the agents ground their judgment in.
   - `github-issues/` — local cache of GitHub issue descriptions from `openedx-core`,
@@ -47,7 +53,7 @@ weight.
 
 This is specifically for [Claude Code](https://claude.com/claude-code). 
 [Codex](https://openai.com/blog/openai-codex/) can be used to some extent with this setup
-as well, see the [Codex Setup](##Codex Setup) section, though Claude remains our teams
+as well, see the [Codex Setup](#codex-setup) section, though Claude remains our teams
 preferred day-to-day AI assistant. If you do not have a Unicon Claude Code account, you
 will need to submit an EOR to get one as a prerequisite to using the Claude Setup in this
 repo.
@@ -115,12 +121,19 @@ to be the only major stumbling block that must be addressed for basic functional
 **1. Symlink to .claude/ from .agents**
 
 At this time, follow the setup instructions for Claude. Once those are complete, you
-can seemingly just create a symlink named `.agents` to `<root path>/.claude` in your working
-directory:
+can create a symlink named `.agents` pointing at your workspace's `.claude` in your working
+directory (the target comes second in `ln -s <target> <link-name>`):
 
 ```
-ln -s .agents <root path>/.claude
+ln -s .claude .agents
 ```
+
+Codex also only looks for `.agents/skills` between its current working directory and the
+repository root — it never sees a symlink at a workspace root once it's running inside one
+of the individual Open edX repos. Until that's reworked (see the open GitHub issues on where
+`.claude` should live), a **user-level** symlink per skill is the more reliable path; see
+[`figmaToCodeWorkflow.md`'s Codex section](figmaToCodeWorkflow.md#codex) for the exact
+commands, worked out while adding the Figma-to-Paragon skills.
 
 Our Claude Skills, agents, and so forth are generic enough that Codex seems to read them in and
 perform the same functionality with minimal concern. Again, though, this is only proven minimally

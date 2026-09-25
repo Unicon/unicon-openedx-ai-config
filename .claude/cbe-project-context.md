@@ -178,6 +178,11 @@ groups including nesting; the three-level status model; a re-evaluation workflow
   `oel_tagging_*`. CBE extends this.
 - `architecture-taxonomies-and-competencies.md` for how taxonomies and competencies fit
   the current code.
+- **UI designs**: Phil Ball maintains Unicon-side Figma copies of the canonical Axim
+  designs; `.claude/design-system/projects/cbe.md` names the active catalog and feature
+  files. Frontend work implementing or checking a design against Paragon uses the
+  `figma-to-paragon` skill (EXPERIMENTAL; see `figmaToCodeWorkflow.md`) — installed
+  Paragon wins over a Figma value when the two disagree.
 
 ## Naming and source caveats
 

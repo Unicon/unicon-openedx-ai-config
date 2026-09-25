@@ -106,9 +106,17 @@ posted. Omit it on backend-only tickets.
 
     - Figma: TBD
     - Screenshots: TBD
+    - Design handoff: TBD (revision `<ticket>-r1`)
 
-Once the design is attached, the Acceptance Criteria should agree with it. If they don't,
-update the AC.
+Once the design is attached, the Acceptance Criteria should agree with it. "Matches the
+design" means the fidelity standard in `.claude/design-system/policy.md` (right Paragon
+components and tokens, right layout/content/states) — not pixel-perfect. If the AC and the
+design disagree, update the AC.
+
+The design handoff block (see `.claude/design-system/handoff-packet-template.md`) is filled
+in by the designer, not drafted here: frame node-ids, tokens, components, and accessibility
+intent, following `.claude/design-system/policy.md`'s handoff-revision rules. A later
+revision replaces an earlier one by its `rN` id; it isn't edited in place.
 
 ## 5. Acceptance Criteria
 
