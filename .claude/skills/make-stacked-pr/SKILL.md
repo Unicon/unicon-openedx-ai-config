@@ -1,13 +1,12 @@
 ---
 name: make-stacked-pr
-description: Turn a finished branch into a stack of small draft PRs that are easy to review. Use when asked to make a stacked PR, open a PR stack, or split a branch into reviewable chunks. Handles both a stack that targets upstream main and one that targets another person's branch in their fork. Opens everything as drafts, never merges.
+description: Turn a finished branch into a stack of small draft PRs that are easy to review. Use when asked to make a stacked PR, open a PR stack, or split a branch into reviewable chunks. Handles both a stack that targets upstream main and one that targets another person's branch in their fork. Opens everything as drafts, never merges. Only ever invoked manually, never runs automatically.
 ---
 
 # Make a stacked PR
 
-One branch holding a large change is hard to review. This skill turns that branch into a
-chain of small draft PRs, each a meaningful chunk, so a reviewer can work through them one
-at a time.
+Turn one finished branch, which is hard to review as a single large diff, into a chain of
+small draft PRs a reviewer can work through one chunk at a time.
 
 The shape it produces:
 
@@ -15,25 +14,38 @@ The shape it produces:
   line). It is the only PR that points at the target repository, and it is where the
   review and merge instructions for the whole stack live.
 - **The chunk PRs.** Each one's head branch is built on the branch below it, and each one
-  is opened inside the developer's own fork, based on the base PR's branch. Because head
-  and base both live in the fork, GitHub treats them as a real stack.
+  is opened inside the developer's own fork, based on the base PR's branch. Head and base
+  both living in the fork is what lets GitHub treat them as a real stack.
 
 Every PR is a draft. This skill never merges, never marks a PR ready for review, and never
 rewrites a branch the developer has already pushed somewhere else.
 
+## Placeholders
+
+The commands below use these. Resolve them in steps 1 and 5, and keep them consistent
+across every command.
+
+- `<target-owner>/<repo>` and `<target-branch>`: the repository and branch the stack aims
+  at, resolved in step 1.
+- `<target-remote>`: the local git remote pointing at `<target-owner>/<repo>`, usually
+  `upstream`.
+- `<fork-owner>`: the developer's GitHub account, which owns `origin`.
+- `<developer>`: the prefix the developer uses on branch names, usually their username.
+- `<ticket>`: the ticket the branch implements. `<slug>`: one to three words naming a chunk.
+
 ## 1. Pin down the target
 
-Ask the developer, with `AskUserQuestion`, where the stack is aimed, because it decides
+Ask the developer, with `AskUserQuestion`, where the stack is aimed, because that decides
 which repository the base PR is opened against:
 
-- **Upstream main.** The base PR goes to the upstream repository (`upstream`, for example
+- **Upstream main.** The base PR goes to the upstream repository (for example
   `openedx/openedx-core`) against its default branch.
 - **Someone else's branch.** The stack depends on work that is not merged yet, so the base
   PR goes to that person's fork, against their branch. Get the owner and the branch name
-  from the developer, and fetch that branch so you can build on the right commit.
+  from the developer, and fetch that branch so you build on the right commit.
 
-State back the resolved target as `<owner>/<repo>:<branch>` and confirm it before you
-create anything. Getting this wrong means the whole stack has the wrong contents.
+State the resolved target back as `<target-owner>/<repo>:<target-branch>` and confirm it
+before you create anything.
 
 ## 2. Ask how to split the branch
 
@@ -41,21 +53,17 @@ Do not decide the split yourself. Show the developer what there is to split:
 
 ```bash
 git fetch <target-remote>
-git log --oneline "$(git merge-base HEAD <target-ref>)"..HEAD
-git diff --stat "$(git merge-base HEAD <target-ref>)"..HEAD
+git log --oneline "$(git merge-base HEAD <target-remote>/<target-branch>)"..HEAD
+git diff --stat "$(git merge-base HEAD <target-remote>/<target-branch>)"..HEAD
 ```
 
 Then ask them how to chunk it, with `AskUserQuestion`, offering concrete options drawn
 from that output rather than generic ones: one PR per commit, a named grouping of the
 existing commits, or a re-slice by file area that ignores the current commit boundaries.
 
-Two things to tell them while they decide:
-
-- A chunk should stand on its own. If a chunk leaves the repository failing its tests
-  until a later chunk lands, say so and name the chunk. The developer still makes the
-  call, but they should make it knowing that.
-- Re-slicing costs work. Cutting at existing commit boundaries is a `git switch -c` per
-  chunk. Anything else means cherry-picking or splitting commits.
+Tell them one thing while they decide: a chunk should stand on its own. If a chunk leaves
+the repository failing its tests until a later chunk lands, say so and name the chunk. The
+developer still makes the call, but they should make it knowing that.
 
 ## 3. Choose the base PR's minimal change
 
@@ -68,29 +76,27 @@ base PR should hold instead. Do not invent a change that was not going to be mad
 
 Before touching git, show the developer the complete plan: the target, the base branch and
 its minimal change, every chunk branch with its base and its contents, and the ASCII map
-from step 7. Get one approval for all of it. After that approval, run the rest without
-stopping again.
+from step 8. Get one approval for all of it, then run the rest without stopping again.
 
 ## 5. Build the branches
 
-Name the branches so the stack order is readable, for example
-`<developer>/<ticket>-stack-base`, then `<developer>/<ticket>-01-<slug>`,
-`<developer>/<ticket>-02-<slug>`, and so on.
+Name the branches so the stack order is readable: `<developer>/<ticket>-stack-base`, then
+`<developer>/<ticket>-01-<slug>`, `<developer>/<ticket>-02-<slug>`, and so on.
 
-Cut the base branch from the target ref, put the minimal change on it, then cut each chunk
-branch from the branch below it:
+Cut the base branch from `<target-remote>/<target-branch>`, put the minimal change on it,
+then cut each chunk branch from the branch below it:
 
 ```bash
-git switch -c <ticket>-stack-base <target-remote>/<target-branch>
+git switch -c <developer>/<ticket>-stack-base <target-remote>/<target-branch>
 # apply the minimal change, commit
-git switch -c <ticket>-01-<slug> <ticket>-stack-base
+git switch -c <developer>/<ticket>-01-<slug> <developer>/<ticket>-stack-base
 # apply chunk 1, commit
-git switch -c <ticket>-02-<slug> <ticket>-01-<slug>
+git switch -c <developer>/<ticket>-02-<slug> <developer>/<ticket>-01-<slug>
 ```
 
-Push every branch to the developer's fork (`origin`) with `git push -u origin <branch>`.
-The tip branch ends up holding the minimal change plus every chunk, which is the original
-branch's content, so nothing is lost when the stack merges down.
+Push every branch to the developer's fork with `git push -u origin <branch>`. The tip
+branch ends up holding the minimal change plus every chunk, which is the original branch's
+content, so nothing is lost when the stack merges down.
 
 ## 6. Open the draft PRs
 
@@ -98,30 +104,37 @@ The base PR is the only cross-repository one:
 
 ```bash
 gh pr create --repo <target-owner>/<repo> --base <target-branch> \
-  --head <fork-owner>:<ticket>-stack-base --draft --title "..." --body "..."
+  --head <fork-owner>:<developer>/<ticket>-stack-base --draft --title "..." --body "..."
 ```
+
+`--head <user>:<branch>` does not accept an organization as the `<user>`, so if the fork is
+owned by an organization rather than a person, this command fails. Open that one PR from
+GitHub's compare view in the web UI instead; every other PR in the stack is unaffected,
+because none of them uses the `owner:branch` form.
 
 Each chunk PR is opened inside the fork, based on the branch below it:
 
 ```bash
-gh pr create --repo <fork-owner>/<repo> --base <ticket>-stack-base \
-  --head <ticket>-01-<slug> --draft --title "..." --body "..."
+gh pr create --repo <fork-owner>/<repo> --base <developer>/<ticket>-stack-base \
+  --head <developer>/<ticket>-01-<slug> --draft --title "..." --body "..."
 ```
 
-After creating each one, confirm it landed where you meant it to:
+Always pass `--repo`. Without it, `gh` resolves the base repository itself and a chunk PR
+meant to stay inside the fork can land against upstream instead. Confirm each PR after
+creating it:
 
 ```bash
-gh pr view <number> --repo <fork-owner>/<repo> --json baseRepository,baseRefName,headRefName
+gh pr view <number> --repo <fork-owner>/<repo> --json url,baseRefName,headRefName,isCrossRepository
 ```
 
-`gh` defaults a fork's base repository to the upstream parent, so a chunk PR that was
-meant to stay inside the fork can end up opened against upstream instead. A PR's base
-repository cannot be edited after the fact, so if one landed wrong, close it and create it
-again with `--repo` set explicitly.
+The `url` says which repository the PR actually lives in, and `isCrossRepository` is false
+for a chunk PR, whose head and base are both in the fork, and true for the base PR. A PR's
+base repository cannot be changed after the fact, so if one landed wrong, close it and
+create it again.
 
-Give each chunk PR a body that says what the chunk does and which PR it sits on top of.
-Do not wire the stack together with tooling or the API beyond setting each PR's base
-branch, which is all the steps above do. Tell the developer to create the stack itself in
+Give each chunk PR a body saying what the chunk does and which PR it sits on top of.
+Beyond setting each PR's base branch, which is all the commands above do, do not wire the
+stack together with tooling or the API. Tell the developer to create the stack itself in
 GitHub's own stacking UI inside their fork. Only the bottom link, the base branch pointing
 at the target repository, is outside that UI's reach.
 
@@ -143,12 +156,12 @@ reviewer landing on the base PR can find the rest.
 
 Finish with a plain ASCII dependency map and a table. Keep the map simple:
 
-```
-openedx/openedx-core : main                  <- target
-└── jesperhodge/openedx-core : 642-stack-base    PR #101 (draft)
-    └── 642-01-models                            PR #102 (draft)
-        └── 642-02-admin                         PR #103 (draft)
-            └── 642-03-tests                     PR #104 (draft)
+```text
+openedx/openedx-core : main                     <- target
+└── jesperhodge/openedx-core : jh/642-stack-base    PR #101 (draft)
+    └── jh/642-01-models                            PR #102 (draft)
+        └── jh/642-02-admin                         PR #103 (draft)
+            └── jh/642-03-tests                     PR #104 (draft)
 ```
 
 Then one table row per PR, with the branch, the PR number and link, the base branch, and a
