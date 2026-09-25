@@ -4,13 +4,17 @@ GitHub: https://github.com/openedx/openedx-core/issues/709 (#709, OPEN)
 Cached: 2026-09-25
 
 ## User Story
-As a course author, I want to be able to delete an entire Rule Group of Competency Criteria Associations if I make a mistake or otherwise no longer want those associations to exist, such that competencies are being measured in exactly the way I want.
+As a course author, I want to delete a whole Rule Group or a whole Course Group from a competency's rules in one action, in order to fix a mistake or delete/archive rules I no longer want without removing each association one at a time.
 
 ## Description
 
-This ticket implements the functionality for the trash can icon for both Course Groups and Rule Groups. When the user clicks on the trash can icon, the frontend should call the backend endpoint that deletes CompetencyCriteriaGroups with the id of what should be deleted. Upon a successful deletion, the frontend should update to accurately display only the remaining groups. Upon an unsuccessful deletion, the frontend should report to the user that an error occurred.
+This ticket implements the functionality for the trash can icon for both Course Groups and Rule Groups. When the user clicks on the trash can icon, the frontend should call the backend endpoint that deletes CompetencyCriteriaGroups with the id of the group that should be deleted. Upon a successful deletion, the frontend should update to accurately display only the remaining groups. Upon an unsuccessful deletion, the frontend should report to the user that an error occurred.
+
+After a delete, focus moves to the nearest remaining Rule Group. If a deletion fails, the frontend shows an error and refreshes the panel so it matches the backend. The trash can icon is hidden on courses the user can't edit.
 
 ## Context
+- #675 is the backend delete endpoint.
+- #786 adds the confirmation dialog in front of this delete. This ticket deletes on click.
 
 ## Notes for drafting
 
