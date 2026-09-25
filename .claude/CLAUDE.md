@@ -5,7 +5,9 @@ and community plugins. Treat public APIs as contracts and keep changes small.
 
 ## Which skill to use
 
-- Implementing a non-trivial change: use the `spike-and-stabilize` skill.
+- Implementing a non-trivial change: use the superpowers skills when they are installed,
+  unless the user asks for a different approach. Fall back to the `spike-and-stabilize`
+  skill when superpowers is not available.
 - Reviewing a PR, branch, or diff: use the appropriate `frontend-code-review`
   pr `backend-code-review` skill. These both inherit from `code-review`, and 
   `code-review` should only be used as a foundational skill for more detailed
