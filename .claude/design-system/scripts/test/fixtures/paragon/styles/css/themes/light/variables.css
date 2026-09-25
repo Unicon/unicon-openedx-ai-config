@@ -1,0 +1,7 @@
+:root {
+  --pgn-color-bg-base: var(--pgn-color-white);
+  --pgn-color-body-base: var(--pgn-color-gray-700);
+  /* Theme override of a core-declared property; later-in-cascade wins (same as real Paragon
+     re-declaring a handful of core properties per theme). */
+  --pgn-size-border-radius-base: 0.4rem;
+}

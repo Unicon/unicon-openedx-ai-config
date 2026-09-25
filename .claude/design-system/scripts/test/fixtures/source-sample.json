@@ -1,0 +1,44 @@
+{
+  "schema": "unicon.design-system-source/1",
+  "sourceId": "fixture",
+  "provenance": {
+    "adapters": ["catalog-md", "mcp-variable-defs"],
+    "rawFiles": [],
+    "figmaFileName": "Fixture Library",
+    "variablesCapturedAt": "2026-01-01",
+    "stylesCapturedAt": "2026-01-01",
+    "stylesCaptureScope": "fixture"
+  },
+  "collections": [
+    { "name": "Primitives", "count": 3, "modes": ["Mode 1"] },
+    { "name": "Semantic", "count": 2, "modes": ["Mode 1"] }
+  ],
+  "variables": [
+    { "name": "white", "collection": "Primitives", "type": "COLOR", "mode": "Mode 1", "value": "#ffffff" },
+    { "name": "black", "collection": "Primitives", "type": "COLOR", "mode": "Mode 1", "value": "#000000" },
+    { "name": "primary/base", "collection": "Primitives", "type": "COLOR", "mode": "Mode 1", "value": "#112233" },
+    { "name": "primary/500", "collection": "Primitives", "type": "COLOR", "mode": "Mode 1", "value": "#112233" },
+    { "name": "brand/500", "collection": "Primitives", "type": "COLOR", "mode": "Mode 1", "aliasOf": "primary/base" },
+    { "name": "theme/bg/base", "collection": "Semantic", "type": "COLOR", "mode": "Mode 1", "aliasOf": "white" },
+    { "name": "text/on-light", "collection": "Semantic", "type": "COLOR", "mode": "Mode 1", "value": "#000000" },
+    { "name": "spacer/1-5", "collection": "Spacing", "type": "FLOAT", "mode": "Mode 1", "value": 6 },
+    { "name": "border-radius/pill", "collection": "Sizing", "type": "FLOAT", "mode": "Mode 1", "value": 800 }
+  ],
+  "components": [
+    { "name": "Actions", "collection": "Paragon Categories", "type": "STRING", "mode": "Components", "value": "Button, Badge, NavBar, Multiselect" }
+  ],
+  "styles": [
+    { "name": "Extras/Black", "rawName": "Extras/Black", "kind": "paint", "legacyLibraryStyle": false, "local": true, "value": { "hex": "#000000" } },
+    {
+      "name": "Heading/H1", "rawName": "Heading/H1", "kind": "text", "legacyLibraryStyle": false, "local": true,
+      "value": { "fontFamily": "Fixture Sans", "fontStyle": "Bold", "fontSize": 40, "fontWeight": 700, "lineHeight": 50, "letterSpacing": 0 }
+    },
+    {
+      "name": "Level 1", "rawName": "💎 - Level 1", "kind": "effect", "legacyLibraryStyle": true, "local": false,
+      "value": { "effects": [
+        { "type": "DROP_SHADOW", "color": "#00000026", "offsetX": 0, "offsetY": 0, "radius": 4, "spread": 0 },
+        { "type": "DROP_SHADOW", "color": "#00000026", "offsetX": 0, "offsetY": 0, "radius": 2, "spread": 0 }
+      ] }
+    }
+  ]
+}

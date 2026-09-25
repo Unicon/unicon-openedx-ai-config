@@ -1,0 +1,5 @@
+{
+  "name": "@openedx/paragon",
+  "version": "9.9.9",
+  "description": "Minimal fixture package for design-system tests. Not a real Paragon install."
+}
