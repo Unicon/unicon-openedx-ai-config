@@ -1,11 +1,11 @@
-# [FE] Manage & Apply Competencies: delete a Competency Criteria Group
+# [FE] Manage & Apply Competencies: delete a Competency Rule Group
 
 GitHub: https://github.com/openedx/openedx-core/issues/709 (#709, OPEN)
-Cached: 2026-09-21
+Cached: 2026-09-25
 
 ## Use Case
 
-As a course author who created a Competency Criteria Group in error, or whose rule structure has changed, I want to delete a Competency Criteria Group, whether it is an unbacked placeholder box or a real, persisted group with associations, so that the competency's rule structure reflects only the groups I actually intend to keep, without leaving stray boxes or reloading the page.
+As a course author who created a Competency Rule Group in error, or whose rule structure has changed, I want to delete a Competency Rule Group, whether it is an unbacked placeholder box or a real, persisted group with associations, so that the competency's rule structure reflects only the groups I actually intend to keep, without leaving stray boxes or reloading the page.
 
 ## Acceptance Criteria
 
@@ -13,13 +13,13 @@ Frontend ticket. Testable once \#671's groups render, \#672's active-group schem
 
 ```
 Scenario: Delete an unbacked placeholder box
-  Given a Competency Criteria Group box exists but no subsection has been selected into it yet
+  Given a Competency Rule Group box exists but no subsection has been selected into it yet
   When I click that box's delete object
   Then the box is removed from the page immediately
   And no backend request is made
 
 Scenario: Delete a persisted group
-  Given a Competency Criteria Group has been persisted to the backend, with or without associated subsections
+  Given a Competency Rule Group has been persisted to the backend, with or without associated subsections
   When I click that group's delete object
   Then the group and any associations it contains are deleted
   And the group no longer appears on the page
@@ -46,17 +46,17 @@ Scenario: A course author without write access cannot delete a group
   Given I lack studio write access to the course the competency's groups belong to
   Then the delete object is not rendered
 ```
-[Figma Link](https://www.figma.com/design/VhAdaucNQS49x0Afp9xPZw/Competency-Application?node-id=1245-22648&t=taJz19Kwd94i3YfH-1)
+[Figma Link](https://www.figma.com/design/VhAdaucNQS49x0Afp9xPZw/Competency-Application?node-id=1919-58613&t=V5MSxdfsFJXzffTx-1)
 
-<img width="1475" height="1078" alt="Image" src="https://github.com/user-attachments/assets/64504c22-ac02-4821-935a-ddf60f19e357" />
+<img width="3548" height="2574" alt="Image" src="https://github.com/user-attachments/assets/f2ffa80b-3ec4-4cce-b693-0cc8303a854b" />
 
 ## Description
 
-This ticket adds a delete action to a Competency Criteria Group box, covering both an unbacked placeholder box (a client-side-only removal) and a real, persisted group (which also removes whatever associations it contains).
+This ticket adds a delete action to a Competency Rule Group box, covering both an unbacked placeholder box (a client-side-only removal) and a real, persisted group (which also removes whatever associations it contains).
 
 **Current behavior**
 
-\#671 renders a competency's Competency Criteria Group box(es), with no way to delete one yet.
+\#671 renders a competency's Competency Rule Group box(es), with no way to delete one yet.
 
 **Requested change**
 
@@ -123,3 +123,4 @@ Frontend implementation in `frontend-app-authoring`. Parent design: \#648. Found
 **Blocked by:** \#675 (backend delete-group endpoint, cascades associations); \#672 (the `activeGroupId` scheme this ticket recomputes after a deletion); \#681 (GET groups \+ criteria endpoint, needed to render the groups this ticket deletes).
 
 </details>
+
