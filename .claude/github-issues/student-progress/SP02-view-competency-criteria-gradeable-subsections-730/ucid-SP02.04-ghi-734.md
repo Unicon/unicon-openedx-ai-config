@@ -57,7 +57,6 @@ If this course has no CompetencyCriteria (if an empty array comes back from #733
 
 ## Context
 - This is the frontend counterpart to #733. 
-- Also depends on <SP02.09>, the ticket to implement the endpoint to GET taxonomy tags in the LMS.
 
 ## Notes for drafting
 
@@ -71,12 +70,12 @@ Take note of Adolfo's comment here: https://github.com/openedx/openedx-core/issu
 
 ### Decisions from the pre-handoff check
 
-- Tag ancestors: `<SP02.09>` (the new LMS tags endpoint, no GitHub number yet) returns each requested tag with its ancestor chain and depth, built from `Tag.lineage`. #734 uses it for parent grouping, the breadcrumb, and detecting a top-level tag. #733 is unchanged for this.
-- Placement: #734 renders the panel above the stock "Grades" card, the default content of `ProgressTabCourseGradeSlot`, as #829 already does. The operator's "in place of" option is a separate follow-up ticket, drafted as a placeholder in `ucid-SP02.10-ghi-pending.md`, and belongs in Out of Scope.
+- Tag ancestors: #733 returns each competency tag with its `lineage`, the list of tag values from the top of its taxonomy down to and including the tag itself. #734 reads it by position: the last entry is the tag, the one before it is the card heading, and the rest form the breadcrumb. A tag whose lineage has one entry is top-level and is its own card. No separate tags endpoint is needed.
+- Placement: #734 renders the panel above the stock "Grades" card, the default content of `ProgressTabCourseGradeSlot`, as #829 already does. The operator's "in place of" option is a separate follow-up ticket, drafted as a placeholder in `ucid-SP02.09-ghi-pending.md`, and belongs in Out of Scope.
 - Size: kept as one ticket, accepting roughly 2.5 to 3 dev-days.
 - Subsection data: the slot passes no props, so after #733 returns a non-empty result, the plugin fetches the LMS Progress tab API itself (`/api/course_home/progress/{courseId}`, or `/{courseId}/{targetUserId}/` in staff view) through the app's react-query `QueryClientProvider`. That gives each subsection's `block_key` and `display_name`, joined to each criterion's `object_id`.
 - Subsections the learner can't see: #733 returns every stored criterion, unfiltered. #734 drops any criterion whose `object_id` doesn't match a subsection in the Progress tab list (unreleased, hidden, content-group restricted, or deleted), then removes anything left empty. Until a follow-up adds a message telling the learner that something they can't see yet still counts toward their progress, an ALL rule can look easier to meet than it is. That follow-up is beyond our MVP scope.
-- Mixed depths: #666 blocks only an ancestor/descendant pair in one course. Tags at different depths on different branches of one taxonomy can coexist, for example "Inference" (depth 1) and "Communication" (depth 0). So the layout is decided per card. Each associated tag is a target-icon row in a card headed by its parent, with the parent's ancestors as a breadcrumb. An associated tag with no parent is its own card, and its heading gets the target icon. The Description's three depth cases are outcomes of this rule, and its "one level per course" sentence needs revising to match.
+- Mixed depths: #666 blocks only an ancestor/descendant pair in one course. Tags at different depths on different branches of one taxonomy can coexist, for example "Inference" (depth 1) and "Communication" (depth 0). So the layout is decided per card. Each associated tag is a target-icon row in a card headed by its parent, with the parent's ancestors as a breadcrumb. An associated tag with no parent is its own card, and its heading gets the target icon. The Description's three depth cases are outcomes of this rule.
 - Rule display mirrors the Competency Management page: each bottom-tier group shows "COMPLETE ALL/ANY OF THE FOLLOWING", then one line per rule box (criteria sharing one effective rule) with its threshold and its subsections underneath. The course-level group's operator is shown as AND or OR between bottom-tier groups. The root group's operator is never shown. Authoring's copy reads "75% or higher" while the Progress Figma reads "OR BETTER", so @illiphilli confirms the copy.
 - Rule text: gte reads "AT XX% OR BETTER", lte reads "AT XX% OR LOWER", eq reads "AT EXACTLY XX%". Thresholds are shown as stored (for example 82%). An unknown rule type shows the line without a threshold and is logged. Confirmed: the authoring API accepts all three operators, and Grade is the only rule type.
 - Operator mapping: a bottom-tier group's `logic_operator` AND reads ALL, OR reads ANY, and null reads ANY.

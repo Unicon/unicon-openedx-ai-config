@@ -1,22 +1,19 @@
-# [BE] GET taxonomy tags from an LMS route
+# [FE?] Let the operator choose to replace Grade summary with CBE Progress
 
-GitHub: not yet filed. Needed by #734.
+GitHub: not yet filed. Depends on #734 and #828.
 
 ## User Story
-As a learner, I need to be able to see the taxonomy tag hierarchy associated with my course's content so that I can understand how to demonstrate mastery of competency tags in the course.
+As a site operator, I want to be able to have the Grade summary replaced with CBE Progress for courses that have competency criteria while courses without competency criteria still show the Grade summary, so that neither students of CBE courses nor students of traditional courses get confused about their overall progress.
 
 ## Description
 
-This ticket should build a GET taxonomy tags endpoint that works in the LMS identically to the one that works in Studio. It should have a taxonomy id that it takes in as input and then it should return the tags in a way that the taxonomy hierarchy can be understood.
-
 ## Context
-Blocks #734.
 
 ## Notes for drafting
 
-Placeholder for the ticket we discovered we needed in 733, which I think is a ticket to get taxonomy tags from a learner LMS route.
+### Known scope, decided during #734's pre-handoff check
 
-### Decided so far, in #734's pre-handoff check
-
-- For each tag #734 asks about, the endpoint returns the tag with its depth and its ancestor chain, built from `Tag.lineage`, which every Tag row already stores. #734 uses this for parent grouping, the breadcrumb, and detecting a topmost-level tag. A straight copy of Studio's taxonomy-tags endpoint returns `depth` and `parent_value` but no lineage, and returns the whole tree only below a size threshold (one level at a time, 30 tags per page, above it). That's why the endpoint returns ancestors per tag.
-- #733's endpoint is not changed for lineage.
+- #734 renders the competency criteria panel above the stock "Grades" card, the default content of `ProgressTabCourseGradeSlot`. The Figma shows the panel with no Grades card, which is the "in place of" layout this ticket adds.
+- The operator chooses between "above" and "in place of". "In place of" uses `PLUGIN_OPERATIONS.Wrap` on the slot's `default_contents`, with a wrapper that renders the stock Grades card only in courses with no competency criteria. That wrapper needs #734's check against #733's endpoint, which is why this ticket follows #734.
+- Extends #828's data-driven Tutor slot mapping rather than rewriting it.
+- frontend-app-learning#1905 moves plugin slots to frontend-base's `Slot` API, so the `PLUGIN_OPERATIONS.Wrap` mechanism may change before this ticket is built.
