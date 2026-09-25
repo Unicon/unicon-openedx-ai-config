@@ -32,6 +32,30 @@ across every command.
 - `<fork-owner>`: the developer's GitHub account, which owns `origin`.
 - `<developer>`: the prefix the developer uses on branch names, usually their username.
 - `<ticket>`: the ticket the branch implements. `<slug>`: one to three words naming a chunk.
+- `<original-branch>`: the finished branch the stack is split out of.
+- `<tip-branch>`: the last chunk branch, the one at the top of the finished stack.
+
+### Check every name before you put it in a command
+
+A branch, repository, or owner name can come from outside this repository: step 1 takes
+someone else's fork and branch when the stack targets their unmerged work. Git's ref rules
+allow characters the shell reads as syntax, so `feat/x;id` is a valid branch name, and
+pasting it into a command runs `id`. Before a value fills any placeholder, capture it in a
+quoted heredoc, which the shell does not interpret at all, and check it against the
+characters these names actually use:
+
+```bash
+IFS= read -r NAME <<'EOF'
+paste the name here, on its own line
+EOF
+printf '%s\n' "$NAME" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._/-]*$' \
+  || echo "rejected, do not use this name: $NAME"
+```
+
+Every name this skill handles is an ordinary git branch or GitHub owner name, and all of
+them pass that check. A name that fails it is either a mistake or an attack, so stop and ask
+the developer rather than working around it. A name that passes holds no shell syntax, which
+is what makes it safe to fill into the command templates below.
 
 ## 1. Pin down the target
 
@@ -47,30 +71,41 @@ which repository the base PR is opened against:
 State the resolved target back as `<target-owner>/<repo>:<target-branch>` and confirm it
 before you create anything.
 
-## 2. Ask how to split the branch
+## 2. Choose the base PR's minimal change
 
-Do not decide the split yourself. Show the developer what there is to split:
+Survey the branch first. Both this choice and the split in step 3 are made against what is
+actually on the branch:
 
 ```bash
 git fetch <target-remote>
-git log --oneline "$(git merge-base HEAD <target-remote>/<target-branch>)"..HEAD
-git diff --stat "$(git merge-base HEAD <target-remote>/<target-branch>)"..HEAD
+MERGE_BASE="$(git merge-base HEAD <target-remote>/<target-branch>)"
+git log --oneline "$MERGE_BASE"..HEAD
+git diff --stat "$MERGE_BASE"..HEAD
 ```
 
-Then ask them how to chunk it, with `AskUserQuestion`, offering concrete options drawn
-from that output rather than generic ones: one PR per commit, a named grouping of the
-existing commits, or a re-slice by file area that ignores the current commit boundaries.
+Then look through the branch for the smallest genuine change in it that can stand alone,
+such as a version bump, a changelog entry, or a requirements pin, and propose that as the
+base PR's only content. If the branch contains nothing suitable, ask the developer what the
+base PR should hold instead. Do not invent a change that was not going to be made anyway.
+
+## 3. Ask how to split the rest
+
+The base PR's change from step 2 is already spoken for, so what the chunks divide up is the
+rest of the branch. The base change and the chunks are a partition: every hunk on the branch
+belongs to exactly one of them, and together they add up to the whole branch diff. Step 5
+applies each chunk on top of the base branch, so a chunk that still carries the base change
+conflicts there or lands that change twice. Name the base change when you present the split
+options, and keep it out of every chunk. If the base change sits in a commit that also holds
+other work, that commit has to be split, and per-commit chunking does not apply to it.
+
+Do not decide the split yourself. Ask the developer how to chunk the rest, with
+`AskUserQuestion`, offering concrete options drawn from the step 2 output rather than generic
+ones: one PR per commit, a named grouping of the existing commits, or a re-slice by file area
+that ignores the current commit boundaries.
 
 Tell them one thing while they decide: a chunk should stand on its own. If a chunk leaves
 the repository failing its tests until a later chunk lands, say so and name the chunk. The
 developer still makes the call, but they should make it knowing that.
-
-## 3. Choose the base PR's minimal change
-
-Look through the branch for the smallest genuine change in it that can stand alone, such
-as a version bump, a changelog entry, or a requirements pin, and propose that as the base
-PR's only content. If the branch contains nothing suitable, ask the developer what the
-base PR should hold instead. Do not invent a change that was not going to be made anyway.
 
 ## 4. Get one approval for the whole plan
 
@@ -94,9 +129,18 @@ git switch -c <developer>/<ticket>-01-<slug> <developer>/<ticket>-stack-base
 git switch -c <developer>/<ticket>-02-<slug> <developer>/<ticket>-01-<slug>
 ```
 
-Push every branch to the developer's fork with `git push -u origin <branch>`. The tip
-branch ends up holding the minimal change plus every chunk, which is the original branch's
-content, so nothing is lost when the stack merges down.
+Before pushing anything, check that the stack adds up to the branch it came from. The tip
+branch holds the minimal change plus every chunk, so its tree has to match
+`<original-branch>` exactly:
+
+```bash
+git diff --stat <original-branch> <tip-branch>
+```
+
+Any output means the partition from step 3 came out wrong: some hunk landed in no chunk, or
+in two. Fix the branches before going further. Empty output means nothing is lost when the
+stack merges down, so push every branch to the developer's fork with
+`git push -u origin <branch>`.
 
 ## 6. Open the draft PRs
 
