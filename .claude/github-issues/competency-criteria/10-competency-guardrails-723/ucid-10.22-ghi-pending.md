@@ -1,15 +1,19 @@
-# [Placeholder] Change GET Competency Criteria Endpoint to Include Archived Records
+# [BE] Add Archived Course Keys to GET Competency Criteria & Groups Endpoint
 
 GitHub: none yet (to be created as a sub-issue of #723)
 Cached: 2026-09-25
 
 ## User Story
-As a course author, I need to know when a course's competency rules have been archived in order to understand why I can't create more rules for this course.
+As a course author, I need the Competency Management page to know which courses can no longer take new rules for a competency, in order to be told up front instead of having my new associations rejected.
 
 ## Description
-This ticket will change the GET Competency Criteria Endpoint so that it now returns archived CompetencyCriteriaGroups in its response payload.
+This ticket adds an `archived_course_keys` field to the response of the GET Competency Criteria & Groups endpoint that lists the course run keys whose course-level group for the selected competency is archived. Unarchiving course-level groups is out of scope for MVP, so the frontend needs to know which courses to pre-emptively prevent course authors from trying to recreate.
 
 ## Context
+- #681 is the endpoint this ticket extends.
+- #674 and #675 archive a course-level group when a delete would otherwise destroy learner progress.
+- #717 prevents creating new Competency Criteria in an archived course-level group.
+- 10.23 is the frontend ticket that uses this list to hide archived courses in the Browse Courses panel.
 
 ## Notes for drafting
 
