@@ -3,13 +3,16 @@
 GitHub: https://github.com/openedx/openedx-core/issues/717 (#717, OPEN)
 Cached: 2026-09-21
 
-**Blocked by:** \#665 (defines `resolve_or_create_leaf_group()` / `resolve_supplied_leaf_group()`, the two functions this ticket modifies) and the archived-field ticket (no GitHub issue yet — adds `archived` to both `CompetencyCriteriaGroup` and `CompetencyCriterion` in one migration, so this ticket, \#674, and \#675 don't have to race to add it themselves).
+**Blocked by:** \#665.
 
 **Repo:** `openedx-core`, single-repo. No `openedx-platform` changes: no new endpoint, this only adds validation inside \#665's existing create-criterion flow.
 
 ## Use Case
 
-As a course author associating a gradeable subsection with a competency, via the same create-criterion flow \#665 builds, I want the system to reject my request when it targets or derives into an archived course-level group or leaf, to reactivate the competency's root group when it was archived, and to never let an already-archived criterion block me from creating a fresh one for the same content, so that retiring one course's rules never locks the whole competency and "archived" otherwise means retired from new authoring.
+As a course author adding content to a competency's rules:
+- I want to be stopped if I try to add content to a course whose competency rules were retired, so that retired rules stay retired.
+- I want to be able to start a competency's rules again after I've removed every course from it, so that removing the last course never locks the whole competency.
+- I want to be able to add a subsection again after its earlier association was retired, so that an old, retired association never blocks a new one.
 
 ## Description
 
