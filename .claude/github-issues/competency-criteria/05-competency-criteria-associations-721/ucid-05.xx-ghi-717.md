@@ -9,11 +9,11 @@ Cached: 2026-09-21
 
 ## Use Case
 
-As a course author associating a gradeable subsection with a competency, via the same create-criterion flow \#665 builds, I want the system to reject my request when it targets or derives into an archived branch, and to never let an already-archived criterion block me from creating a fresh one for the same content, so that "archived" consistently means retired from new authoring, in both directions.
+As a course author associating a gradeable subsection with a competency, via the same create-criterion flow \#665 builds, I want the system to reject my request when it targets or derives into an archived course-level group or leaf, to reactivate the competency's root group when it was archived, and to never let an already-archived criterion block me from creating a fresh one for the same content, so that retiring one course's rules never locks the whole competency and "archived" otherwise means retired from new authoring.
 
 ## Description
 
-This ticket makes `archived` mean what ADR 0002 promises for new Competency Criteria authoring, in both directions: \#665's group-resolution functions must reject creating against an archived branch, and \#665's duplicate-association check must stop letting an archived criterion permanently block a fresh one for the same content.
+This ticket makes `archived` mean what ADR 0002 promises for new Competency Criteria authoring, in both directions: \#665's group-resolution functions must reject creating against an archived course-level group or leaf, and reactivate an archived root instead of rejecting it, and \#665's duplicate-association check must stop letting an archived criterion permanently block a fresh one for the same content.
 
 **Current state**
 
@@ -25,15 +25,15 @@ Once \#674/\#675 add `archived` to `CompetencyCriteriaGroup`/`CompetencyCriterio
 **Requested change**
 
 - `resolve_supplied_leaf_group()` rejects with a 400 when the resolved leaf is archived.  
-- `resolve_or_create_leaf_group()` rejects with a 400 when the root group it would reuse is archived, and independently when the course-level group it would reuse is archived.  
-- Neither check falls back to creating a fresh sibling: hitting an archived root or course-level group is always a rejection, never a silent substitution.  
+- `resolve_or_create_leaf_group()` reactivates the root group it would reuse when that root is archived (sets `archived=False`), then continues resolving the course-level group under it. The root is archived only when every course-level group under it is archived (\#674/\#675's upward cascade), so without this, retiring the competency's last course would lock the whole competency against new criteria. Reactivating the root does not touch any of its archived children.  
+- `resolve_or_create_leaf_group()` rejects with a 400 when the course-level group it would reuse is archived. It does not fall back to creating a fresh course-level group: hitting an archived course-level group is always a rejection, never a silent substitution.  
 - The derive path's leaf creation needs no new check: a leaf is always freshly created there, never reused, so it's never already archived.  
 - The duplicate-association check's `CompetencyCriterion.objects.filter(oel_tagging_objecttag=existing_object_tag).exists()` query is scoped to `archived=False`: only an active criterion referencing the same `ObjectTag` blocks a new association; an archived one no longer does.  
 - Every rejection this ticket adds returns a message distinguishable from \#665's other 400 causes (non-leaf, competency mismatch, course mismatch, duplicate association), not just "some validation failed."
 
 **Explicitly out of scope**
 
-- Reactivating (unarchiving) a retired branch or criterion. Archiving is one-directional everywhere else in this backlog; once a competency's entire root branch is archived, there is no way back. Accepted as permanent for MVP, matching `CompetencyRuleProfile`'s own archive-only, no-unarchive precedent.  
+- Reactivating (unarchiving) a retired course-level group, leaf, or criterion. Archiving is one-directional for everything below the root; once a course-level group is archived, new criteria for that course under this competency are rejected. Accepted as permanent for MVP, matching `CompetencyRuleProfile`'s own archive-only, no-unarchive precedent. The root is the one exception, reactivated as described above.  
 - Any change to \#665's `UniqueConstraint`s. This ticket assumes they stand as defined.  
 - Rejecting a `group_id` that doesn't exist or was hard-deleted: already a 404 via \#665's existing `get_object_or_404`, unaffected by this ticket.  
 - Surfacing archived state on any GET/list endpoint. None exists yet for groups or criteria (a separate ticket); this only changes create-time behavior.
@@ -51,11 +51,20 @@ Scenario: Reject supplied-group creation targeting an archived leaf
   And the response body identifies the group as archived and no longer eligible for new associations
   And no CompetencyCriterion is created
 
-Scenario: Reject derive-path creation when the competency's root group is archived
-  Given a competency's root CompetencyCriteriaGroup exists with archived=true
-  When a POST request to the create-criterion endpoint for that competency supplies a valid object_id and no group_id
+Scenario: Derive-path creation reactivates an archived root group
+  Given a competency's root CompetencyCriteriaGroup exists with archived=true, and its only course-level group, for Course X, is archived=true
+  When a POST request to the create-criterion endpoint for that competency supplies an object_id whose parsed course is Course Y, and no group_id
+  Then the response returns status code 201
+  And the root CompetencyCriteriaGroup now has archived=false, and no second root was created
+  And a new course-level CompetencyCriteriaGroup is created for Course Y under that root, with a new leaf CompetencyCriteriaGroup and CompetencyCriterion under it
+  And the course-level group for Course X is still archived=true
+
+Scenario: An archived course-level group is rejected even when its root would have been reactivated
+  Given a competency's root CompetencyCriteriaGroup and its only course-level group, for Course X, are both archived=true
+  When a POST request to the create-criterion endpoint for that competency supplies an object_id whose parsed course is Course X, and no group_id
   Then the response returns status code 400
-  And the response body identifies the competency's branch as archived
+  And the response body identifies the course-level branch as archived
+  And the root CompetencyCriteriaGroup is still archived=true, since the transaction rolled back
   And no new CompetencyCriteriaGroup or CompetencyCriterion rows are created
 
 Scenario: Reject derive-path creation when the course-level group for the target course is archived
@@ -96,20 +105,20 @@ No new types. This depends on `CompetencyCriteriaGroup.archived` and `Competency
 
 Add a private `_reject_if_archived(group: CompetencyCriteriaGroup) -> None` helper that raises `rest_framework.exceptions.ValidationError` when `group.archived` is `True`, identifying the group's id and that archived groups can't accept new associations. It must be DRF's `ValidationError`, not Django's core one: this app's exception handling (`src/openedx_tagging/rest_api/v1/exception_handlers.py`) only maps `APIException`/`Http404`/`PermissionDenied` to a clean response, so the wrong type would surface as an unhandled 500\. Its message must be distinguishable from \#665's other 400 causes (non-leaf, competency mismatch, course mismatch, duplicate association) — do not key it `archived`, since that's already the model's boolean-state field name in this backlog's success responses (\#674/\#675); a distinct message string, or a differently-named key, is enough.
 
-- In `resolve_or_create_leaf_group()`: call the helper immediately after the root `get_or_create()`, and again immediately after the course-level `get_or_create()`, before the leaf is touched. Both checks are independent: an active root doesn't imply an active course-level branch, and vice versa (a course-level branch can be archived while the root and its other course-level siblings stay active, per \#675's own "cascade stops at an ancestor with a surviving sibling" behavior). Do not add a "create a fresh sibling instead" fallback: \#665's own partial `UniqueConstraint`s (one root per competency; one course-level group per competency+course) make that schema-illegal. The leaf itself is always freshly created here and never needs the check.  
+- In `resolve_or_create_leaf_group()`: immediately after the root `get_or_create()`, if the root is archived, set `archived=False` and save it. Then call the helper immediately after the course-level `get_or_create()`, before the leaf is touched. A course-level branch can be archived while the root and its other course-level siblings stay active, per \#675's own "cascade stops at an ancestor with a surviving sibling" behavior, so the course-level check is needed even when the root was never archived. Do not add a "create a fresh sibling instead" fallback for the course-level group: \#665's own partial `UniqueConstraint`s (one root per competency; one course-level group per competency+course) make that schema-illegal. The leaf itself is always freshly created here and never needs the check.  
 - In `resolve_supplied_leaf_group()`: add one more step to the existing ordered validation (after leaf-shape, tag-match, course-match) calling `_reject_if_archived()` on the resolved group. No ancestor walk needed: given \#674/\#675's cascade semantics (an ancestor archives only once every child is already archived), a leaf can never be non-archived while an ancestor is archived.  
 - In `associate_competency_criterion()`'s duplicate-association check: change `CompetencyCriterion.objects.filter(oel_tagging_objecttag=existing_object_tag).exists()` to also filter `archived=False`. An archived criterion's preserved `ObjectTag` reference no longer counts as a blocking duplicate.  
-- All three checks run inside `associate_competency_criterion()`'s existing `transaction.atomic()` block (already true, since they sit inside the functions it calls), so a rejection after a root/course-level row was freshly resolved, but not newly created, leaves nothing to roll back.
+- All three checks run inside `associate_competency_criterion()`'s existing `transaction.atomic()` block (already true, since they sit inside the functions it calls), so a rejection on the course-level group also rolls back a root reactivation made earlier in the same request.
 
-No public-API signature changes: both functions keep \#665's exact contracts, this only adds a rejection path inside them. No migration, no new endpoint, no serializer or view changes, no `.importlinter` impact.
+No public-API signature changes: both functions keep \#665's exact contracts, this only adds a root reactivation and rejection paths inside them. No migration, no new endpoint, no serializer or view changes, no `.importlinter` impact.
 
-Test strategy: unit tests for `resolve_or_create_leaf_group()` (archived root rejected before course-level lookup runs; archived course-level group rejected with an active root; happy path unaffected), `resolve_supplied_leaf_group()` (archived leaf rejected; happy path unaffected), and the duplicate-association check (archived criterion no longer blocks a fresh one; a still-active criterion still does), plus DRF integration tests on the create-criterion endpoint for the supplied-archived-leaf 400, the derive-path archived-course-level-group 400, and the archived-criterion re-association 201\.
+Test strategy: unit tests for `resolve_or_create_leaf_group()` (archived root reactivated and a new course-level group created under it; archived course-level group rejected, with an active root and with a just-reactivated root that rolls back; happy path unaffected), `resolve_supplied_leaf_group()` (archived leaf rejected; happy path unaffected), and the duplicate-association check (archived criterion no longer blocks a fresh one; a still-active criterion still does), plus DRF integration tests on the create-criterion endpoint for the supplied-archived-leaf 400, the derive-path archived-course-level-group 400, the derive-path archived-root reactivation 201, and the archived-criterion re-association 201\.
 
 ### Example Resolution Prompt
 
 > Implement the archived-branch protections described in Technical Details for `resolve_or_create_leaf_group()`, `resolve_supplied_leaf_group()`, and the duplicate-association check, all in `src/openedx_learning/applets/cbe/api.py`. Assume \#665 has landed all three and `associate_competency_criterion()` as scoped, and that the archived-field ticket has already added `archived = models.BooleanField(default=False)` to both `CompetencyCriteriaGroup` and `CompetencyCriterion`.  
 >   
-> Follow Technical Details for the `_reject_if_archived()` helper's behavior and exception type, where each function calls it, the no-fallback / no-ancestor-walk invariants, the duplicate-check's `archived=False` filter, and the distinguishable-message requirement. Follow the Acceptance Criteria for the exact response shape and scenario coverage. Stay inside `api.py`: no signature, migration, serializer, or view changes.  
+> Follow Technical Details for the root reactivation, the `_reject_if_archived()` helper's behavior and exception type, where each function calls it, the no-fallback / no-ancestor-walk invariants, the duplicate-check's `archived=False` filter, and the distinguishable-message requirement. Follow the Acceptance Criteria for the exact response shape and scenario coverage. Stay inside `api.py`: no signature, migration, serializer, or view changes.  
 >   
 > Add unit tests to `src/openedx_learning/applets/cbe/tests/test_api.py` and DRF integration tests to `src/openedx_learning/applets/cbe/rest_api/v1/tests/test_views.py` per the Acceptance Criteria, and confirm none of \#665's existing happy-path scenarios regress.
 
@@ -119,7 +128,8 @@ Test strategy: unit tests for `resolve_or_create_leaf_group()` (archived root re
 - **Archived-field ticket (no GitHub issue yet):** adds the `archived` field this ticket checks, ahead of \#674 and \#675 too.  
 - **\#674 / \#675:** their cascade mechanics (an ancestor archives only once every child is already archived) are in Technical Details, where they justify this ticket's check placement.  
 - **ADR 0002 Decision 7** (`docs/openedx_learning/decisions/0002-competency-criteria-model.rst`): names `CompetencyCriteriaGroup`/`CompetencyCriteria` directly under archive-only, hidden-from-new-associations retirement, the primary citation for this ticket.  
-- **ADR 0002 Decision 3**: the same guarantee already implemented for `CompetencyRuleProfile.archived`, the precedent this ticket extends, including its own no-unarchive-path precedent.  
+- **ADR 0002 Decision 3**: the same guarantee already implemented for `CompetencyRuleProfile.archived`, the precedent this ticket extends, including its own no-unarchive-path precedent, with the root reactivation as the one exception.  
+- **ADR 0002 Decision 2**: a persisted group is never empty. An archived root still holds its archived children, so reactivating it never leaves an empty group, and stopping the cascade below the root instead would leave an empty root whenever the last course-level group is hard-deleted.
 - `src/openedx_tagging/rest_api/v1/exception_handlers.py`: confirms only `APIException`/`Http404`/`PermissionDenied` become clean error responses here, why the new check must raise `rest_framework.exceptions.ValidationError`, not Django's core one.  
 - `src/openedx_tagging/rest_api/v1/serializers.py`'s `validate_tag_value`: this repo's existing state/uniqueness-rejection precedent, a 400 (no 409 usage anywhere in this codebase).
 
@@ -129,6 +139,10 @@ Test strategy: unit tests for `resolve_or_create_leaf_group()` (archived root re
 
 | File | Nature of modification |
 | :---- | :---- |
-| `src/openedx_learning/applets/cbe/api.py` | Add the `_reject_if_archived()` helper, call it from `resolve_or_create_leaf_group()` and `resolve_supplied_leaf_group()`, and scope the duplicate-association check to `archived=False`, per Technical Details. |
-| `src/openedx_learning/applets/cbe/tests/test_api.py` | Unit tests: archived root rejected, archived course-level group rejected (active root), archived supplied leaf rejected, archived criterion no longer blocks a fresh duplicate, happy paths unaffected. |
-| `src/openedx_learning/applets/cbe/rest_api/v1/tests/test_views.py` | DRF integration tests: POST to the create-criterion endpoint returns 400 for a supplied archived leaf and for a derive-path archived course-level group, and 201 when re-associating content whose prior criterion was archived. |
+| `src/openedx_learning/applets/cbe/api.py` | Reactivate an archived root in `resolve_or_create_leaf_group()`, add the `_reject_if_archived()` helper, call it from `resolve_or_create_leaf_group()` and `resolve_supplied_leaf_group()`, and scope the duplicate-association check to `archived=False`, per Technical Details. |
+| `src/openedx_learning/applets/cbe/tests/test_api.py` | Unit tests: archived root reactivated, archived course-level group rejected (active root, and reactivated root rolled back), archived supplied leaf rejected, archived criterion no longer blocks a fresh duplicate, happy paths unaffected. |
+| `src/openedx_learning/applets/cbe/rest_api/v1/tests/test_views.py` | DRF integration tests: POST to the create-criterion endpoint returns 400 for a supplied archived leaf and for a derive-path archived course-level group, 201 with the root reactivated for a derive-path archived root, and 201 when re-associating content whose prior criterion was archived. |
+
+## Open questions
+
+- [non-blocking, owner: architect/reviewer] Reactivating the root leaves any `StudentCompetencyCriteriaGroupStatus` rows on it in place, computed against the course-level groups that are now archived. Confirm the next evaluation recomputes them rather than a learner's old competency-level status carrying over to the rebuilt rules.
