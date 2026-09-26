@@ -20,7 +20,7 @@ This ticket makes `archived` mean what ADR 0002 promises for new Competency Crit
 
 **Current state**
 
-Once \#674/\#675 add `archived` to `CompetencyCriteriaGroup`/`CompetencyCriterion`, a branch or a criterion can be permanently retired (cascade-archived, or archived directly) when a learner-status row blocks hard deletion. ADR 0002 Decision 7 names `CompetencyCriteriaGroup` and `CompetencyCriteria` directly among the models whose retirement "may be archive-only (hidden from authoring and new associations)", the same guarantee Decision 3 already gives `CompetencyRuleProfile.archived`. \#665 predates `archived` and gets both sides of that guarantee wrong:
+Once \#716 adds `archived` to `CompetencyCriteriaGroup`/`CompetencyCriterion`, a branch or a criterion can be permanently retired (cascade-archived, or archived directly) when a learner-status row blocks hard deletion. ADR 0002 Decision 7 names `CompetencyCriteriaGroup` and `CompetencyCriteria` directly among the models whose retirement "may be archive-only (hidden from authoring and new associations)", the same guarantee Decision 3 already gives `CompetencyRuleProfile.archived`. \#665 predates `archived` and gets both sides of that guarantee wrong:
 
 - `resolve_supplied_leaf_group()` validates only that the supplied `group_id` names a leaf belonging to the right tag and course; `resolve_or_create_leaf_group()`'s `get_or_create()` calls for the root and course-level groups return an existing row regardless of its `archived` state. An author can explicitly target an archived leaf, or unknowingly derive into and grow an archived root or course-level branch.  
 - The duplicate-association check rejects a `(tag_id, object_id)` pairing whenever any `CompetencyCriterion` references the existing `ObjectTag`, active or archived. An archived criterion's `ObjectTag` is deliberately preserved (per \#674's ADR 0002 Decision 7 protection, so its history stays resolvable), but that same preserved reference now permanently blocks ever creating a fresh criterion for that content, even though retiring the old one was never meant to have that effect.
@@ -39,7 +39,7 @@ Once \#674/\#675 add `archived` to `CompetencyCriteriaGroup`/`CompetencyCriterio
 - Reactivating (unarchiving) a retired course-level group, leaf, or criterion. Archiving is one-directional for everything below the root; once a course-level group is archived, new criteria for that course under this competency are rejected. Accepted as permanent for MVP, matching `CompetencyRuleProfile`'s own archive-only, no-unarchive precedent. The root is the one exception, reactivated as described above.  
 - Any change to \#665's `UniqueConstraint`s. This ticket assumes they stand as defined.  
 - Rejecting a `group_id` that doesn't exist or was hard-deleted: already a 404 via \#665's existing `get_object_or_404`, unaffected by this ticket.  
-- Surfacing archived state on any GET/list endpoint. None exists yet for groups or criteria (a separate ticket); this only changes create-time behavior.
+- Surfacing archived state on any GET/list endpoint. \#681's GET excludes archived rows, and reporting which courses have an archived course-level group is a separate epic 10 ticket (\#723). This ticket only changes create-time behavior.
 
 ## Acceptance Criteria
 
@@ -102,7 +102,7 @@ Scenario: Re-associating content after its prior criterion was archived succeeds
 
 **Data Structures**
 
-No new types. This depends on `CompetencyCriteriaGroup.archived` and `CompetencyCriterion.archived` (both `BooleanField`s, added by the archived-field ticket) and reuses \#665's `resolve_or_create_leaf_group()`, `resolve_supplied_leaf_group()`, and the duplicate-association check inside `associate_competency_criterion()`, all with signatures unchanged.
+No new types. This depends on `CompetencyCriteriaGroup.archived` and `CompetencyCriterion.archived` (both `BooleanField`s, added by \#716) and reuses \#665's `resolve_or_create_leaf_group()`, `resolve_supplied_leaf_group()`, and the duplicate-association check inside `associate_competency_criterion()`, all with signatures unchanged.
 
 **Logic**
 
@@ -119,7 +119,7 @@ Test strategy: unit tests for `resolve_or_create_leaf_group()` (archived root re
 
 ### Example Resolution Prompt
 
-> Implement the archived-branch protections described in Technical Details for `resolve_or_create_leaf_group()`, `resolve_supplied_leaf_group()`, and the duplicate-association check, all in `src/openedx_learning/applets/cbe/api.py`. Assume \#665 has landed all three and `associate_competency_criterion()` as scoped, and that the archived-field ticket has already added `archived = models.BooleanField(default=False)` to both `CompetencyCriteriaGroup` and `CompetencyCriterion`.  
+> Implement the archived-branch protections described in Technical Details for `resolve_or_create_leaf_group()`, `resolve_supplied_leaf_group()`, and the duplicate-association check, all in `src/openedx_learning/applets/cbe/api.py`. Assume \#665 has landed all three and `associate_competency_criterion()` as scoped, and that \#716 has already added `archived = models.BooleanField(default=False)` to both `CompetencyCriteriaGroup` and `CompetencyCriterion`.  
 >   
 > Follow Technical Details for the root reactivation, the `_reject_if_archived()` helper's behavior and exception type, where each function calls it, the no-fallback / no-ancestor-walk invariants, the duplicate-check's `archived=False` filter, and the distinguishable-message requirement. Follow the Acceptance Criteria for the exact response shape and scenario coverage. Stay inside `api.py`: no signature, migration, serializer, or view changes.  
 >   
@@ -128,7 +128,7 @@ Test strategy: unit tests for `resolve_or_create_leaf_group()` (archived root re
 ## Context
 
 - **\#665:** defines `resolve_or_create_leaf_group()`, `resolve_supplied_leaf_group()`, and `associate_competency_criterion()`, the functions this ticket modifies, plus the two partial `UniqueConstraint`s (one root per competency; one course-level group per competency+course) that make "create a fresh sibling instead of erroring" schema-illegal once the existing row is archived. Also the source of this ticket's actor and permission model (`oel_tagging.can_tag_object`), unchanged here.  
-- **Archived-field ticket (no GitHub issue yet):** adds the `archived` field this ticket checks, ahead of \#674 and \#675 too.  
+- **\#716:** adds the `archived` field this ticket checks, ahead of \#674 and \#675 too.  
 - **\#674 / \#675:** their cascade mechanics (an ancestor archives only once every child is already archived) are in Technical Details, where they justify this ticket's check placement.  
 - **ADR 0002 Decision 7** (`docs/openedx_learning/decisions/0002-competency-criteria-model.rst`): names `CompetencyCriteriaGroup`/`CompetencyCriteria` directly under archive-only, hidden-from-new-associations retirement, the primary citation for this ticket.  
 - **ADR 0002 Decision 3**: the same guarantee already implemented for `CompetencyRuleProfile.archived`, the precedent this ticket extends, including its own no-unarchive-path precedent, with the root reactivation as the one exception.  
