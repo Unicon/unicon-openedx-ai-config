@@ -1,15 +1,16 @@
-# [Placeholder] Explain why content can't be associated with a course whose rules were archived
+# [FE] Explain archived competency rules in the Courses & Content panel
 
 GitHub: none yet (to be created as a sub-issue of #723)
 Cached: 2026-09-25
 
 ## User Story
-As a course author, I need to know which courses can't have new Competency Criteria created for them because their existing Criteria are archived.
+As a course author, I need to know which courses' rules for a competency were archived, in order to understand why I can't add new Competency Criteria associations for that course.
 
 ## Description
-This ticket updates the COURSES & CONTENT panel so that for courses that have an archived course-level group, instead of displaying this course's sections and gradeable subsections, it displays text explaining the situation. This should be similar to the text that already appears for courses with no gradeable subsections to explain that situation.
+This ticket updates the Courses & Content panel so that when a course's course-level group for the selected competency is archived, expanding that course shows a sentence explaining the situation instead of displaying the course's sections and gradeable subsections. This should work like the "This course has no gradeable subsections." text that already appears in an expanded course row. The list of archived courses comes from the `archived_course_keys` field that 10.22 adds to #681's response.
 
 ## Context
+- 10.22 adds `archived_course_keys` to #681's response, listing the course runs whose course-level group for this competency is archived.
 
 ## Notes for drafting
 
