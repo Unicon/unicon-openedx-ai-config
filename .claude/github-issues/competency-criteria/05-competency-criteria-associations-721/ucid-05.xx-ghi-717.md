@@ -39,7 +39,7 @@ Once \#716 adds `archived` to `CompetencyCriteriaGroup`/`CompetencyCriterion`, a
 - Reactivating (unarchiving) a retired course-level group, leaf, or criterion. Archiving is one-directional for everything below the root; once a course-level group is archived, new criteria for that course under this competency are rejected. Accepted as permanent for MVP, matching `CompetencyRuleProfile`'s own archive-only, no-unarchive precedent. The root is the one exception, reactivated as described above.  
 - Any change to \#665's `UniqueConstraint`s. This ticket assumes they stand as defined.  
 - Rejecting a `group_id` that doesn't exist or was hard-deleted: already a 404 via \#665's existing `get_object_or_404`, unaffected by this ticket.  
-- Surfacing archived state on any GET/list endpoint. \#681's GET excludes archived rows, and reporting which courses have an archived course-level group is a separate epic 10 ticket (\#723). This ticket only changes create-time behavior.
+- Surfacing archived state on any GET/list endpoint. \#681's GET excludes archived rows, and reporting which courses have an archived course-level group is 10.22, a separate ticket under epic \#723 with no GitHub issue yet. This ticket only changes create-time behavior.
 
 ## Acceptance Criteria
 
