@@ -6,16 +6,10 @@ serves as the written spec for the superpowers workflow.
 
 ## How to resume
 
-This file is committed on branch `docs/superpowers-first-for-implementation` of
-`Unicon/unicon-openedx-ai-config` (PR Unicon/unicon-openedx-ai-config#25). The live `.claude`
-checkout at `/Users/jesperhodge/workspace/unicon-openedx-ai-config` is on a different branch, so
-the file only appears under `.claude/plans/` once PR #25 merges and that checkout is on `main`.
-Until then, paste this into a new Claude Code session opened in
-`/Users/jesperhodge/openedx/openedx-core`:
+Paste this into a new Claude Code session opened in `/Users/jesperhodge/openedx/openedx-core`:
 
-> Read the #642 part B handoff with
-> `git -C /Users/jesperhodge/workspace/unicon-openedx-ai-config show origin/docs/superpowers-first-for-implementation:.claude/plans/642b-learner-status-handoff.md`
-> and continue #642 part B with superpowers. The design in it is approved. Start at "Next steps".
+> Read `.claude/plans/642b-learner-status-handoff.md` and continue #642 part B with superpowers.
+> The design in it is approved. Start at "Next steps".
 
 ## Where the superpowers process stands
 
@@ -92,8 +86,8 @@ Mention the last two to the user as follow-ups when the work is done.
 | Branch | Built from | Contents |
 | --- | --- | --- |
 | `642b-stack-base-branch`, local only | `origin/jesperhodge/cbe-641-07-criterion` at `cd5d15b` | Cherry-pick part A's `24074c6` and `b961f23` onto it, and skip `252565f` because #641 already creates the `models/` package. Resolve the `models/__init__.py` conflict so the file exports both #641's and part A's models. Rename part A's migrations to `0008_competency_mastery_status`, `0009_seed_competency_mastery_statuses` and `0010_studentcompetencystatus`. Point `0008`'s dependency at `0007_alter_criterion_override_help_text`, and update the dependencies of `0009` and `0010` to the new names. Fold the renames into the cherry-picks, because this base only exists so part B has something to build on. |
-| `cbe-642-04-criterion-status` | `642b-stack-base-branch` | `StudentCompetencyCriteriaStatus`, migration `0011`, and its tests. |
-| `cbe-642-05-group-status` | `cbe-642-04-criterion-status` | `StudentCompetencyCriteriaGroupStatus`, migration `0012`, its tests, and the gates. |
+| `cbe-642b-01-criterion-status` | `642b-stack-base-branch` | `StudentCompetencyCriteriaStatus`, migration `0011`, and its tests. |
+| `cbe-642b-02-group-status` | `cbe-642b-01-criterion-status` | `StudentCompetencyCriteriaGroupStatus`, migration `0012`, its tests, and the gates. |
 
 This layout assumes #800 merges before #830, which is what #642's ticket text expects. If #830
 merges first instead, the only change is the dependency line in `0011`. When the upstream PRs
@@ -134,11 +128,11 @@ them by hand.
 Use the fixtures in #641's `tests/openedx_learning/applets/cbe/conftest.py`: `organization`,
 `course_run`, `competency_taxonomy`, `tag`, `object_tag`, `group` and `default_rule_profile`.
 `CompetencyCriterion.save()` calls `full_clean()`, so create criteria with
-`rule_profile=default_rule_profile`. PR 04 moves the `user` and `now` fixtures into
+`rule_profile=default_rule_profile`. PR 642b-01 moves the `user` and `now` fixtures into
 `conftest.py`, because three test files will need them. It also deletes the identical copies of
 `user`, `now`, `competency_taxonomy` and `tag` from part A's `test_learner_status.py`.
 
-PR 04 adds `test_criterion_status.py`:
+PR 642b-01 adds `test_criterion_status.py`:
 - A second row for the same user and criterion raises `IntegrityError`, and the same user can
   hold a row for a second criterion.
 - `AttemptedNotDemonstrated` is accepted, which contrasts with the competency-level table.
@@ -157,7 +151,7 @@ PR 04 adds `test_criterion_status.py`:
   `ProtectedError`.
 - Deleting the user removes the row.
 
-PR 05 adds `test_criteria_group_status.py`:
+PR 642b-02 adds `test_criteria_group_status.py`:
 - A second row for the same user and group raises `IntegrityError`, and
   `AttemptedNotDemonstrated` is accepted.
 - Deleting the group itself raises `ProtectedError`. So does deleting a root group above a
@@ -170,7 +164,7 @@ PR 05 adds `test_criteria_group_status.py`:
 
 Follow the style block below. One behavior per test, and the test name states the behavior.
 
-### 4. Whole-feature gates (PR 05)
+### 4. Whole-feature gates (PR 642b-02)
 
 - **Indexes.** Add `test_adr_0002_indexes.py`. It reads each table's indexes through
   `connection.introspection.get_constraints()` and asserts that every one of the ten ADR-0002
@@ -203,10 +197,10 @@ Follow the style block below. One behavior per test, and the test name states th
 ### 5. Small edits that follow from part B
 
 - **`learner_status.py` module docstring:** it describes only `StudentCompetencyStatus`, and it
-  calls #641's CASCADE chain "a future PR's". PR 04 rewrites it to cover all three status models,
+  calls #641's CASCADE chain "a future PR's". PR 642b-01 rewrites it to cover all three status models,
   and to describe the chain as it exists now.
 - **`src/openedx_learning/applets/cbe/README.rst`:** it says the learner status tables are still
-  needed. PR 05 corrects that sentence.
+  needed. PR 642b-02 corrects that sentence.
 
 ## Style block for implementing agents (from the earlier plan's section 10; paste verbatim)
 
@@ -242,7 +236,7 @@ Follow the style block below. One behavior per test, and the test name states th
   `git show $REF:src/...`, because `:s` in `:src` otherwise mangles the path. Also, don't start
   an `echo` argument with `=`, because zsh expands it as a command path.
 - Part A's `test_learner_status.py` defines its own `competency_taxonomy` and `tag` fixtures,
-  which match `conftest.py`. They shadow the conftest fixtures harmlessly until PR 04 removes
+  which match `conftest.py`. They shadow the conftest fixtures harmlessly until PR 642b-01 removes
   them.
 
 ## Reminders for the eventual part B PR
