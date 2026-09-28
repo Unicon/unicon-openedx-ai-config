@@ -107,13 +107,7 @@ ticket, read the parent's criteria and then use the child ticket to select the s
 PRs are actually on the hook for. Do not hold the change to criteria the child ticket does
 not claim, and say which ones you excluded so the developer can correct you.
 
-Written acceptance criteria go stale. Ticket discussion, PR descriptions, and review
-threads frequently change what the team decided, and nobody edits the ticket afterward.
-Where the code contradicts a written criterion, look for an agreement in those discussions
-that supersedes the criterion. An agreed-on decision in a PR description or comment wins
-over the ticket text. If you cannot tell whether a contradiction is a supersession or a
-defect, ask the developer rather than changing the code to match a criterion that may no
-longer hold.
+Acceptance criteria are the source of truth. However, sometimes they can go stale when the PR lands, as ticket and PR discussions move forward. So, check the comments in tickets and the PR, and if you find conflicts, you should flag it to the developer and clarify. Do not assume that the acceptance criteria have changed - instead, if you see any conflict, always ask.
 
 Produce an explicit table before going further: each criterion, whether it is in scope for
 these PRs, and where in the diff and in the tests it is satisfied. That table is what the
