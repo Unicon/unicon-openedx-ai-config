@@ -20,7 +20,7 @@ an upstream community repo: AI config, local dev setup notes, deployment notes, 
     review/authoring and architecture design.
   - `skills/` — `ticket-writer` (interactive ticket drafting, dispatches both agents),
     `code-review`, `spike-and-stabilize`, plus the EXPERIMENTAL Figma-to-Paragon skills
-    (`paragon-ui`, `figma-to-paragon`, `paragon-a11y-check` — see
+    (`paragon-ui`, `figma-to-paragon`, `paragon-a11y-check`, `paragon-design-check` — see
     [`figmaToCodeWorkflow.md`](figmaToCodeWorkflow.md)).
   - `design-system/` — the Figma-to-Paragon mapping generator and its scripts, tests, and
     per-project config. See [`figmaToCodeWorkflow.md`](figmaToCodeWorkflow.md) and

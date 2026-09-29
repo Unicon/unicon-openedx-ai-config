@@ -23,6 +23,10 @@ and community plugins. Treat public APIs as contracts and keep changes small.
   screen against one, in a frontend repo: use `figma-to-paragon` (EXPERIMENTAL; it
   builds on `paragon-ui` and `paragon-a11y-check`). See `figmaToCodeWorkflow.md` and
   `.claude/design-system/policy.md`.
+- Bringing a Figma frame in line with Paragon code, as the project's designer (linking
+  layers to library variables, switching text styles that differ from code): use
+  `paragon-design-check` (EXPERIMENTAL; its sync-to-code mode). It's the only skill here
+  that writes to Figma, under `.claude/design-system/policy.md` §5.
 
 ## Delegation
 
