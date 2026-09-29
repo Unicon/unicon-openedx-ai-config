@@ -68,9 +68,7 @@ the architect chooses, in the Context.
 
 Only Technical Details is collapsed. Everything else stays open on the page.
 
-Reference other work by **GitHub issue number only** (e.g. "see #618"). Never reference
-internal ticket IDs, spreadsheets, or any tracker a reader outside the team can't open.
-Don't mention target releases or roadmap timing anywhere in the ticket.
+Reference other work by **GitHub issue number only** (e.g. "see #618"), found in its cache filename after ghi-. Only reference by Use Case IDs (ucid) only when that ticket's file says ghi-pending, and replace it once a number exists. Never use spreadsheet IDs or any tracker a reader outside the team can't open. Don't mention target releases or roadmap timing anywhere in the ticket.
 
 ## 1. User Story (human)
 
