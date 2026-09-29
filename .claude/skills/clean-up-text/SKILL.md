@@ -1,6 +1,6 @@
 ---
 name: clean-up-text
-description: Editorial and structural cleanup of an already-written technical text (a doc, ADR, README, RFC, design note, PR or commit body, migration guide, long chat write-up), then a rewritten version written to a new local file. Use when asked to clean up, tighten, trim, de-bloat, condense, restructure, or improve the writing of an existing technical document, or for a brutally honest review of how well it reads. It audits what the text assumes its reader already knows, grades it against a fixed rubric, rewrites it toward whatever canonical shape that kind of document has, and sends the result to a dedicated fidelity reviewer that confirms the technical concepts and decisions survived the rewrite unchanged, and that flags anything the rewrite added for you to confirm. It does NOT reopen the decisions the text records; beyond defining what a reader needs in order to follow the text, it invents no content and preserves the substance. For a ticket or issue specifically, use clean-up-ticket instead. Advisory: writes to a new local file, never overwrites the source and never publishes anywhere.
+description: Editorial and structural cleanup of an already-written technical text (a doc, ADR, README, RFC, design note, PR or commit body, migration guide, long chat write-up). Use when asked to clean up, tighten, trim, de-bloat, condense, restructure, or improve the writing of an existing technical document, or for a brutally honest review of how well it reads. Also use before an implementation task is final, on the docs, comments, and docstrings its change adds or edits. It grades the text against a fixed rubric, rewrites it toward its canonical shape, and has a fidelity reviewer confirm the technical concepts and decisions survived. It does NOT reopen the decisions the text records and invents no content beyond the definitions a reader needs to follow it. For a ticket or issue specifically, use clean-up-ticket instead. Advisory: a standalone document's rewrite goes to a new local file, and only text inside an unfinished code change is rewritten in place. It never publishes anywhere.
 ---
 
 # Clean up a technical text
@@ -25,9 +25,37 @@ document should say.
   the wrong skill. Say so and point upstream (back to the author, to an ADR for a design
   question, to `ticket-writer` for a ticket), rather than guessing at intent under the
   guise of cleanup.
-- **Advisory.** Produces a review and writes the improved text to a **new** local file.
-  Never overwrite the source, and publish nowhere (no PR body updated, no wiki page
-  edited, no comment posted) except on explicit request and approval.
+- **Advisory, except inside a code change.** For a standalone document, produce a review
+  and write the improved text to a **new** local file; never overwrite the source. For
+  text inside an unfinished code change, write the rewrite back in place, as "Text inside
+  a code change" describes. In both cases, publish nowhere (no PR body updated, no wiki
+  page edited, no comment posted) except on explicit request and approval.
+
+## Text inside a code change
+
+The "Verify before done" section of `CLAUDE.md` requires running this skill on the
+non-code text that an implementation task adds or edits, and it sets the scope: docs,
+comments, and docstrings are in, while code and test files are out. That text is the
+task's own unfinished draft, so the rewrite goes back in place and the steps change as
+follows.
+
+- **A new doc file, or a doc section rewritten wholesale,** gets the full skill, steps 1 to
+  7, with that file or section as the source.
+- **Comments, docstrings, and a few edited lines of an existing doc** get a shorter pass.
+  Collect them into one scratch file, each labeled with its file and the function, class,
+  or heading it belongs to. Skip steps 2 and 3. Apply the step 4 principles that fit short
+  text, plus the "Comments and docstrings" section of `CLAUDE.md`, and run the length check
+  over the batch. Write the rewrites to a second scratch file with the same labels, and run
+  step 6 once over the pair.
+- **Embedded code stays byte-for-byte.** Fenced code blocks, doctest lines, inline code
+  spans, and RST field names and directives (`:param name:`, `.. code-block::`) keep their
+  exact text. Only the prose around them is rewritten.
+- **Apply the rewrite once the gate passes.** Write each rewrite back over its own passage
+  and leave the untouched text around it alone. Then re-run the linters and tests the task
+  already ran, because a reworded docstring can break a line-length rule, the RST, or a
+  doctest.
+- **Keep the report short.** Give step 7's changelog in a few lines, with the gate's
+  verdict and every definition the rewrite added.
 
 ## Read first
 

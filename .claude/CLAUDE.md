@@ -147,6 +147,18 @@ Other context-hygiene defaults:
 - Documentation-only changes (ADRs, RST/Markdown docs) need real verification too: if a
   doc build tool exists (e.g. Sphinx), actually run it. Don't trust visual inspection or
   precedent from similar files alone.
+- Before an implementation task is final, check whether the change adds or edits any
+  non-code text. If it does, run the `clean-up-text` skill over the added or edited text
+  only, never over the untouched text around it. Run it once the code is settled and
+  before the final code review, so the review sees the finished text.
+  - The rule covers prose files (Markdown, RST, ADRs, READMEs, changelogs) and the comments
+    and docstrings in source files.
+  - The rule never covers code, or anything in a test file. Code includes string literals,
+    such as error messages, UI strings, and log lines, and any code inside a comment or
+    doc, such as a fenced block or a doctest. A test file is any file under a `tests/` or
+    `__tests__/` directory, or named like one (`test_*.py`, `*_test.py`, `conftest.py`,
+    `*.test.tsx`, `*.spec.ts`). In a test file, test names, comments, and docstrings stay
+    as written.
 
 ## Architecture
 
