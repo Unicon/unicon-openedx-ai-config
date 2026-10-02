@@ -29,13 +29,21 @@ reviewing the change.
 
 ## During the inherited 'Review' step, add the following backend-specific questions:
 
-In addition to the standard 'Review' steps outlined in [code-review](../code-review/SKILL.md), evaluate the following detailed questions about this Frontend code review and raise any further concerns if prudent
-1. Does it adhere to general best practices for this repo's version of Django/Python? 
+In addition to the standard 'Review' steps outlined in [code-review](../code-review/SKILL.md), evaluate the following
+detailed questions about this Backend code review and raise any further concerns if prudent
+
+1. Does it adhere to general best practices for this repo's version of Django/Python?
 2. Any security issues or vulnerabilities introduced in this pull request?
 3. Do all added functions have appropriate, descriptive but concise names?
-4. Do all added functions have appropriate, descriptive but concise docstrings? Could they be reworded so that they are less verbose if they seem too long?
-6. If there are any database changes, do they follow the Open edX database design guidelines?
-7. If there are any database changes, are all added database migrations properly tested?
-8. If there are any database changes, are all added database migrations properly documented?
-9. If there are any database queries added or changed, are they properly optimized and performant?
-10. If there are any database queries added or changed, are they properly secured?
+4. Do all added functions have appropriate, descriptive but concise docstrings? Could they be reworded so that they are
+   less verbose if they seem too long?
+5. If there are any database changes, do they follow the Open edX database design guidelines?
+6. If there are any database changes, are all added database migrations properly documented?
+7. If there are any database queries, are they thoroughly, efficiently, and concisely unit tested?
+8. If there are any database queries added or changed, are they properly optimized and performant?
+9. If there are any database queries added or changed, are they properly secured?
+
+Additional Notes:
+
+1. For ordinary schema-only migrations, rely on repository-standard migration checks and tests of the business behavior
+   using the schema. Do not suggest tests of the schema itself as they would not be standard practice. 
