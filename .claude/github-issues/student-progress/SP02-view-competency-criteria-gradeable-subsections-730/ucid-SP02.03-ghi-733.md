@@ -8,7 +8,7 @@ As a learner, I need my course progress page to be able to render the competenci
 
 ## Description
 
-This ticket builds a GET endpoint that takes in a course run key and returns the Competency Criteria hierarchy for that course.
+This ticket builds a GET endpoint that takes in a course run key and returns the Competency Criteria hierarchy for that course. Only enrolled learners and course staff can call it on the LMS, and archived or disabled competency data is left out.
 
 For MVP, the Competency Criteria hierarchy consists of 3 levels of CompetencyCriteriaGroups, with the CompetencyCriteria below them:
 - Root Group (one per competency tag, shared by every course)
@@ -323,7 +323,7 @@ In openedx-platform, the tests must cover:
 | src/openedx_learning/applets/cbe/rules.py | new: the permission, with its default |
 | src/openedx_learning/rules.py | new: imports the applet rules |
 | src/openedx_learning/applets/cbe/api.py | modified: get_course_competency_criteria() |
-| src/openedx_learning/applets/cbe/models.py | modified: effective rule on CompetencyCriterion |
+| src/openedx_learning/applets/cbe/models/criteria.py | modified: effective rule on CompetencyCriterion |
 | src/openedx_learning/applets/cbe/rest_api/v1/views.py | modified: CourseCompetencyCriteriaView |
 | src/openedx_learning/applets/cbe/rest_api/v1/serializers.py | modified: response serializers |
 | src/openedx_learning/learner_urls.py | new: learner-only URL module |
