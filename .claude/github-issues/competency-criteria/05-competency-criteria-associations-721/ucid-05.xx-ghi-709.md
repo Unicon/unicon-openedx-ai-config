@@ -14,7 +14,7 @@ After a delete, focus moves to the Rule Group directly above the deleted one, or
 
 ## Context
 - #675 is the backend delete endpoint.
-- #786 adds the confirmation dialog in front of this delete. This ticket deletes on click.
+- #786 will add the confirmation dialog in front of this delete. This ticket deletes on click without the confirmation dialog in place.
 
 ## UX Design
 
@@ -41,7 +41,6 @@ Scenario: Deleting a Course Group removes that course's whole section, with no c
   Then no confirmation is shown
   And once the server confirms the deletion, that Course Group disappears along with every Rule Group, rule box, and subsection in it
   And the other Course Group and its contents are unchanged
-  And every remaining Course Group keeps the expanded or collapsed state it had
   And the deleted Course Group is still gone after I reload the page
 
 Scenario: A Rule Group the server retires rather than removes disappears like any other
@@ -73,7 +72,7 @@ Scenario: Deleting the top Rule Group in focus moves focus to the one directly b
   Then the Rule Group that was second in the lower Course Group is in focus, together with the first rule box in it
   And no Rule Group in the upper Course Group is in focus
 
-Scenario Outline: When the Course Group holding focus disappears, focus moves to the last Rule Group of the Course Group above it
+Scenario Outline: When the Course Group holding focus disappears, focus moves to the nearest Rule Group above it, which is the last Rule Group of the Course Group above
   Given two expanded Course Groups are shown, one above the other
   And the upper Course Group holds more than one saved Rule Group, and its last Rule Group holds more than one rule box
   And in the lower Course Group, <what is in focus>
@@ -87,6 +86,13 @@ Scenario Outline: When the Course Group holding focus disappears, focus moves to
     | its only saved Rule Group is in focus                                                        | delete that Rule Group           |
     | an unsaved empty Rule Group is in focus                                                      | delete the lower Course Group    |
     | an unsaved empty Rule Group is in focus, and there is exactly one saved Rule Group beside it | delete that one saved Rule Group |
+
+Scenario: Focus that moves into a collapsed Course Group expands it
+  Given two Course Groups are shown, one above the other, and the upper one is collapsed
+  And a Rule Group in the lower Course Group is in focus
+  When I delete the lower Course Group
+  Then the upper Course Group is expanded
+  And its last Rule Group is in focus, together with the first rule box in it, and it is visible without further scrolling
 
 Scenario: When the top Course Group holding focus disappears, focus moves to the first Rule Group of the Course Group below it
   Given two Course Groups are shown, one above the other
@@ -106,6 +112,14 @@ Scenario Outline: Deleting the last group on the page leaves the panel's empty s
     | the Course Group    |
     | its only Rule Group |
 
+Scenario: Deleting the last group I can see moves focus to a Course Group another author added meanwhile
+  Given the associations panel shows one Course Group, and it holds one saved Rule Group, which is in focus
+  And another author has added an association in a different course since my page loaded
+  When I delete that Course Group
+  Then the panel is refreshed from the server and shows the other author's Course Group
+  And the first Rule Group of that Course Group is in focus, together with the first rule box in it
+  And no unsaved Rule Group is shown, and the controls to add a Rule Group or a rule box are available
+
 Scenario Outline: Deleting a group that does not hold focus leaves focus where it is
   Given two Course Groups are shown, each holding more than one saved Rule Group
   And in the upper Course Group, a Rule Group with more than one rule box is in focus, together with a rule box in it other than its first
@@ -119,19 +133,29 @@ Scenario Outline: Deleting a group that does not hold focus leaves focus where i
 
 Scenario Outline: A failed deletion shows an error and refreshes the panel to match the server
   Given a saved Rule Group is in focus
-  And <server condition> <target>
+  And the server is unable to delete <target>
   When I click the trash can icon on <target>
   Then <target> is not removed from the page before the server responds
   And an error message is shown
-  And the panel is refreshed from the server, and <target> <shown afterward>
-  And focus <focus afterward>
+  And the panel is refreshed from the server, and <target> is still shown, with the contents the server holds for it
+  And focus stays on that Rule Group and its rule box
 
   Examples:
-    | server condition                   | target                         | shown afterward                                           | focus afterward                               |
-    | the server is unable to delete     | that Rule Group                | is still shown, with the contents the server holds for it | stays on that Rule Group and its rule box     |
-    | the server is unable to delete     | that Rule Group's Course Group | is still shown, with the contents the server holds for it | stays on that Rule Group and its rule box     |
-    | another author has already deleted | that Rule Group                | is no longer shown                                        | moves as it would after a successful deletion |
-    | another author has already deleted | that Rule Group's Course Group | is no longer shown                                        | moves as it would after a successful deletion |
+    | target                         |
+    | that Rule Group                |
+    | that Rule Group's Course Group |
+
+Scenario Outline: Deleting a group another author already deleted counts as a successful deletion
+  Given a saved Rule Group is in focus
+  And another author has already deleted <target>
+  When I click the trash can icon on <target>
+  Then <target> disappears, and no error message is shown
+  And focus moves as it would after a successful deletion
+
+  Examples:
+    | target                         |
+    | that Rule Group                |
+    | that Rule Group's Course Group |
 
 Scenario: The trash can icon is offered only on courses I can edit
   Given Course Groups for two courses are shown, and I have studio write access to only one of those courses
@@ -174,21 +198,22 @@ One provider action deletes a saved Course Group or Rule Group through #675 and 
    - The handler calls `e.stopPropagation()`. Without that, the click also reaches the card's own focus handler and puts that group in focus, and the delete then moves focus away from the group the author was working in.
    - While `isDeletingGroup` is true, every trash control on the panel, including the placeholder's, is disabled. That serializes deletes, so two focus resolutions never race. Also guard `deleteGroup` with a ref, since a double click can land before the disabled state renders.
 3. In `CompetencyAssociationsContext.tsx`, add two actions:
-   - `deleteGroup(groupId)` serves both levels, because #675 accepts a Course Group id and a Rule Group id alike. Just before sending, it snapshots the page order: the visible Course Group ids in render order, each with its Rule Group ids in #672's sibling order. After the mutation settles it calls `resolveFocusAfterRemoval(snapshot, groupId)`. On any failure, a 404 included, it also calls `showToast`.
+   - `deleteGroup(groupId)` serves both levels, because #675 accepts a Course Group id and a Rule Group id alike. Just before sending, it snapshots the page order: the visible Course Group ids in render order, each with its Rule Group ids in #672's sibling order. After the mutation settles it calls `resolveFocusAfterRemoval(snapshot, groupId)`. On a failure it also calls `showToast`, except on a 404: #675 returns 404 for a group that is already gone, and the page treats that as a successful deletion.
    - `removePlaceholderGroup()` sends no request. It focuses the last saved Rule Group in the placeholder's Course Group (#672's `lastBottomTierGroupForCourse`) and that group's first rule box, which removes the placeholder per #671.
 4. `resolveFocusAfterRemoval` applies a pure `focusTargetAfterRemoval(snapshot, fresh, focus)` in `utils.ts`. `fresh` is the refetched #681 payload, read with `queryClient.getQueryData`, not the tree the click handler closed over. Read `focus` and `placeholder` as they are when the request settles, so a group the author clicked during the request keeps focus if it still exists. The helper checks these rules in order:
    - If the Rule Group in focus still exists in `fresh`, focus is unchanged. For a placeholder Rule Group, check its Course Group instead. This rule covers deleting a group that did not hold focus, and a delete the server refused.
    - Otherwise, if that Rule Group's Course Group still exists, focus the nearest surviving Rule Group above it in the snapshot, or failing that, the nearest one below.
    - Otherwise, focus the last Rule Group of the nearest surviving Course Group above it in the snapshot, or failing that, the first Rule Group of the nearest one below.
-   - Otherwise, unset both parts of focus. This is the only place that writes the unset pair. Under #671, an unset group while any Course Group is visible means a placeholder is on the page.
+   - Otherwise, if `fresh` still shows a Course Group, which happens when another author added one during the delete, focus the first Rule Group of the first visible Course Group in `fresh`, in #672's order.
+   - Otherwise, unset both parts of focus. This is the only place that writes the unset pair, and it runs only when no Course Group is left. #671 stores no separate placeholder flag: it treats "the Rule Group in focus is unset while at least one Course Group is shown" as "an unsaved Rule Group exists". Unsetting focus while a Course Group is still shown would make the page behave as if an unsaved Rule Group were there.
 
-   The chosen Rule Group gets its first rule box from `fresh`, not #672's last-rule-box default. Candidates come only from the snapshot, so they are already known to be visible, and collapse state plays no part in the choice. Because the target is resolved against refreshed data, #675's upward cascade, a 404 for a group already deleted elsewhere, and a concurrent edit all take this same path. In the cascade case, a Rule Group's removal takes its Course Group, and any placeholder in it, with it.
+   The chosen Rule Group gets its first rule box from `fresh`, not #672's last-rule-box default. Candidates come from the snapshot, so they are already known to be visible, except in the rule for a Course Group another author added, which takes its candidate from #672's visible Course Groups in `fresh`. Collapse state plays no part in the choice. Because the target is resolved against refreshed data, #675's upward cascade, a 404 for a group already deleted elsewhere, and a concurrent edit all take this same path. In the cascade case, a Rule Group's removal takes its Course Group, and any placeholder in it, with it.
 5. Set a one-shot keyboard focus request whenever the deleted group is gone. That is always true for the placeholder, and true for a saved group when it is absent from `fresh`.
    - The `CriteriaGroupBox` now in focus takes the request by calling `focus({ preventScroll: true })`. `preventScroll` keeps this call from fighting #672's `scrollIntoView` on the rule box.
-   - If that card's Course Group is collapsed, `CourseGroupSection` focuses its collapse toggle instead.
+   - If that card's Course Group is collapsed, `CourseGroupSection` expands it first. Its `isCollapsed` is #672's local component state, so the section sets it itself when the request names one of its cards.
    - When nothing is left, `CourseGroupList` focuses the empty-state message, which needs `tabIndex={-1}`.
 
-   Clear the request once it is taken, and on the next focus write, so a section the author expands later can't steal focus. When a failed delete leaves the group on the page, DOM focus stays on its trash button.
+   Keep the request in the provider, not in a card. #672's panel shows its loading spinner while the refetch's name lookup loads, which unmounts every card and resets every Course Group to expanded, so the request must outlive that unmount and be taken once the cards render again. Clear the request once it is taken, and on the next focus write, so a section the author expands later can't steal focus. When a failed delete leaves the group on the page, DOM focus stays on its trash button.
 
 Out of scope:
 
@@ -219,12 +244,3 @@ Out of scope:
 - `src/taxonomy/taxonomy-card/TaxonomyCard.tsx` is prior art for stopping propagation on a control inside a clickable card.
 
 </details>
-
-## Open Questions
-
-- (architect, final review) When the focused Rule Group is the first in its Course Group and that Course Group survives the delete, focus moves to the Rule Group below it in the same Course Group rather than to the last Rule Group of the Course Group above. Confirm.
-- (architect, final review) When the server's cascade removes a Course Group that also holds the focused unsaved Rule Group (the author deletes that Course Group's only saved Rule Group), the unsaved Rule Group goes with it and focus moves to the neighboring Course Group. Confirm.
-- (architect, final review) When a failed delete's refresh shows the group was already deleted elsewhere and that group held focus, focus moves as it would after a successful deletion. Confirm.
-- (architect, final review) The first of #709, #710, and #833 to be implemented builds the shared post-delete focus helper with only its own cases, and each later ticket adds its own. Confirm, and remove "including this rule-box case" from #833's notes.
-- (architect, final review) #672's panel drops to its loading spinner after every create and delete, because its name lookup is keyed on the exact list of ids and has no `placeholderData`. The spinner unmounts every card, resets collapse state, and discards the keyboard focus this ticket moves. Should #672 be amended to keep rendering with the last resolved names while a new lookup loads (recommended), or should #709 handle it?
-- (architect, final review) When the new focus target sits in a collapsed Course Group, keyboard focus goes to that section's collapse toggle (recommended), rather than auto-expanding the section or not moving keyboard focus. Confirm, and if so add a matching row to the keyboard focus scenario.
