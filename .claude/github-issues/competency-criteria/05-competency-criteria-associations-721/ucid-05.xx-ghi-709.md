@@ -169,6 +169,11 @@ Scenario: Clicking again while a deletion is in progress does not delete twice
   Then every trash can icon on the panel is disabled until the server responds, and no second deletion is sent
   And once the server confirms the first deletion, the group disappears with no error shown
 
+Scenario: Subsections cannot be selected while a deletion is in progress
+  Given I have clicked the trash can icon on a saved Rule Group or Course Group, and the server has not responded yet
+  When I look at the content panel
+  Then every subsection's select control is disabled until the deletion finishes
+
 Scenario Outline: Keyboard focus follows the new selection target after a delete
   Given I reach the trash can icon on <target> using only the keyboard
   When I press Enter on it and the deletion succeeds
@@ -197,6 +202,7 @@ One provider action deletes a saved Course Group or Rule Group through #675 and 
    - Render it only when `canEditCourse(courseId)` is true.
    - The handler calls `e.stopPropagation()`. Without that, the click also reaches the card's own focus handler and puts that group in focus, and the delete then moves focus away from the group the author was working in.
    - While `isDeletingGroup` is true, every trash control on the panel, including the placeholder's, is disabled. That serializes deletes, so two focus resolutions never race. Also guard `deleteGroup` with a ref, since a double click can land before the disabled state renders.
+   - The content panel's select control from #670 is also disabled while `isDeletingGroup` is true, so a subsection can't be added to a group that is being deleted.
 3. In `CompetencyAssociationsContext.tsx`, add two actions:
    - `deleteGroup(groupId)` serves both levels, because #675 accepts a Course Group id and a Rule Group id alike. Just before sending, it snapshots the page order: the visible Course Group ids in render order, each with its Rule Group ids in #672's sibling order. After the mutation settles it calls `resolveFocusAfterRemoval(snapshot, groupId)`. On a failure it also calls `showToast`, except on a 404: #675 returns 404 for a group that is already gone, and the page treats that as a successful deletion.
    - `removePlaceholderGroup()` sends no request. It focuses the last saved Rule Group in the placeholder's Course Group (#672's `lastBottomTierGroupForCourse`) and that group's first rule box, which removes the placeholder per #671.
@@ -236,6 +242,7 @@ Out of scope:
 | `src/taxonomy/competency-management/criteria-groups/CourseGroupSection.tsx` (provisional) | modified: add the Course Group trash control, and expand the section when the keyboard focus request names one of its cards |
 | `src/taxonomy/competency-management/criteria-groups/CourseGroupList.tsx` (provisional) | modified: make the empty-state message focusable |
 | `src/taxonomy/competency-management/messages.ts` | modified: add the trash control labels and the delete error |
+| the content panel component from #670 (provisional) | modified: disable the subsection select control while `isDeletingGroup` is true |
 
 **Additional context**
 

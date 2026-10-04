@@ -17,7 +17,7 @@ In the event that deletion fails, the frontend should notify the user that some 
 ## Context
 - #709 deletes a whole Rule Group or Course Group
 - #710 deletes a single Competency Criterion association
-- #786 adds the confirmation dialog in front of this delete. This ticket deletes on click.
+- #786 will add the confirmation dialog in front of this delete. This ticket deletes on click without the confirmation dialog in place.
 
 ## UX Design
 
@@ -129,6 +129,13 @@ Scenario: A delete that fails before removing anything says nothing was removed
   And I am shown a message that the rule box could not be removed, which differs from the message for a delete that failed partway
   And the panel shows the same content it shows after I reload the page
 
+Scenario: Subsections another author already removed do not stop the delete
+  Given a saved rule box holds three subsections
+  And another author has removed one of them since my panel loaded
+  When I click that rule box's trash control
+  Then the rule box and all three subsections are no longer shown
+  And no failure message is shown
+
 Scenario: Clicking the trash again after a failure removes the rest
   Given a failed delete left two subsections in a saved rule box
   When I click that rule box's trash control again, and nothing fails
@@ -137,8 +144,14 @@ Scenario: Clicking the trash again after a failure removes the rest
 
 Scenario: A delete in progress cannot be started a second time
   Given I have clicked a saved rule box's trash control and its deletion has not finished
-  When I click that trash control again
-  Then no second deletion starts, and no failure message is shown when the first deletion finishes
+  When I click that trash control again, or any other trash control on the panel
+  Then every trash control on the panel is disabled until the deletion finishes, and no second deletion starts
+  And no failure message is shown when the first deletion finishes
+
+Scenario: Subsections cannot be selected while a delete is in progress
+  Given I have clicked a saved rule box's trash control and its deletion has not finished
+  When I look at the content panel
+  Then every subsection's select control is disabled until the deletion finishes
 
 Scenario: The trash control is hidden on a course I cannot edit
   Given the panel shows a course section for a course I can see but do not have studio write access to
@@ -169,10 +182,10 @@ A rule box has no database row, so deleting one calls #674 once for each criteri
 1. Add `deleteCompetencyCriterion(groupId, criterionId)` to `data/api.ts`, calling #674's `DELETE /api/cbe/v1/criteria-groups/<group_id>/criteria/<criterion_id>/`. #710 needs the same function, so whichever ticket lands first adds it. Do not loop over #710's `useDeleteCompetencyCriterion`, which refreshes the panel after every request.
 2. Add `useDeleteRuleBox(tagId)` to `data/apiHooks.ts`: a `useMutation` with a `mutationKey`, taking `{ groupId, ruleKey, criterionIds }`.
    - `mutationFn` awaits one request at a time in a `for` loop. Parallel requests are unsafe: #674 removes a Rule Group only when a request finds it empty, and two concurrent requests each still see the other's criterion, so neither removes the group and an empty group stays stored.
-   - On the first rejected request, including a 404, stop and throw an error that records how many requests succeeded before it.
+   - Count a 404 as a success: #674 returns 404 for a criterion that is already gone, for example because another author removed it. On the first other rejected request, stop and throw an error that records how many requests succeeded before it.
    - `onSettled` returns the `invalidateQueries` promise for the #681 groups query, so the mutation stays pending until the refetch lands. Otherwise the stale box briefly shows an enabled trash whose next click re-sends ids that are already gone.
-3. Add `deleteRuleBox(groupId, ruleKey)` to `CompetencyAssociationsContext.tsx`. When it is called, snapshot the box's criterion ids from `ruleBoxesForGroup(groupId)`, the rule keys of the boxes directly above and below it, and the Rule Group order across course sections that #709's rule reads. Only the snapshotted ids are sent, which is why content added at that score after the panel loaded survives. Return early if the box is already pending. #786 puts its confirmation in front of this call.
-4. Expose `isRuleBoxDeletePending(groupId, ruleKey)` from the provider through `useMutationState` on that `mutationKey` (prior art: `src/course-outline/data/outlineStatusHooks.ts`). The pending state lives in the provider because collapsing a course section unmounts its rule boxes.
+3. Add `deleteRuleBox(groupId, ruleKey)` to `CompetencyAssociationsContext.tsx`. When it is called, snapshot the box's criterion ids from `ruleBoxesForGroup(groupId)`, the rule keys of the boxes directly above and below it, and the Rule Group order across course sections that #709's rule reads. Only the snapshotted ids are sent, which is why content added at that score after the panel loaded survives. Return early if any delete on the panel is pending. #786 puts its confirmation in front of this call.
+4. Expose `isRuleBoxDeletePending(groupId, ruleKey)` from the provider through `useMutationState` on that `mutationKey` (prior art: `src/course-outline/data/outlineStatusHooks.ts`). The pending state lives in the provider because collapsing a course section unmounts its rule boxes. Also expose `isAnyDeletePending`, true while any rule box delete or #709's group delete is pending. The content panel's select control from #670 is disabled while it is true, so a subsection can't be added to a box that is being deleted. If #709 already disables it on `isDeletingGroup`, switch that condition to `isAnyDeletePending`.
 5. When the mutation fails, choose the message from the success count: one or more successes means the partial-failure message, and zero means the nothing-removed message. Show it with `showToast`.
 6. Then write focus once, as a functional update on the focus that is current at that moment, since the author may have clicked elsewhere during the delete. Read the refreshed data from `queryClient.getQueryData` through the `utils.ts` helpers, because the provider's `ruleBoxesForGroup` still reflects the pre-refresh render. With `G` as the deleted box's Rule Group and `S` as its course section:
    - If `G` is gone and focus was in `G` (on the deleted box, or on #671's placeholder rule box), or focus is #671's placeholder Rule Group under `S` and `S` is gone, apply #709's group-level rule from the snapshot.
@@ -181,7 +194,7 @@ A rule box has no database row, so deleting one calls #674 once for each criteri
 
    Whichever of #709, #710, and #833 lands first builds the shared helper with only its own cases. #833's cases include the full group-level rule, because the cascade can remove a Rule Group, its course section, or everything.
 7. After every delete, move keyboard focus to the element for the resulting focus target, or to the empty-state message. The trash button was disabled or removed, so the browser has already dropped keyboard focus to the page body. #672's `RuleBox` and `CriteriaGroupBox` already hold refs for scroll-into-view; add `tabIndex={-1}` where an element is not natively focusable.
-8. In `RuleBox.tsx`, render the trash as a Paragon `IconButton` when `canEditCourse(courseId)` is true, disabled while the box is pending, with an accessible name built from the box's score label, which is unique within a Rule Group. Stop propagation of its click and key events: `RuleBox` and `CriteriaGroupBox` focus themselves on click, so a bubbled click would put the box being deleted in focus first.
+8. In `RuleBox.tsx`, render the trash as a Paragon `IconButton` when `canEditCourse(courseId)` is true, disabled while `isAnyDeletePending` is true, so two post-delete focus writes never race, the same rule #709 applies to its group deletes, with an accessible name built from the box's score label, which is unique within a Rule Group. Stop propagation of its click and key events: `RuleBox` and `CriteriaGroupBox` focus themselves on click, so a bubbled click would put the box being deleted in focus first.
 9. A placeholder rule box's trash writes `{ groupId, ruleKey: lastRealRuleKeyIn(groupId) }` directly and sends nothing. Write it directly, not through `focusGroup`, because #672 makes re-focusing the group already in focus a no-op. The placeholder rule box inside a placeholder Rule Group (`focus.groupId === null`) renders no trash.
 
 Out of scope:
@@ -202,6 +215,7 @@ Every path is under `src/taxonomy/competency-management/` and is provisional. `m
 | `utils.ts` | modified: the shared post-delete focus helper, or #833's cases added to it if #709 or #710 built it |
 | `criteria-groups/RuleBox.tsx` | modified: the trash control |
 | `messages.ts` | modified: the trash control's accessible name and the two failure messages |
+| the content panel component from #670 | modified: disable the subsection select control while `isAnyDeletePending` is true |
 
 **Additional context**
 
@@ -209,13 +223,3 @@ Every path is under `src/taxonomy/competency-management/` and is provisional. `m
 - #674 defines the endpoint's cascade and its 404 for a criterion that is already gone. #681 is the GET the refresh reads, and it omits archived rows, which is why archived and deleted content look the same.
 
 </details>
-
-## Open Questions
-
-- (architect, final review) When the cascade removes the Rule Group or course section that holds a focused placeholder (a placeholder rule box in the deleted box's Rule Group, or a placeholder Rule Group in its course section), the placeholder goes with it and #709's group-level focus rule applies, rather than leaving focus unchanged. Confirm.
-- (architect, final review) When the deleted rule box held focus but still exists after the refresh (a partial failure, or same-score content added from another session), focus stays on the surviving box: focus moves only when its target no longer exists. Confirm.
-- (architect, final review) A criterion removal that finds the criterion already gone counts as a failure and stops the delete, consistent with #709. Confirm.
-- (architect, final review) The panel refreshes once when the whole delete ends, on success or failure, and the delete stays pending until that refresh lands. Confirm.
-- (architect, final review) The content panel's select control stays enabled while the rule box in focus is being deleted, so a subsection added mid-delete joins that box and survives like concurrent content. Confirm.
-- (architect, final review) The first of #709, #710, and #833 to be implemented builds the shared post-delete focus helper with only the cases its own AC exercises, and each later ticket adds its own. #833's cases include the full group-level rule, because its cascade can remove a Rule Group, a course section, or everything. Confirm, and replace the matching note.
-- (architect, final review) #709 disables every trash control on the panel while a group delete is pending, so two focus resolutions never race. Should a rule box delete also disable every trash control on the panel, rather than only its own box's? Recommended: yes, for consistency with #709.
