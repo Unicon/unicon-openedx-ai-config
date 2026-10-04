@@ -233,7 +233,7 @@ Out of scope:
 | `src/taxonomy/competency-management/CompetencyAssociationsContext.tsx` (provisional) | modified: add `deleteGroup`, `removePlaceholderGroup`, `resolveFocusAfterRemoval`, `isDeletingGroup`, and the keyboard focus request |
 | `src/taxonomy/competency-management/utils.ts` (provisional) | modified: add `focusTargetAfterRemoval` and the page-order snapshot |
 | `src/taxonomy/competency-management/criteria-groups/CriteriaGroupBox.tsx` (provisional) | modified: add the Rule Group trash control and make the card a keyboard focus target |
-| `src/taxonomy/competency-management/criteria-groups/CourseGroupSection.tsx` (provisional) | modified: add the Course Group trash control and the keyboard focus for a collapsed section |
+| `src/taxonomy/competency-management/criteria-groups/CourseGroupSection.tsx` (provisional) | modified: add the Course Group trash control, and expand the section when the keyboard focus request names one of its cards |
 | `src/taxonomy/competency-management/criteria-groups/CourseGroupList.tsx` (provisional) | modified: make the empty-state message focusable |
 | `src/taxonomy/competency-management/messages.ts` | modified: add the trash control labels and the delete error |
 
