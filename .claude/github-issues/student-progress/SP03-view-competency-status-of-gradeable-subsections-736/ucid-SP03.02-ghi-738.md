@@ -28,6 +28,8 @@ The response payload will then resemble something to the effect of the following
 ```
 
 ## Context
+- The statuses are written by #699 (a criterion's status when a grade is recorded) and #643 (the roll-up from criterion to competency, continuing up through each parent tag to the top of the taxonomy). Neither blocks building this endpoint, but both are needed to see real statuses end to end.
+- #739 and #740 are the frontend counterparts to this ticket.
 
 ## Notes for drafting
 
