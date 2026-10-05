@@ -63,7 +63,7 @@ Scenario: The Grades card does not appear and then disappear while the page load
 
 Scenario Outline: The Grades card is shown when the course's criteria can't be loaded
   Given the site uses the "Replacement" layout
-  And a course has competency criteria
+  And competency criteria have been authored for a course
   And <failure>
   When the learner opens the course's Progress tab
   Then the learner sees the Grades card with everything it shows on a site without the plugin
