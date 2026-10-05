@@ -84,19 +84,23 @@ Scenario Outline: The archived-rules message replaces every other state of the c
     | course run X has no gradeable subsections                                               |
     | course run X's outline cannot be loaded                                                 |
 
-Scenario: While the associations panel's data is loading, an archived course shows its normal outline until it loads
-  Given course run X's course-level group for the selected competency is archived
-  And the associations panel's data has not finished loading
-  When I expand course run X
-  Then its sections and gradeable subsections are shown as usual
+Scenario Outline: While the associations panel's data is loading, an expanded course shows a loading indicator
+  Given the associations panel's data has not finished loading, because <reason>
+  When I expand a course run
+  Then the row shows a loading indicator in place of its outline, with no control for adding an association
   When the associations panel's data finishes loading
-  Then without a page reload, the row shows the archived-rules message in place of the outline
+  Then without a page reload, the row shows the archived-rules message if that course run's course-level group is archived, and its sections and gradeable subsections otherwise
 
-Scenario: If the associations panel's data fails to load, an archived course shows its normal outline
-  Given course run X's course-level group for the selected competency is archived
-  And the associations panel's data failed to load
-  When I expand course run X
-  Then its sections and gradeable subsections are shown as usual
+  Examples:
+    | reason                                                  |
+    | I just selected the competency                          |
+    | I moved to another page of the course list or searched  |
+
+Scenario: If the associations panel's data fails to load, an expanded course shows its outline with no controls for adding an association
+  Given the associations panel's data failed to load
+  When I expand a course run
+  Then its sections and gradeable subsections are shown
+  And no subsection offers a control for adding an association
 
 Scenario: A delete that archives a course's rules switches its expanded row without a reload
   Given learners have recorded progress against the selected competency's rules in course run X
@@ -108,7 +112,7 @@ Scenario: A delete that archives a course's rules switches its expanded row with
   Then without a page reload, course run X's expanded row shows the archived-rules message in
     place of its outline
   And any other expanded course already showing the archived-rules message keeps showing it
-    throughout
+    throughout, with no loading indicator in between
 
 Scenario: A delete that removes a course's rules outright leaves its outline in place
   Given no learner has recorded progress against the selected competency's rules in course run X
@@ -117,11 +121,18 @@ Scenario: A delete that removes a course's rules outright leaves its outline in 
   Then course run X's expanded row keeps showing its outline
   And the archived-rules message is not shown
 
-Scenario: The message is readable on a small screen
-  Given I view the page on a small screen
-  When I expand a course whose course-level group for the selected competency is archived
-  Then the whole archived-rules message wraps within the course row, with no horizontal
-    scrolling and no truncated text
+Scenario: Keyboard focus moves to the message when the control I was on is replaced
+  Given learners have recorded progress against the selected competency's rules in course run X
+  And course run X is expanded, and I have used only the keyboard to reach the chip for its last association in its outline
+  When I remove that association from the chip
+  Then course run X's row shows the archived-rules message in place of its outline
+  And keyboard focus moves to the message, so a screen reader reads it
+
+Scenario: The message is not announced when my keyboard focus is elsewhere
+  Given course run X is expanded, and keyboard focus is outside course run X's row
+  When a delete replaces course run X's outline with the archived-rules message
+  Then keyboard focus stays where it was
+  And the message is not announced by a screen reader
 ```
 
 <details>
@@ -131,26 +142,37 @@ This is a suggested approach, not the source of truth. The User Story, Descripti
 
 **Summary**
 
-The archived list that #840 adds to #681's response is read from the #681 query that #672's provider already runs, and is exposed as `isCourseArchived(courseId)` next to `canEditCourse`. An expanded `CourseRow` for an archived course renders the new message instead of mounting `CourseOutlineSubtree`, so the outline is never fetched. The lookup fails open and keeps its last list through refetches.
+The archived list that #840 adds to #681's response is read from the #681 query that #672's provider already runs, and is exposed as `isCourseArchived(courseId)` next to `canEditCourse`. An expanded `CourseRow` for an archived course renders the new message instead of mounting `CourseOutlineSubtree`, so the outline is never fetched. Until that query has data, an expanded row shows a loading indicator. If the query failed, the row shows its outline without the controls for adding an association.
 
 **Approach**
 
 1. Add `archivedCourseKeys: string[]` to #681's response type in `data/types.ts`. `camelCaseObject` changes only the key, so each value matches a `course.courseKey` as it is.
-2. Add `isCourseArchived(courseId)` to the `CompetencyAssociationsContext` value next to `canEditCourse`. Back it with a `Set` memoized from `data?.archivedCourseKeys ?? []` on the provider's existing `useCompetencyCriteriaGroups` query, and have the context's no-op default return `false`. Because the value rides on that query, it needs no new request and adds no invalidation to #709, #710, or #833: the refetch those deletes already make is what switches a newly archived course. Reading `?? []` also makes an MFE running against a backend without #840 fail open.
-3. Derive the lookup from `data` only, never from the loading or error flags, so that it fails open. It returns `false` while the first fetch is loading or after it fails. That is the opposite default from `canEditCourse`, and it is safe because #717 still rejects the write. The lookup also keeps the last list through a background or failed refetch, so a row already showing the message doesn't flicker. A stale list is safe because a course-level group can't be unarchived, so a stale list can only leave courses out.
-4. In `course-search/CourseRow.tsx`, when the row is expanded and `isCourseArchived(course.courseKey)` is true, render a new `archivedCourseRulesMessage` from `course-search/messages.ts` instead of mounting `CourseOutlineSubtree`. Use the same markup as `noGradedSubsectionsMessage`. Not mounting the subtree skips the outline fetch, because the subtree's own mount is its fetch gate. It also makes the message replace #797's disabled content and the permission-gated controls, which all live inside the outline.
-5. Test two edge cases:
-   - After a page or search change, #683's scoped query reloads, and a course expanded during that reload shows its outline and then switches to the message. Don't add `placeholderData` to hide this, since #683 requires the associations data to change with the page.
+2. Add `isCourseArchived(courseId)` to the `CompetencyAssociationsContext` value next to `canEditCourse`. Back it with a `Set` memoized from `data?.archivedCourseKeys ?? []` on the provider's existing `useCompetencyCriteriaGroups` query, and have the context's no-op default return `false`. Because the value rides on that query, it needs no new request and adds no invalidation to #709, #710, or #833: the refetch those deletes already make is what switches a newly archived course. Reading `?? []` also means an MFE running against a backend without #840 treats every course as not archived.
+3. Also add `associationsStatus` to the context value: `ready` whenever the query has `data`, even if a later background refetch failed; otherwise `error` if the query failed, and `loading` if it hasn't finished. Because `ready` follows `data` alone, the refetch after a delete never shows the loading indicator, and a row already showing the message keeps it through that refetch. The list a row reads during a refetch can be stale, but only by leaving out a course archived since it loaded, because a course-level group can't be unarchived.
+4. In `course-search/CourseRow.tsx`, when the row is expanded:
+   - While `associationsStatus` is `loading`, render a Paragon `Spinner` instead of mounting `CourseOutlineSubtree`.
+   - When `isCourseArchived(course.courseKey)` is true, render a new `archivedCourseRulesMessage` from `course-search/messages.ts` instead of mounting `CourseOutlineSubtree`. Use the same markup as `noGradedSubsectionsMessage`, with no live region. Not mounting the subtree skips the outline fetch, because the subtree's own mount is its fetch gate. It also makes the message replace #797's disabled content and the permission-gated controls, which all live inside the outline.
+   - Otherwise mount `CourseOutlineSubtree`. The subsection select control #672 adds to the outline is offered only when `associationsStatus` is `ready`, in addition to its existing `canEditCourse` check.
+5. When the row switches from the outline to the message and keyboard focus was inside the outline, move focus to the message, which needs `tabIndex={-1}`. Otherwise leave focus alone. Record whether focus is inside the outline on the row's container while the outline is shown, because once the focused control is removed the browser has already moved focus to the page body.
+6. Test two edge cases:
+   - After a page or search change, #683's scoped query reloads, and a course expanded during that reload shows the loading indicator. Don't add React Query's `placeholderData`, which would keep showing the previous page's associations while the new ones load, since #683 requires the associations data to change with the page.
    - When the delete that archives a course starts from #710's chip inside that course's own outline, the refetch unmounts the chip. Confirm #710's post-delete handling still runs, because React Query skips a per-call `mutate` callback after its component unmounts.
-6. Out of scope: the field itself (#840), the Competency Criteria Associations panel (#672 already omits archived groups), and the server-side rejection (#717).
+
+
+Out of scope:
+
+- The `archived_course_keys` field itself (#840).
+- The Competency Criteria Associations panel, which already omits archived groups (#672).
+- The server-side rejection of new associations in an archived course-level group (#717).
 
 **Files to create and modify**
 
 | File | Change |
 | --- | --- |
 | `src/taxonomy/competency-management/data/types.ts` (path provisional) | modified: add `archivedCourseKeys` |
-| `src/taxonomy/competency-management/CompetencyAssociationsContext.tsx` (path provisional) | modified: add `isCourseArchived` |
-| `src/taxonomy/competency-management/course-search/CourseRow.tsx` | modified: render the message in place of `CourseOutlineSubtree` |
+| `src/taxonomy/competency-management/CompetencyAssociationsContext.tsx` (path provisional) | modified: add `isCourseArchived` and `associationsStatus` |
+| `src/taxonomy/competency-management/course-search/CourseRow.tsx` | modified: render the loading indicator or the message in place of `CourseOutlineSubtree`, and move keyboard focus to the message |
+| the subsection select control #672 adds to the outline | modified: offered only when `associationsStatus` is `ready` |
 | `src/taxonomy/competency-management/course-search/messages.ts` | modified: add `archivedCourseRulesMessage` |
 
 **Additional context**
@@ -158,7 +180,3 @@ The archived list that #840 adds to #681's response is read from the #681 query 
 - This ticket is blocked by #672, which creates `CompetencyAssociationsContext`, the #681 response type, and `useCompetencyCriteriaGroups`. The #670 pieces this ticket changes, `CourseRow` and `CourseOutlineSubtree`, are already on master (frontend-app-authoring PR #3235).
 
 </details>
-
-## Open Questions
-
-- (architect, final review) When the message replaces an already-expanded outline after a delete, should it be announced to screen reader users? Options: A) plain text matching `noGradedSubsectionsMessage`, with no live region; B) wrap it in `role="status"`. Recommended: A for the MVP, since the same message renders on every ordinary expand and screen readers announce a live region inserted with its content inconsistently.

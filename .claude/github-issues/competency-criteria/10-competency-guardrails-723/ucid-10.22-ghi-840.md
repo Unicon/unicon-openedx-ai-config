@@ -17,7 +17,7 @@ This ticket adds an `archived_course_keys` field to the response of the GET Comp
 
 ## Acceptance Criteria
 
-These scenarios are verifiable with Postman. Unless a scenario says otherwise, the caller can view the competency's taxonomy. A course run is "reported as archived" when it appears in the response's list of course runs whose course-level group for the competency is archived. The course-run scope scenario depends on #682's course-run scope. Whichever of #682 and this ticket merges second makes it pass.
+These scenarios can be checked by calling the endpoint directly, for example with Postman. Unless a scenario says otherwise, the caller has permission to view the competency's taxonomy. "Reported as archived" means the course run's key appears in the response's new list of archived course runs.
 
 ```gherkin
 Scenario: A course run with an archived course-level group is reported by its course run key
@@ -52,6 +52,8 @@ Scenario: The list is empty when no course-level group is archived
   Then the response includes the list of archived course runs, and that list is empty
 
 Scenario Outline: The list follows the same course-run scope as the criteria structure
+  This scenario needs #682's optional course-run filter on this endpoint. Whichever of #682 and this ticket merges second makes it pass.
+
   Given a competency's course-level groups for course runs X and Y are archived, and its course-level group for course run Z is active
   When a caller fetches the competency's criteria structure <scope>
   Then the course runs reported as archived are <reported>
@@ -114,8 +116,3 @@ The field is additive to #681's unshipped contract and leaves its `groups` and `
 - `docs/openedx_learning/decisions/0002-competency-criteria-model.rst`: Decision 2 for `course_id`, and Decision 7 for archiving instead of deleting once learner status exists.
 
 </details>
-
-## Open Questions
-
-- (architect, final review) If #840 lands before #682, the course-scope scenario stays in #840, and a comment on #682 restates it so #682's implementer carries it if #682 lands second. Confirm.
-- (architect, final review) The archived list is part of the Python API result `get_competency_criteria_tree()` returns (the `CompetencyCriteriaTree` dataclass), computed there alongside the rows, not only in the view. Confirm.
