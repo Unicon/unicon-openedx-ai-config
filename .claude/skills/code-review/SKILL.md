@@ -37,6 +37,17 @@ These rules apply during discovery, analysis, verification, and presentation:
   omit it.
 - Thoroughness means investigating edge cases; it does not mean reporting every
   theoretical edge case as a defect.
+- Live-source requirement: for external, mutable review inputs such as GitHub
+  issues and pull requests, cached search results or indexed page snapshots are
+  never authoritative. Fetch the current issue/PR metadata and body directly
+  from GitHub, and record the issue `updated_at` timestamp plus the PR base/head
+  SHAs used for the review.
+- If cached content, the live GitHub API, and the live browser page disagree,
+  discard the cached content and reconcile against the live source before
+  reviewing.
+- If the current GitHub issue or PR cannot be fetched, stop the review and
+  report that it is blocked. Do not substitute cached content, an older
+  snapshot, a branch name, or a PR description for the live source.
 
 ## 1. Resolve the repository and review target.
 
