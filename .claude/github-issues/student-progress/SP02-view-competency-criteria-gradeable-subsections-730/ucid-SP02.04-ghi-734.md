@@ -1,7 +1,7 @@
 # [FE] Build cards displaying Competency Criteria on the Course Progress page
 
 GitHub: https://github.com/openedx/openedx-core/issues/734 (#734, OPEN)
-Cached: 2026-09-22
+Cached: 2026-10-05
 
 ## User Story
 As a learner, when I view the Progress tab of my course, I want to see cards of the competencies and subcompetencies that show which subsections correspond to each competency and what the rule is to demonstrate mastery with these subsections so that I can understand what's required for me to demonstrate mastery.
@@ -66,11 +66,13 @@ If this course has no CompetencyCriteria (if an empty array comes back from #733
 
 ## UX Design
 
-@illiphilli, please add the UX design screenshot(s) and the Figma link for this ticket.
-
 - Figma (happy path): https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=983-3817&t=eJLFBvoAFbCnde7b-4
 - Figma (six-level taxonomy): https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=1089-4395&t=eJLFBvoAFbCnde7b-4
-- Screenshots: TBD
+- Screenshots:
+
+<img width="3790" height="5248" alt="Image" src="https://github.com/user-attachments/assets/232b8e97-6728-4241-9ea8-9a0ac916dac8" />
+
+<img width="3790" height="5342" alt="Image" src="https://github.com/user-attachments/assets/fccf2dee-3b06-4ff2-99fa-9fec9ed66a3f" />
 
 ## Acceptance Criteria
 
@@ -111,7 +113,7 @@ Scenario: A tag two or more levels deep appears under its parent, with the paren
   And the course has competency criteria on "Root Cause Analysis"
   When the learner opens the course's Progress tab
   Then a card appears, headed "Problem Definition", with no target icon on the heading
-  And "Problem Solving" appears as a breadcrumb above the heading, as plain text rather than a link
+  And "Problem Solving" appears as a breadcrumb above the heading
   And "Root Cause Analysis" appears inside the card, with a target icon and its groups and subsections under it
 
 Scenario: The breadcrumb lists every ancestor in a six-level taxonomy
@@ -125,10 +127,7 @@ Scenario: The breadcrumb lists every ancestor in a six-level taxonomy
 Scenario: The course in the Description's example shows three cards
   Given the taxonomy and the course criteria from the Description's example
   When the learner opens the course's Progress tab
-  Then exactly three cards appear
-  And the "Communication" card has a target icon on its heading and Communication's groups and subsections under it
-  And the "Critical Thinking" card contains "Analysis" and "Inference" and does not contain "Evaluation"
-  And the "Problem Definition" card has a "Problem Solving" breadcrumb and contains "Root Cause Analysis"
+  Then exactly three cards appear: "Communication", "Critical Thinking", and "Problem Definition"
 
 Scenario: One tag can head one card and appear in another card's breadcrumb
   Given "Problem Definition" and "Strategy Selection" are children of "Problem Solving", a top-level tag, and "Root Cause Analysis" is a child of "Problem Definition"
