@@ -14,8 +14,9 @@ This implementation will call the endpoint built in #738 to get the competency s
 For each subsection, if the learner's competency status on it is:
 - Nonexistent, then display the "Available" oval in blue/white with the corresponding icon.
 - AttemptedNotDemonstrated, then display the "Not Demonstrated" oval in red with the corresponding icon.
-- PartiallyAttempted, then display the "Partially Attempted" oval in blue with the corresponding icon.
 - Demonstrated, then display their percentage score on this assignment in the oval in green with the checkmark icon.
+
+If the course hides the subsection's score from the learner, or the subsection is missing from the Progress API's response, display the "Available" oval, so that it never reveals a hidden result.
 
 ## Context
 - #738 is the backend counterpart to this ticket.

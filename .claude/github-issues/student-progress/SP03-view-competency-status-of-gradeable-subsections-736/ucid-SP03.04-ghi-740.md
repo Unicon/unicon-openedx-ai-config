@@ -9,17 +9,21 @@ As a learner, I need to know my mastery status for each competency in my course 
 ## Description
 This ticket implements the oval status indicator display for each competency in the CBE progress cards on the Course Progress page.
 
-This implementation will call the endpoint built in #738 to get the competency statuses.
+This implementation reads the competency statuses from the endpoint built in #738. The status shown is the learner's overall status for the competency across all courses, not only this course.
 
-For each competency tag serving as a card title, if the learner's status is:
-- Nonexistent, then display the "Available" oval in blue/white with the corresponding icon.
+For each competency tag serving as a card title (a card heading, at any depth), if the learner's status is:
+- Not yet recorded (no status row), then display the "Available" oval in blue/white with the corresponding icon.
 - PartiallyAttempted, then display the "Partially Attempted" oval in blue with the corresponding icon.
 - Demonstrated, then display the "Demonstrated" oval in green with the checkmark icon.
 
-For each competency tag serving as a card subtitle, if the learner's status is:
-- Nonexistent, then display "Available" after the pipe next to the tag name.
+For each competency tag serving as a card subtitle (a tag row inside a card), with the row's pill tinted by status as in the design, if the learner's status is:
+- Not yet recorded (no status row), then display "Available" after the pipe next to the tag name.
 - PartiallyAttempted, then display "Partially Attempted" after the pipe next to the tag name.
 - Demonstrated, then display "Demonstrated" after the pipe next to the tag name.
+
+Breadcrumb entries above a card heading show no status.
+
+If any subsection under a competency tag in this course shows "Available" because its score is hidden (see #739), that tag and every ancestor tag above it display "Available" too, so a competency status never reveals a hidden result.
 
 ## Context
 - #738 is the backend counterpart to this ticket.
