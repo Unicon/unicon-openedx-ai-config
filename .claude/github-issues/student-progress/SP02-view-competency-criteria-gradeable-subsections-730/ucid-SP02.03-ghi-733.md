@@ -172,7 +172,8 @@ Scenario: Each competency carries its lineage from the top of its taxonomy
   And course run X has criteria for "Root Cause Analysis" and for "Communication"
   When a permitted caller requests course run X's competency criteria
   Then "Root Cause Analysis" carries the lineage "Problem Solving", "Problem Definition", "Root Cause Analysis", in that order
-  And "Communication" carries a lineage whose only entry is "Communication"
+  And each entry in that lineage carries the identifier of the tag it names
+  And "Communication" carries a lineage whose only entry is "Communication", carrying the "Communication" tag's identifier
 
 Scenario: A criterion without an override carries the system default rule profile's rule
   Given a criterion in course run X that has no override and is assigned the system default rule profile, which requires a grade of at least 75 percent
@@ -271,7 +272,7 @@ In openedx-core, all within `openedx_learning`, which may import `openedx_catalo
 
 1. `applets/cbe/rules.py` registers the permission `openedx_learning.view_course_competency_criteria`, checked on a `CourseKey` and defaulting to `rules.is_authenticated`. openedx-platform rebinds it, so the name is a contract with openedx-platform. `openedx_learning/rules.py` imports this module for `AutodiscoverRulesConfig`.
 2. `get_course_competency_criteria(course_key)` in `applets/cbe/api.py` stays out of `__all__` until a second caller needs it. It takes no user, so the result is the same for every permitted caller of a course run, which #839 relies on. It runs these steps:
-   1. One query for the course-level groups: `CompetencyCriteriaGroup` rows with `course__course_key=course_key`, not archived, whose parent (the root) is not archived, whose root tag passes #778's tag exclusion (a tag counts as archived when it or its taxonomy is archived), and whose taxonomy is enabled, with `select_related("parent__tag__taxonomy")`. If this query finds nothing, return the empty result; it is the only query on the empty path. A key with no catalog `CourseRun` row falls out of the same join, so don't call `get_course_run()`, which raises.
+   1. One query for the course-level groups: `CompetencyCriteriaGroup` rows with `course__course_key=course_key`, not archived, whose parent (the root) is not archived, whose root tag passes #778's tag exclusion (a tag counts as archived when it or its taxonomy is archived), none of whose ancestor tags is archived (a tag under an archived ancestor is treated as archived too, matched through the ancestors' stored `lineage` prefixes), and whose taxonomy is enabled, with `select_related("parent__tag__taxonomy")`. If this query finds nothing, return the empty result; it is the only query on the empty path. A key with no catalog `CourseRun` row falls out of the same join, so don't call `get_course_run()`, which raises.
    2. Walk down one query per level with `parent_id__in=<previous level>` and not archived, until a level comes back empty. Leaf groups have `course_id` null (#665), so only their parent finds them. An archived group hides everything below it, even though #675's cascade should already have archived everything below it too.
    3. One query for criteria: `group_id__in=<every group found>`, not archived, whose object tag passes #778's association exclusion, with `select_related("object_tag", "rule_profile")`. The effective rule is the profile's `rule_type` and `rule_payload` when `rule_profile_id` is set, and otherwise the two override fields. ADR 0002 guarantees exactly one of the two is set. Keep this resolution on `CompetencyCriterion`, or reuse one if #716 adds it, so evaluation code can share it.
    4. Prune bottom-up in Python. A group survives if it has a surviving criterion or a surviving child group. A root, its tag, and its taxonomy survive if anything below them does.
@@ -281,7 +282,7 @@ In openedx-core, all within `openedx_learning`, which may import `openedx_catalo
    {
      "taxonomies": [{"id": 3, "name": "Core Skills"}],
      "tags": [{"id": 41, "taxonomy_id": 3, "value": "Analysis", "external_id": "CT-1",
-               "lineage": ["Critical Thinking", "Analysis"]}],
+               "lineage": [{"id": 40, "value": "Critical Thinking"}, {"id": 41, "value": "Analysis"}]}],
      "groups": [{"id": 7, "parent_id": null, "tag_id": 41, "name": "Analysis", "logic_operator": "OR", "ordering": 0},
                 {"id": 12, "parent_id": 7, "tag_id": 41, "name": "Course X", "logic_operator": "AND", "ordering": 0}],
      "criteria": [{"id": 90, "group_id": 15, "object_id": "block-v1:...", "rule_type": "Grade",
@@ -289,7 +290,7 @@ In openedx-core, all within `openedx_learning`, which may import `openedx_catalo
    }
    ```
 
-   A root is a group whose `parent_id` is null. `lineage` comes from `Tag.get_lineage()`, which runs no query. `rule_payload` is returned as stored, so a Grade `value` is a fraction from 0.0 to 1.0. Because of pruning, the four arrays are always empty together.
+   A root is a group whose `parent_id` is null. Each `lineage` entry carries the tag's `id` and `value`, ordered from the top of the taxonomy down to the tag itself, so #738 can key parent-competency statuses by tag id. The ids aren't in `Tag.get_lineage()`, which returns only value strings. Every ancestor's stored `Tag.lineage` is a prefix of the tag's own `lineage`, so one more query, filtering on `taxonomy_id` and `lineage__in=<every prefix>` (an indexed column), loads the ancestors for every tag in the result. The empty path never reaches this query. `rule_payload` is returned as stored, so a Grade `value` is a fraction from 0.0 to 1.0. Because of pruning, the four arrays are always empty together.
 4. `openedx_learning/learner_urls.py` routes `v1/courses/<course_key>/competency-criteria/` to the view. It is separate from #665's `openedx_learning.urls`, so the LMS can serve it without also serving #665's authoring write routes, which stay Studio-only.
 
 In openedx-platform, where `openedx_learning` is already in the LMS's `INSTALLED_APPS`:
@@ -308,9 +309,11 @@ Tests must cover these cases in openedx-core:
 - An archived group whose criteria and child groups are not marked archived, a state #675's cascade prevents, is still pruned with everything beneath it.
 - An archived tag association under a criterion that is not archived, a state reachable only through a direct tagging API call, leaves that criterion out.
 - An active bottom-tier group whose criteria are all archived, a state #674's upward cascade prevents, is absent.
+- A competency tag that is not archived but has an archived ancestor tag, a state #780's subtree archiving prevents, is absent with everything beneath its root group.
 - A change to the system default profile's threshold appears on the next request, which shows the rule is read fresh rather than cached.
 - A criterion with overrides.
 - A top-level tag's one-entry lineage.
+- A three-level tag's lineage, where each entry carries its own tag's id in order from the top of the taxonomy.
 
 In openedx-platform, the tests must cover:
 - An enrolled learner, an unenrolled user, and an inactive enrollment.
