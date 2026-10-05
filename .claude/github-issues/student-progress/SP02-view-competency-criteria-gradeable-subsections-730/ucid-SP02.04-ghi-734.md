@@ -47,6 +47,8 @@ Under each of these tags, display this course's bottom-tier groups the way the C
 
 Display each taxonomy's name as a heading above its cards.
 
+Because transparency to students is a critical tenet of CBE, subsections the learner can't see still appear, as a placeholder row such as "1 more subsection that isn't visible to you", so the learner knows they count.
+
 If this course has no CompetencyCriteria (if an empty array comes back from #733's endpoint), then display nothing.
 
 **Out of Scope (will be implemented in future tickets):**
