@@ -333,9 +333,9 @@ In openedx-platform, the tests must cover:
 **Additional context**
 
 - This view, its rebindable permission, and the LMS-only learner URL module are the learner-facing API pattern for CBE. #738, #742, #745, and #753 follow it.
-- #734 and #839 consume this response. #734 hides any criterion whose subsection isn't in the learner's Course Home Outline, which already omits subsections in a content group the learner is not in.
+- #734 and #839 consume this response. #734 shows a placeholder row in place of any criterion whose subsection isn't in the viewer's learning_sequences course outline.
 - Out of scope:
-  - Filtering criteria by what the learner can see, which belongs to #734.
+  - Deciding how criteria on subsections a learner can't see are displayed, which belongs to #734.
   - Response caching.
   - Returning archived criteria and groups with an archived indicator, so a learner can see the competency history they earned against them. Learner statuses survive archiving (#816); showing them is a post-MVP question for the status endpoints starting at #738.
   - Excluding criteria whose competency taxonomy isn't assigned to the course's organization. Competency taxonomies are instance-wide for MVP, and the Competency Management page (#664, #773) doesn't check organization assignment, so this endpoint doesn't either. If org assignment is respected later, it should be added across CBE at once.
