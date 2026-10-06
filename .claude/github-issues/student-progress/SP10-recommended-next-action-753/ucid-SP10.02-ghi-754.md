@@ -51,7 +51,7 @@ The response payload will be something to the effect of this:
 ## Context
 - Corresponding architecture spike: #757
 - Frontend counterpart: #755
-- Blocked by the Re-attempt state check ticket: UCID10.05 #TBD
+- Blocked by: UCID10.05 #TBD
 
 ## Notes for drafting
 
@@ -73,7 +73,8 @@ The response payload will be something to the effect of this:
 - Suppression: a competency demonstrated in another course suppresses this course's criteria for it, and "enclosing group" means any ancestor group. `all_demonstrated` means "nothing left to demonstrate in this course".
 - Course final-grade criteria can't happen in the MVP (criteria only target subsections); the ticket doesn't need to mention them.
 - Roll-up lag: accepted and stated in the ticket. Group and competency statuses roll up asynchronously (ADR 0004), so an untouched OR sibling may briefly still be recommended right after another sibling is Demonstrated. Same tradeoff #738 accepts.
-- Payload: no extra fields from Figma. #755 falls back to the course's existing resume link when `next_action` is null.
+- Payload: no extra fields from Figma. When `next_action` is null (except `no_criteria_in_course`), the response also carries a top-level `resume_url` for the target learner, computed the way the course home "Resume course" button does (`completion.utilities.get_key_to_last_completed_block` plus `jump_to`, or the course's first block when there's no completion data), so #755 can show a resume-link fallback without a second request. Decided in #755's pre-handoff check (2026-10-06), on the condition that it's a small addition; if it isn't, drop it and #755 hides the notice instead.
+- Hidden scores (from #755's pre-handoff check): skip a retry candidate whose score is hidden from the target learner by the course's show-correctness setting, and move on to the next candidate, so a "Retake" recommendation never reveals a result #739 and #740 mask as "Available".
 
 ### Research notes for drafting (openedx-platform, from the pre-handoff check)
 - Target-learner openability: `get_user_course_outline` (learning_sequences/api/outlines.py) runs per target user and covers release dates, prerequisites, hide-after-due, and personalized due dates (edx-when). Pass the learner, not the staff viewer, since `can_see_all_content` bypasses processors for staff. Audit content type gating appears not to be covered (inferred).

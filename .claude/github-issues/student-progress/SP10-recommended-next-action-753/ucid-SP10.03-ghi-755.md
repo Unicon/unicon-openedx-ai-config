@@ -7,18 +7,20 @@ Cached: 2026-09-21
 As a learner, I want to know what my recommended next action is in my CBE course in order to maintain momentum in learning and skill demonstration without having to figure this out myself or have someone tell me.
 
 ## Description
-This ticket implements the Recommended Next Action notice inside the right hand CBE progress panel that goes in the ProgressTabRelatedLinksSlot.
+This ticket implements the Recommended Next Action notice inside the right hand CBE progress panel from #743, which goes in the ProgressTabRelatedLinksSlot.
 
 This implementation will call the endpoint built in #754. If the `reason` listed in that endpoint's response is:
 - `retry_available`, then the first word in the sentence should be "Retake"
 - `not_started`, then the first word in the sentence should be "Take"
-- Anything else, then do not show the Recommended Next Action notice.
+- Anything else, then show a link to resume the course instead of the sentence, using the `resume_url` that #754 returns.
 
-Next in the sentence should be the name of the subsection, which links out to it in the platform.
+Next in the sentence should be the name of the subsection, which links out to it (the `url` that #754 returns).
 
-Then the sentence should say "and score XX% <y> in order to achieve mastery."
+Then the sentence should say "and score <threshold>", where the threshold reads the same way as the rule lines on the competency cards: "80% or better", "40% or lower", or "exactly 100%". If the subsection's criteria have different thresholds that can't be combined into one, this part is left out.
 
-Therefore, the sentence displayed in the "RECOMMENDED NEXT ACTION" notice will say: "Take/Retake <Subsection Name/Link> and score <threshold> in order to achieve mastery."
+The sentence ends with "toward demonstrating <competency>", listing every competency in the response's criteria (for example "Writing Poetry and Analysis").
+
+Therefore, the sentence displayed in the "RECOMMENDED NEXT ACTION" notice will say: "Take/Retake <Subsection Name/Link> and score <threshold> toward demonstrating <competency>."
 
 ## Context
 - Corresponding architecture spike: #757
