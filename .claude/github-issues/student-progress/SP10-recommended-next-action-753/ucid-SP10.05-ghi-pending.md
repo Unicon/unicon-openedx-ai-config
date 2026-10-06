@@ -23,7 +23,6 @@ How each content type is checked:
 Split out of #754 during #754's pre-handoff check (2026-10-06), because keeping it in #754 put that ticket at about 4 to 6 developer-days. #754 keeps the openedx-core read plus the openedx-platform endpoint and ranking (about 2.5 to 3 days); this ticket owns the re-attempt state check (estimated about 2 days, the biggest research risk). #754 consumes its result.
 
 ### Decisions already made on #754 that bind this ticket
-- Placement: lives in the same new LMS djangoapp for CBE learner features as #754's endpoint and ranking.
 - Re-attempt state has three values: retryable, not retryable, unknown (from #757 section 1). Content types the check can't evaluate (LTI, for example) report unknown.
 - Dead ends are excluded from recommendation: a subsection is recommendable only if its graded component accepts a submission from this learner now. That covers past-due subsections, audit content-gated subsections, and a retry whose resubmission is already awaiting grading.
 - #754's `reason` codes: retry state unknown, awaiting grading, and retries exhausted (attempts used up or submission window closed) all map to `nothing_actionable`. Because #754 doesn't distinguish those three outcomes in its response, this ticket only needs to give #754 enough to sort each subsection into retry candidate, not started, or excluded.
@@ -41,7 +40,7 @@ Split out of #754 during #754's pre-handoff check (2026-10-06), because keeping 
 - Mixed state: if one component is awaiting grading and another accepts a submission, the subsection is recommendable (any accepting component wins). #754's step 4 wording "no resubmission is already awaiting grading" has to be read per component accordingly.
 - Components that count: scored components the learner can see. HTML and video are ignored, as are components hidden by a cohort or not picked from randomized library content.
 - Errors: if a component's check fails, it reports unknown for that component and logs the failure.
-- The new LMS djangoapp: this ticket creates it, since it lands before #754. The app name is the implementer's to propose; it also sets #754's URL prefix (`api/<app_name>/v1/...`).
+- Placement: the check is not CBE-specific, so it goes in the existing `lms/djangoapps/course_home_api/progress/` app, next to `calculate_progress_for_learner_in_course` in `api.py`, as a non-HTTP function. This ticket creates no djangoapp; #754 creates the new CBE djangoapp for its own endpoint.
 - Read-only: the check must not write anything as the learner. No attempt recorded, no completion marked, no `StudentModule` row created, and no analytics or tracking event emitted, because the learner didn't open anything. It runs on every progress panel load and whenever staff view a learner.
 
 ### Platform research
