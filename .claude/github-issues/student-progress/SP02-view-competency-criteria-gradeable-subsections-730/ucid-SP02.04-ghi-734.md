@@ -1,7 +1,7 @@
 # [FE] Build cards displaying Competency Criteria on the Course Progress page
 
 GitHub: https://github.com/openedx/openedx-core/issues/734 (#734, OPEN)
-Cached: 2026-09-22
+Cached: 2026-10-05
 
 ## User Story
 As a learner, when I view the Progress tab of my course, I want to see cards of the competencies and subcompetencies that show which subsections correspond to each competency and what the rule is to demonstrate mastery with these subsections so that I can understand what's required for me to demonstrate mastery.
@@ -66,11 +66,13 @@ If this course has no CompetencyCriteria (if an empty array comes back from #733
 
 ## UX Design
 
-@illiphilli, please add the UX design screenshot(s) and the Figma link for this ticket.
-
 - Figma (happy path): https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=983-3817&t=eJLFBvoAFbCnde7b-4
 - Figma (six-level taxonomy): https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=1089-4395&t=eJLFBvoAFbCnde7b-4
-- Screenshots: TBD
+- Screenshots:
+
+<img width="3790" height="5248" alt="Image" src="https://github.com/user-attachments/assets/232b8e97-6728-4241-9ea8-9a0ac916dac8" />
+
+<img width="3790" height="5342" alt="Image" src="https://github.com/user-attachments/assets/fccf2dee-3b06-4ff2-99fa-9fec9ed66a3f" />
 
 ## Acceptance Criteria
 
@@ -111,7 +113,7 @@ Scenario: A tag two or more levels deep appears under its parent, with the paren
   And the course has competency criteria on "Root Cause Analysis"
   When the learner opens the course's Progress tab
   Then a card appears, headed "Problem Definition", with no target icon on the heading
-  And "Problem Solving" appears as a breadcrumb above the heading, as plain text rather than a link
+  And "Problem Solving" appears as a breadcrumb above the heading
   And "Root Cause Analysis" appears inside the card, with a target icon and its groups and subsections under it
 
 Scenario: The breadcrumb lists every ancestor in a six-level taxonomy
@@ -125,10 +127,7 @@ Scenario: The breadcrumb lists every ancestor in a six-level taxonomy
 Scenario: The course in the Description's example shows three cards
   Given the taxonomy and the course criteria from the Description's example
   When the learner opens the course's Progress tab
-  Then exactly three cards appear
-  And the "Communication" card has a target icon on its heading and Communication's groups and subsections under it
-  And the "Critical Thinking" card contains "Analysis" and "Inference" and does not contain "Evaluation"
-  And the "Problem Definition" card has a "Problem Solving" breadcrumb and contains "Root Cause Analysis"
+  Then exactly three cards appear: "Communication", "Critical Thinking", and "Problem Definition"
 
 Scenario: One tag can head one card and appear in another card's breadcrumb
   Given "Problem Definition" and "Strategy Selection" are children of "Problem Solving", a top-level tag, and "Root Cause Analysis" is a child of "Problem Definition"
@@ -357,7 +356,7 @@ The panel makes two requests through a react-query client the plugin owns: #733'
    1. Walk `outline.sections`, and each section's `sequence_ids`, in order. Index each usage key found in `outline.sequences` with its `title` and its position in the outline.
    2. Mark every criterion whose `object_id` isn't in that index as hidden. Hidden criteria are counted, never dropped, and the outline can't say why one is missing, so a deleted subsection counts the same as a hidden one.
    3. The bottom-tier groups are the course-level group's direct children, ordered by `ordering`. In each bottom-tier group, group the criteria into rule boxes by effective rule, the same identity #672 gives rule boxes on the Competency Management page, and order the boxes by their lowest criterion `id`, as #672 does. Order each rule box's visible subsections by outline position, and give the box a hidden count for its placeholder row. #665 creates only three levels of groups, with the bottom tier as the lowest, so how a deeper tree displays is left to #731 and #732.
-   4. Build the cards from each tag's `lineage`. A top-level tag heads its own card, and any other tag is a row in the card headed by its parent. When a tag is also the parent of another tag in the response, that tag heads the card and gets the target icon: its own groups go under the heading, ahead of the child rows, and it is not also a row in its own parent's card. The breadcrumb is the heading's lineage without the heading. Key cards by taxonomy ID and heading value, which is unique within a taxonomy.
+   4. Build the cards from each tag's `lineage`. A top-level tag heads its own card, and any other tag is a row in the card headed by its parent. When a tag is also the parent of another tag in the response, that tag heads the card and gets the target icon: its own groups go under the heading, ahead of the child rows, and it is not also a row in its own parent's card. Each `lineage` entry carries the tag's `id` and `value` (#733), ordered from the top of the taxonomy. The breadcrumb is the `value` of each entry in the heading's lineage without the heading. Key cards by the heading's tag `id`, and carry that `id` on the card and each row's tag `id` on the row, so #740 can attach competency statuses by tag id.
    5. Group the cards into taxonomy sections, ordered by taxonomy name. Every section gets its taxonomy heading, including when there is only one.
 
    Visibility removes nothing, because #733 already prunes every branch with no criterion, so every layout decision comes straight from #733's response: which tags head cards, whether a group's single rule sits on the group line, and where an AND/OR separator appears. The test fixtures should cover the Description's example, a tag with criteria alongside its own ancestor, a rule box mixing a profile-based criterion and an override criterion with the same effective rule (the backend normalizes this case away, but the grouping must key on the effective rule, not the profile ID), an unrecognized rule type or `op` (the subsection still appears, the line has no threshold, and the rule is logged), a rule box whose subsections are all hidden, a course whose subsections are all hidden, and placeholder counts of one and of several.
