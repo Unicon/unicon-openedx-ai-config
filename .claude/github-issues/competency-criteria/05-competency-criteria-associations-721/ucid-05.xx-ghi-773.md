@@ -14,7 +14,7 @@ As a user of the Competency Management page, I want the Competency Management pa
 
 Scenario: Read the rule an instance currently requires for mastery
   Given an instance whose only rule profile is the instance-wide default
-  And a caller permitted to administer instance-wide competency configuration
+  And a signed-in caller
   When the caller requests the rule profiles
   Then the caller receives a collection containing that one profile
   And the profile reports the rule learners are evaluated against
@@ -84,11 +84,23 @@ Scenario: Report an instance with no rule profiles as empty rather than as a fai
   # row on every real deployment, so this state is not reachable on a live instance and is not
   # Postman-testable.
 
-Scenario: Refuse a caller who may not author competency criteria
-  Given a caller who is not permitted to administer instance-wide competency configuration
+Scenario: Let a signed-in caller who is not platform staff read the instance-wide default
+  Given an instance whose only rule profile is the instance-wide default
+  And a signed-in caller who is not platform staff, such as a course author
   When the caller requests the rule profiles
-  Then the request is refused
-  And no rule profile is returned
+  Then the caller receives a collection containing the instance-wide default
+  # This is the scenario that fails if reading is limited to taxonomy administrators. The
+  # Competency Management page is used by course authors (#672), and it cannot show a
+  # criterion's "score of X% or higher" without reading the instance-wide default.
+
+Scenario: Refuse a scoped profile to a caller who cannot view the taxonomy it is scoped to
+  Given a rule profile scoped to a disabled taxonomy
+  And a signed-in caller who is not platform staff
+  When the permission to read that profile is checked for that caller
+  Then the permission is refused
+ # Verified via a unit test of the permission predicate, with the taxonomy-scoped row created
+  # directly as a fixture: no create endpoint exists yet to reach this state through a live
+  # call, so this is not Postman-testable.
 
 Scenario: Refuse a caller the system cannot identify
   Given a caller the system cannot identify
@@ -120,7 +132,7 @@ This section is background and a suggested approach, not the source of truth. Th
 
 **Why the collection is active-only, and why that is decided now.** Because retired profiles are never deleted, they accumulate permanently, so an unfiltered collection that included them would degrade without bound. Deciding this now also avoids a later behavior change: if the collection meant "everything" today and narrowed to "active" later, clients would notice. A parameter to include retired rows is a plausible future addition and is out of scope, as are scope filters; both are additive, because a client that sends no parameters keeps today's behavior.
 
-**Who may read it, and how that gate composes with future scopes.** Reading is gated on a new permission whose predicate reuses the tagging app's existing taxonomy-administrator check, which resolves to platform staff. The system default is instance-wide competency configuration administered by the same people who administer taxonomies, and defining a second notion of administrator inside CBE would let the two drift. Starting staff-only is the safe direction, because loosening a read gate later gives clients more data and is not a breaking change, whereas tightening one is. The predicate accepts an optional profile instance from the start, so when scoped profiles arrive with a possibly broader audience, that work adds a branch to one predicate and filters rows in the queryset, rather than refusing a whole request in order to hide rows.
+**Who may read it, and how that gate composes with future scopes.** Anyone who can view the taxonomy a profile applies to may read that profile. Reading is gated on a new CBE permission whose predicate asks the tagging app's `oel_tagging.view_taxonomy` permission, passing the profile's taxonomy when the profile is taxonomy-scoped and no taxonomy otherwise. The instance-wide default has no taxonomy, and `view_taxonomy` with no taxonomy is granted to every caller, both in this repository's `can_view_taxonomy` ("anyone can list all taxonomies") and in the `openedx-platform` override of that permission. So every signed-in caller, including a course author who is not platform staff, can read the instance-wide default. That is the audience this endpoint needs: the Competency Management page is used by course authors (#672), it shows each criterion's threshold and groups criteria by rule, and a criterion that follows the default stores only a reference to the profile, not the threshold itself. Reading a criterion's competency tree (#681) is gated the same way, through `oel_tagging.view_tag`, which delegates to `view_taxonomy`. A rule profile holds only a rule and a threshold, no learner or course data. The predicate checks the permission through `user.has_perm` rather than importing the tagging predicate function, so that the `openedx-platform` override, registered with `rules.set_perm`, takes effect instead of this repository's default.
 
 **What this ticket extends, and what it depends on.** The CBE REST package, the app-root URL configuration, the applet's public API module, and the mount that makes CBE reachable from Studio all already exist, established by \#664. This ticket adds one API function, one serializer, one viewset, one router registration, a pinned paginator, and the first CBE-local permission, plus tests. It adds no model, no migration, and no `openedx-platform` work of its own. It depends on \#613 for the `CompetencyRuleProfile` model and for the seeded system-default row, and it does not seed that row itself. If no row has been seeded, the endpoint reports an empty collection rather than an error, because a collection with no members is an empty collection and not a missing resource.
 
@@ -139,7 +151,7 @@ This section is background and a suggested approach, not the source of truth. Th
 - **URL registration.** Add `router.register("rule_profiles", views.CompetencyRuleProfileView, basename="rule_profile")` to the router already defined in `src/openedx_learning/applets/cbe/rest_api/v1/urls.py`. Do not create a second router or a second URL module. The path segment is underscored, matching `object_tags` and `object_tag_counts` in `src/openedx_tagging/rest_api/v1/urls.py`.  
 - **The client-visible path is inherited, not decided here.** \#664 mounts CBE at `api/cbe/rest_api/`, so this endpoint resolves to `api/cbe/rest_api/v1/rule_profiles/`. This ticket does not revisit that prefix.  
 - **Pagination class.** `CompetencyRuleProfilePagination` in a new `src/openedx_learning/applets/cbe/rest_api/paginators.py`, subclassing `DefaultPagination` from `edx_rest_framework_extensions.paginators`, with explicit `page_size` and `max_page_size` rather than inheriting the consuming project's `DEFAULT_PAGINATION_CLASS`. The tagging app pins `TaxonomyPagination` and `TagsPagination` the same way. Keep the module at `rest_api/` rather than `rest_api/v1/`, matching the tagging app, because pagination is version-independent.  
-- **Permission predicate.** `can_view_competency_rule_profile(user, profile=None) -> bool` in a new `src/openedx_learning/applets/cbe/rules.py`, returning `is_taxonomy_admin(user)` imported from `openedx_tagging.rules`, registered with `rules.add_perm`. The `profile` argument is optional and currently unused.  
+- **Permission predicate.** `can_view_competency_rule_profile(user, profile=None) -> bool` in a new `src/openedx_learning/applets/cbe/rules.py`, returning `user.has_perm("oel_tagging.view_taxonomy", taxonomy)`, where `taxonomy` is `profile.competency_taxonomy` when a profile is given (itself `None` for any profile not scoped to a taxonomy), and `None` when no profile is given. Register it with `rules.add_perm`. `can_view_tag` in `src/openedx_tagging/rules.py` delegates to `view_taxonomy` the same way. Do not import `is_taxonomy_admin` or `can_view_taxonomy` and call them directly: a direct call bypasses the `openedx-platform` override of `view_taxonomy`.  
 - **Permission scaffolding is new to CBE.** \#664 gates its endpoint by reusing the tagging app's `TaxonomyObjectPermissions` and `can_change_taxonomy` directly and explicitly introduces no CBE permission, so this ticket adds the applet's `rules.py` and its `rest_api/v1/permissions.py`. If either module exists by the time this is picked up, extend it rather than creating a parallel one.  
 - **Rules autodiscovery requires an app-root module.** The rules autodiscovery app config imports `<app_package>.rules`, so `src/openedx_learning/rules.py` must exist and import the applet's rules module for the permission to register, mirroring how the umbrella API module pulls in its applets.  
 - **DRF permission class.** `CompetencyRuleProfilePermissions(DjangoObjectPermissions)` in `src/openedx_learning/applets/cbe/rest_api/v1/permissions.py`, with a `perms_map` granting the read methods the view permission and an empty list for `OPTIONS`, matching `TaxonomyObjectPermissions`. The base class resolves the model through `view.get_queryset()`, which is lazy, so no query is issued during the permission check. An unidentified caller gets 401 and an identified but unpermitted caller gets 403 from DRF, with no CBE-specific handling.  
@@ -154,13 +166,15 @@ This section is background and a suggested approach, not the source of truth. Th
   - A taxonomy-scoped row created directly in a fixture appears in the same collection alongside the default, with the taxonomy scope type and in identifier order. This is the actual proof that a second scope is additive.  
   - A retired row created in a fixture is excluded.  
   - An empty table reports an empty collection rather than a missing resource.  
-  - An unpermitted identified caller is refused, and an unidentified caller is refused.  
+  - A signed-in caller who is not staff receives the instance-wide default, and an unidentified caller is refused.  
+  - The predicate refuses a non-staff caller for a taxonomy-scoped profile whose taxonomy is disabled, and allows a staff caller for the same profile. This proves the predicate delegates to `view_taxonomy` rather than allowing everyone.  
   - The response is the paginated envelope rather than a bare array.  
 - **Out of scope, named so nobody builds it here:**  
   - Creating, updating, or archiving a profile.  
   - An in-use indicator on the response, whose definition is pinned to ADR 0003 Decision 4 on \#613 if it is ever added.  
   - Scope filters and scope reference fields. Until a scope reference field exists, a non-default row tells a client the kind of scope but not which object is scoped, so a client must not try to act on one.  
   - A by-identifier detail route.  
+  - Filtering rows the caller may not read out of the collection. The list request checks the permission once with no profile, so it does not hide individual rows. No row other than the instance-wide default can be created yet; the work that makes scoped profiles creatable filters the queryset with the same predicate.  
   - An exception handler module, which the deferred write endpoints will need for their conflict response.  
   - Django admin registration.  
   - Seeding the system-default row, which is \#613's.
