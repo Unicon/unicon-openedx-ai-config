@@ -22,44 +22,211 @@ If the course hides the subsection's score from the learner, or the subsection i
 - #738 is the backend counterpart to this ticket.
 - Blocked by #734.
 
-## Notes for drafting
+## UX Design
 
-Figma link: https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=983-3817&t=txS1ECYsvaWv8KoX-4
+@illiphilli, please add the UX design screenshot(s) and the Figma link for this ticket.
 
-Carried over from #738's pre-handoff check and the lookups behind it (2026-10-05):
+- Figma: TBD
+- Screenshots: TBD
 
-- #738's response, per its decisions: `student_competency_statuses` entries keyed by `tag_id` and `student_competency_criteria_statuses` entries keyed by `criterion_id`, each with the stored `status` string. The ids match #733's `tags[].id` and `criteria[].id`. An item with no status row is absent from the response, and the frontend shows it as "Available". The response carries no learner identifier.
-- Status vocabulary (#768, accepted by UXD on 2026-10-01): no row = Available, `PartiallyAttempted` = Partially Attempted (competencies only), `AttemptedNotDemonstrated` = Not Demonstrated (subsections only), `Demonstrated` = Demonstrated. `PartiallyAttempted` is legal for a criterion in the schema but nothing produces it today. #768's last comment, on whether the sunburst legend needs icons and not just color, is unanswered; it is UX only.
-- Status is stored per criterion, which is a subsection and competency pair. A subsection tagged with two competencies has two criteria, so it can show two statuses.
-- Confirmed in frontend-app-learning: the Progress tab plugin slots `ProgressTabGradeBreakdownSlot` and `ProgressTabCourseGradeSlot` (`src/plugin-slots/`) pass no `pluginProps`, so the plugin can't read the page's progress data and must call the Progress API itself.
-- Confirmed in openedx-platform: the Progress API (`lms/djangoapps/course_home_api/progress/serializers.py`) returns `section_scores`, a list of chapters, each with `subsections` carrying `block_key` (the subsection usage key), `num_points_earned`, `num_points_possible`, and `percent_graded`. It is a list, not a map keyed by usage key, so the client indexes it. The staff route is `/api/course_home/v1/progress/{course_key}/{student_id}`.
-- Inferred, not verified: #733's criterion `object_id` matches the Progress API's `block_key` string for the same subsection. Confirm before relying on it as the join.
-- Staff parity (#738 decision): course staff viewing a specific learner (`/progress/{course_key}/{student_id}`) see that learner's statuses, and so do staff masquerading as a specific learner. The frontend passes the route's target user id to #738 when there is one. Masquerade needs no frontend work, because the server resolves it from the session.
-- #734 left `targetUserId` out of its query keys because neither of its responses depended on the viewed learner. #738's response does, so its query key must include the target learner.
-- #734 shows a placeholder row for a criterion whose subsection isn't in the viewer's course outline. Decide how a status for such a criterion is shown.
-- Statuses are rolled up asynchronously (ADR 0004), so a subsection can briefly show Demonstrated while its competency still shows an older status. This lag is accepted.
-- CCX courses are out of scope for MVP.
+## Acceptance Criteria
 
-Facts confirmed during #739's pre-handoff check:
+These scenarios use #734's terms (card, group, group line, rule line, placeholder row) and these:
 
-- Subsection grades can go down after a reset, a default rescore, a grade override, or a resubmission when `only_if_higher` is false (`lms/djangoapps/grades/models.py:455-481`, `grades/api.py:85-96,137-139`). #699 (ticket text) judges a criterion on the platform's override-adjusted fraction and never lowers a stored status. So a Demonstrated criterion can sit beside a current score below its rule.
-- The Progress API's `percent_graded` comes from the same override-adjusted `graded_total` the grade-change signal carries (`grades/subsection_grade.py:171-172,197-225`). It is a 0 to 1 fraction rounded to 4 decimals.
-- The Progress API returns `percent_graded` regardless of course settings. The host hides a subsection's score in its Detailed grades table unless that subsection's `show_grades` is true (`frontend-app-learning/src/course-home/progress-tab/grades/detailed-grades/DetailedGradesTable.jsx:20-27`). `show_grades` follows the show-correctness setting, the due date, and the viewer's staff access (`grades/subsection_grade.py:60-71`). Subsections set to `never_but_include_grade` are left out of `section_scores` entirely (`course_home_api/progress/views.py:190-200`).
-- The host loads its own Progress API data before the plugin slots render (`frontend-app-learning/src/tab-page/TabPage.tsx:83-94`), so the plugin's call is a second request to an expensive view. No cheaper learner-accessible per-subsection score API exists.
-- A tag's `object_id` is written as `str(content_key)` (`openedx-platform/openedx/core/djangoapps/content_tagging/api.py:225`) and the Progress API's `block_key` is `str(subsection.location)`. Equality is inferred, not verified on a devstack. With the masking decision below, this join now decides whether any status is shown, not only the percentage.
-- Changing masquerade reloads the page (`frontend-app-learning/src/instructor-toolbar/masquerade-widget/MasqueradeWidgetOption.tsx:53`), so query keys don't need masquerade state.
-- #768 icons: Available is an empty circle, Partially Attempted a half-filled circle, Not Demonstrated a circle with a minus, Demonstrated a circle with a check. "Statuses never rely on color alone." Figma: "Reduced Scope frames" in https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=983-3816. #768 doesn't cover score display, colors, placement, or hidden scores.
-- No plugin repo is checked out locally.
+- A named row is a subsection row that shows the subsection's name. A placeholder row is not a named row.
+- An oval is the status indicator on a named row. "Available" has an empty-circle icon. "Not Demonstrated" has a circle-with-a-minus icon. "Demonstrated" has a check icon and shows the learner's score on the subsection as a percentage.
+- The learner's recorded status on a named row is the status the platform recorded for that learner, on that subsection, for the row's competency, when the subsection's grade was recorded. A learner who hasn't submitted a subsection has no recorded status on it.
+- A subsection's results visibility is its assessment results visibility setting in Studio.
+- Unless a scenario says otherwise, every subsection is released and its results are always shown to the learner.
 
-### Decisions from the pre-handoff check
+```gherkin
+Scenario Outline: Each named row shows the oval for the learner's recorded status
+  Given "Quiz 1" appears by name under a rule line reading "<rule>"
+  And <result>
+  When the learner opens the course's Progress tab
+  Then Quiz 1's row shows <oval>
 
-- When a criterion is Demonstrated but the learner's current score no longer meets its rule, the Demonstrated oval still shows the current percentage. This is a known limitation: the oval can show a percentage below its own rule line. The frontend never compares the score to the rule and never recomputes the status.
-- When the host would hide a subsection's score from this viewer (`show_grades` false), the oval shows "Available", whatever the stored status. `show_grades` is computed with the learner's staff access, not the viewer's (`openedx-platform/lms/djangoapps/course_home_api/progress/views.py:217,303`), so staff viewing a learner's progress, or masquerading as one, see the same masking the learner sees.
-- Loading and failure: the panel waits for every request it started. If #733 or the outline fails, #734's behavior holds and the panel is hidden. If #738 fails, or the Progress API fails, #734's cards render with no ovals and the error is logged. A failure never falls back to "Available".
-- Placeholder rows for hidden subsections get no oval.
-- A subsection that #734 shows as a named row but that is missing from the Progress API's `section_scores` shows "Available", whatever its stored status. The plugin can't tell why a subsection is missing: the Progress API drops subsections set to "Never show individual assessment results, but show overall assessment results after due date" (`never_but_include_grade`, `openedx-platform/lms/djangoapps/course_home_api/progress/views.py:190-200`), and it builds `section_scores` from the learner's own course structure (`lms/djangoapps/grades/course_grade.py:249-257`), which can leave out other subsections too. Neither the Progress API nor the learning_sequences outline exposes a subsection's show-correctness setting once it is dropped. "Available" never reveals a hidden result. Its cost is that a `never_but_include_grade` subsection never shows its status, even after its due date, which matches the Progress page itself.
-- Only the Demonstrated oval shows a percentage. Not Demonstrated shows no score.
-- One ticket, accepting about 2.5 developer-days.
-- #739 builds the shared status hook (keyed by course and target learner) and an oval component supporting all four states. #740 reuses both.
-- Defaults not asked, recorded from the experts' recommendations: a `PartiallyAttempted` criterion renders the Partially Attempted oval; an unknown status value shows no oval and is logged once; "Available" is used for unreleased and locked subsections too, per #768's vocabulary; the screen reader announces the status word, not only the number; #739 is blocked by #734 merged and #738's contract, develops against mocks, and verifies end to end once #738 is deployed; the plugin makes its own Progress API call, with passing the data through `pluginProps` upstream as a possible later contribution.
-- Decided in #740's pre-handoff check: the masking is a pure function in the plugin's data layer, exposed through the shared hook #739 builds, not logic inside #739's components. #739 builds the per-subsection rule; #740 adds the propagation to every ancestor tag; #743 and #745 read the same output.
+  Examples:
+    | rule               | result                                                                                     | oval                                       |
+    | AT 80% OR BETTER   | the learner hasn't submitted anything in the course                                        | the "Available" oval, with no score        |
+    | AT 80% OR BETTER   | the learner scored 12 of 20 points on Quiz 1, so their recorded status is Not Demonstrated | the "Not Demonstrated" oval, with no score |
+    | AT 80% OR BETTER   | the learner scored 19 of 20 points on Quiz 1, so their recorded status is Demonstrated     | the "Demonstrated" oval reading "95%"      |
+    | AT 60% OR BETTER   | the learner scored 2 of 3 points on Quiz 1, so their recorded status is Demonstrated       | the "Demonstrated" oval reading "66.67%"   |
+    | AT 82.5% OR BETTER | the learner scored 33 of 40 points on Quiz 1, so their recorded status is Demonstrated     | the "Demonstrated" oval reading "82.50%"   |
+    | AT 40% OR LOWER    | the learner scored 0 of 10 points on Quiz 1, so their recorded status is Demonstrated      | the "Demonstrated" oval reading "0%"       |
+
+Scenario: A subsection under two competencies shows a separate oval under each
+  Given "Quiz 3" appears by name under "Analysis", under a rule line reading "AT 80% OR BETTER", and under "Inference", under a rule line reading "AT 90% OR BETTER"
+  And the learner scored 17 of 20 points on Quiz 3
+  When the learner opens the course's Progress tab
+  Then Quiz 3's row under "Analysis" shows the "Demonstrated" oval reading "85%"
+  And Quiz 3's row under "Inference" shows the "Not Demonstrated" oval, with no score
+
+Scenario Outline: A row's oval follows whether the learner can see the subsection's results
+  Given "Quiz 1" appears by name under a rule line reading "AT 80% OR BETTER"
+  And the learner scored <score> on Quiz 1, so their recorded status on it is <status>
+  And Quiz 1's results visibility is set to <setting>
+  When the learner opens the course's Progress tab
+  Then Quiz 1's row shows <oval>
+
+  Examples:
+    | setting                                                                                               | score           | status           | oval                                  |
+    | never show results                                                                                    | 19 of 20 points | Demonstrated     | the "Available" oval, with no score   |
+    | show results once the subsection is past due, and its due date hasn't passed                          | 12 of 20 points | Not Demonstrated | the "Available" oval, with no score   |
+    | show results once the subsection is past due, and its due date has passed                             | 19 of 20 points | Demonstrated     | the "Demonstrated" oval reading "95%" |
+    | never show individual results, only the overall grade after the due date, and its due date has passed | 19 of 20 points | Demonstrated     | the "Available" oval, with no score   |
+
+Scenario: A subsection that isn't released yet shows the Available oval
+  Given "Quiz 4" appears by name under a rule line reading "AT 80% OR BETTER"
+  And Quiz 4's release date hasn't arrived
+  When the learner opens the course's Progress tab
+  Then Quiz 4's row shows the "Available" oval, with no score
+
+Scenario: A Demonstrated row keeps its status when the score is later lowered
+  Given "Quiz 1" appears by name under a rule line reading "AT 80% OR BETTER"
+  And the learner scored 18 of 20 points on Quiz 1, so their recorded status on it is Demonstrated
+  And a member of course staff has since overridden the learner's score on Quiz 1 to 12 of 20 points, for example in the Gradebook
+  When the learner opens the course's Progress tab
+  Then Quiz 1's row shows the "Demonstrated" oval reading "60%"
+
+Scenario: Placeholder rows have no oval
+  Given a rule line with "Quiz 1" by name and a placeholder row reading "1 more subsection that isn't visible to you"
+  And the learner scored 19 of 20 points on the hidden subsection before the author hid it from the course outline, so their recorded status on it is Demonstrated
+  When the learner opens the course's Progress tab
+  Then Quiz 1's row shows an oval
+  And the placeholder row shows no oval, no status, and no score
+
+Scenario: The cards appear together with their ovals
+  Given a course with competency criteria
+  And the learner's network connection is slow
+  When the learner opens the course's Progress tab
+  Then each card appears with an oval already on every named row
+  And while the page loads, no card appears first without ovals, and no oval changes after it first appears
+
+Scenario: The cards appear without ovals when the learner's statuses can't be loaded
+  Given a course with competency criteria
+  And the site's LMS doesn't provide #738's competency status endpoint
+  When the learner opens the course's Progress tab
+  Then the cards appear as #734 describes, with no oval on any named row, including no "Available" oval
+  And no error message is shown to the learner
+  And the failure is reported to the site's logging service
+
+Scenario Outline: Course staff see the learner's ovals, with the learner's hidden results
+  Given the learner scored 19 of 20 points on "Quiz 1", whose results are always shown, and on "Quiz 2", whose results are set never to be shown, so their recorded status on each is Demonstrated
+  And the staff member has no recorded status on either subsection
+  When <viewer>
+  Then Quiz 1's row shows the "Demonstrated" oval reading "95%"
+  And Quiz 2's row shows the "Available" oval, with no score
+
+  Examples:
+    | viewer                                                                                                 |
+    | a member of course staff opens that learner's progress page, for example from the instructor dashboard |
+    | a member of course staff views the course's Progress tab as that learner                               |
+
+Scenario: Returning to the Progress tab shows a newly recorded status
+  Given the learner opened the course's Progress tab, where "Quiz 1" showed the "Available" oval under a rule line reading "AT 80% OR BETTER"
+  And the learner then left the Progress tab, scored 19 of 20 points on Quiz 1, and the platform recorded the grade
+  When the learner comes back to the Progress tab
+  Then Quiz 1's row shows the "Demonstrated" oval reading "95%"
+
+Scenario: A screen reader user hears each row's status as a word
+  Given named rows showing the "Available", "Not Demonstrated", and "Demonstrated" ovals
+  When a screen reader user moves through those rows
+  Then they hear each subsection's name followed by its status: "Available", "Not Demonstrated", or "Demonstrated" with the score, such as "Demonstrated, 95%"
+  And no oval's icon is announced on its own or as an unlabeled image
+
+Scenario: Each oval can be told apart without color
+  Given named rows showing the "Available", "Not Demonstrated", and "Demonstrated" ovals
+  When the learner views the panel with color removed, for example with the browser's grayscale emulation
+  Then each oval is still identifiable by its icon and text alone
+  And each oval's text and icon meet WCAG 2.1 AA contrast against the oval's background
+
+Scenario: Ovals stay whole on a small screen
+  Given named rows showing each oval, including one for a subsection with a long name
+  When the learner opens the course's Progress tab at a phone-sized viewport
+  Then every oval shows its full icon and text, with nothing cut off
+  And each oval stays with its own subsection's row while the long name wraps onto more lines
+```
+
+<details>
+<summary>Technical Details</summary>
+
+This is a suggested approach, not the source of truth. The User Story, Description, and Acceptance Criteria define what must be true when the work is done.
+
+**Summary**
+
+The panel makes two more requests through #734's plugin-owned query client: #738's statuses and the Progress API's per-subsection scores. Both start only once #733 returns criteria. A pure function, `buildCompetencyStatuses`, joins them with #733's criteria and the course outline into one display status per named row, applying the hidden-score mask. A hook, `useCompetencyStatuses(courseId, targetUserId)`, exposes that result so #740, #743, and #745 read the same masked statuses, and a new `StatusOval` component renders all four states.
+
+**Approach**
+
+1. **Requests.** Add two functions to `src/data/api.js`:
+   - `getCompetencyStatuses(courseId, targetUserId)` calls #738's LMS route and passes `targetUserId` as #738's learner parameter when it is set.
+   - `getProgressScores(courseId, targetUserId)` calls `GET {LMS_BASE_URL}/api/course_home/v1/progress/{courseId}`, with `/{targetUserId}` appended on the staff route.
+
+   Both query keys include `targetUserId`. Masquerade needs no key entry, because changing it reloads the page. Enable both queries only when #734's `hasCompetencyCriteria` is true, and run them in parallel with the outline query. That way a course without criteria still costs one request and never calls the expensive Progress API a second time.
+2. **Unknown statuses.** `getCompetencyStatuses` logs, once per response, any `status` other than `PartiallyAttempted`, `AttemptedNotDemonstrated`, or `Demonstrated`. It keeps those entries, because an unknown status must render no oval rather than "Available".
+3. **Masking.** `buildCompetencyStatuses(criteriaResponse, outline, statusesResponse, progressResponse)` in `src/data/buildCompetencyStatuses.js` returns `{ criteria }`, where `criteria` is a `Map` from criterion `id` to `{ status, percentGraded, masked }`. #740 adds `tags` beside it, so the hook's shape doesn't change when #740 lands. It covers named rows only, so placeholder rows get no oval. A criterion is a named row when its `object_id` is in the outline index that `buildCompetencyCards` builds. Export that index from `src/data/buildCompetencyCards.js` rather than rebuilding it, so the named-row check can't drift from #734's rows. Index `section_scores[].subsections[]` by `block_key`, then apply these rules to each named row:
+   - A subsection whose outline `effective_start` is in the future is "Available" with `masked: false`, because an unreleased subsection has no result to hide. The Progress API leaves unreleased subsections out of a learner's `section_scores`, so check this first.
+   - Otherwise, if the subsection is missing from that index, or its `show_grades` is false, the result is "Available" with `masked: true`, whatever the stored status.
+   - Otherwise the result is the stored status, or "Available" when there is no status row. `percentGraded` is set only on `Demonstrated`. A criterion whose status is unknown is left out of the map.
+
+   The function never compares a score with the rule and never recomputes a status.
+4. **Hook.** `useCompetencyStatuses(courseId, targetUserId)` in `src/data/apiHooks.js` composes #734's criteria and outline hooks with the two new queries, and returns `{ isPending, statuses }`.
+   - `isPending` is true until #733 answers. When #733 returned criteria, it stays true until the other three requests settle. Derive it from #733's result first, because react-query v5 reports a disabled query as pending indefinitely.
+   - `statuses` is null when #738 or the Progress API fails; #734's query cache has already logged the error. Otherwise `statuses` is `buildCompetencyStatuses`'s result, memoized on the four responses' `data`.
+   - The hook reads nothing from props or slot context, so #743's sidebar can call it from its own slot and share the cache without new requests.
+5. **Join guard.** The join assumes #733's `object_id` string equals the Progress API's `block_key` for the same subsection. Both are `str()` of the usage key, but the equality has not been confirmed on a devstack. If the two never match, every oval reads "Available" with no other symptom. So when `section_scores` lists subsections and no named row matches any `block_key`, the hook logs one error. Confirm the equality on a devstack before merging.
+6. **Panel.** `CompetencyProgressPanel` calls the hook with both values from `useProgressRouteParams`. It renders nothing while `isPending` is true, and it passes `statuses.criteria` down to `CriteriaGroupList` as a plain prop. Each named row looks up its own criterion `id` on the row, which assumes #734 carries it (see Open Questions). So a subsection under two tags, or in two groups under one tag, shows each criterion's own status. When `statuses` is null, the rows render as #734 has them, with no oval.
+   - #839's `useCompetencyPanelState` needs no change, because it decides from #733 alone.
+   - #839's loading rule ("until both #733's answer and the learner's course outline have arrived") becomes incomplete once this ticket lands, because the panel also waits for #738 and the Progress API. Whichever of #739 and #839 merges second combines the two conditions in `CompetencyProgressPanel`.
+7. **Oval.** `StatusOval({ status, percentGraded })` in `src/StatusOval.jsx` renders Available, Partially Attempted, Not Demonstrated, and Demonstrated. #740 reuses it on card headings.
+   - Icons: #768's icons, which Paragon exports as `RadioButtonUnchecked`, `Contrast`, `RemoveCircle`, and `CheckCircle`.
+   - Outlined "Available" oval: Paragon's `Badge` has no outlined variant. If the design's "Available" oval is outlined, override `Badge`'s `--pgn-badge-bg` and add a border locally, and call out the gap in the PR description.
+   - Accessibility: when `percentGraded` is passed, the Demonstrated oval shows the percentage as visible text, with "Demonstrated" in an `sr-only` sibling placed before it, so a screen reader reads "Demonstrated, 95%". The icon is `aria-hidden`.
+   - Percentage format: apply the host's `getGradePercent` rule (a whole number, otherwise two decimals) to `Math.round(percentGraded * 10000)`, and format the result through `intl.formatNumber`. Applying the rule to the raw product would show 29% as "29.00%", because `0.29 * 100` is `28.999999999999996`.
+8. **Test cases beyond the AC:**
+   - A `PartiallyAttempted` criterion shows the Partially Attempted oval.
+   - An unknown status shows no oval and is logged once.
+   - When the Progress API fails while #738 succeeds, no ovals appear.
+   - A masked criterion whose stored status is unknown shows "Available".
+   - `percentGraded` values of 0, 0.29, 0.6667, and 0.825 render as 0%, 29%, 66.67%, and 82.50%.
+
+Out of scope:
+
+- Tag statuses and propagating the mask to tags (#740).
+- The Focus Areas sidebar (#743).
+
+**Files to create and modify**
+
+Paths are relative to the root of the plugin repository from #810.
+
+| File | Change |
+| --- | --- |
+| `src/data/api.js` | modified: `getCompetencyStatuses` and `getProgressScores` |
+| `src/data/apiHooks.js` | modified: the two new queries and `useCompetencyStatuses` |
+| `src/data/buildCompetencyStatuses.js` | new |
+| `src/data/buildCompetencyCards.js` | modified: export the outline index |
+| `src/StatusOval.jsx` | new |
+| `src/CompetencyProgressPanel.jsx` | modified |
+| `src/CompetencyCard.jsx` | modified: passes `statuses` to `CriteriaGroupList` |
+| `src/CriteriaGroupList.jsx` | modified: an oval on each named row |
+| `src/messages.js` | modified |
+
+**Additional context**
+
+- Known limitations:
+  - A Demonstrated oval can show a current percentage below its own rule line, because #699 never lowers a stored status.
+  - A subsection set to never show individual assessment results (`never_but_include_grade`) never shows its status, which matches the Progress page itself.
+  - On the staff route, subsections the learner can't see appear by name and read "Available".
+  - The masking changes only the display, so #738's response still carries a hidden subsection's status.
+- In frontend-app-learning, `GradeSummaryTable.jsx` (`getGradePercent`) and `DetailedGradesTable.jsx` under `src/course-home/progress-tab/grades/` show the host's percentage format and its `show_grades` hiding. The course tabs in `src/course-tabs/CourseTabLink.tsx` are plain links, so every visit to the Progress tab starts with an empty query cache.
+- In openedx-platform, `lms/djangoapps/course_home_api/progress/views.py` computes `show_grades` with the learner's staff access rather than the viewer's, and leaves `never_but_include_grade` subsections out of `section_scores`. `lms/djangoapps/course_blocks/transformers/start_date.py` (`StartDateTransformer`) removes unreleased subsections from a learner's grade structure, while the learning_sequences outline keeps them by name.
+
+</details>
+
+## Open Questions
+
+- (architect, final review) Should #734's Technical Details carry each named subsection row's criterion `id`, the same way they now carry tag ids? One subsection under two tags has two statuses, so rows must join by criterion id, not by `object_id`. The draft assumes #734 carries it; otherwise #739 modifies `buildCompetencyCards`.
+- (architect, final review) Is masking that changes only the display acceptable for MVP? #738's response still carries the hidden status to the browser, and for `never_but_include_grade` subsections the platform itself sends nothing. The draft accepts it as a known limitation.
+- (architect, final review) Should the percentage formatter apply `getGradePercent`'s rule to the rounded value through `intl.formatNumber`, rather than copy it verbatim? A verbatim copy shows "29.00%" for 0.29 and isn't localized. The AC's examples come out the same either way. The draft uses the rounded, localized version.
+- (implementer) Should the two new queries keep the client's default retries on a 5xx response? The panel waits through the retries, about 7 seconds, before showing cards without ovals.
