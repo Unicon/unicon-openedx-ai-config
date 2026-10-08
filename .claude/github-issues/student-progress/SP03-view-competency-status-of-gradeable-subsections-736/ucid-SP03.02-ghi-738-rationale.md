@@ -1,0 +1,12 @@
+# #738 rationale (for pointing)
+
+Decided in the pre-post check on 2026-10-08. Not posted to GitHub.
+
+- **Hidden results are returned as stored, and #739 and #740 mask them in the browser.** This matches the Progress tab, whose own API sends the real score for a subsection set to never show results and lets the page hide it. For subsections hidden from learners or restricted to a content group, the Progress tab's API leaves the subsection out entirely, so #738 exposes more than the Progress tab does there. Server-side withholding was fully designed and then dropped: it took the ticket from about 2 to about 4 developer-days (an estimate, not measured), forced #740 to change, and still leaked results through other course runs.
+- **Masking exists for fairness, not secrecy.** CBE values transparency, but when an instructor grades over several days, learners graded first shouldn't see results earlier than the rest. The proper fix is to write competency statuses only when grades are released to the learner. That is a change to the status-writing path (#699, #643), outside this plan, and is a candidate future ticket.
+- **Who may read whose statuses follows the Progress tab exactly.** openedx-platform's `ProgressTabView._get_student_user` is extracted into a shared function and reused, so staff, masquerade, and CCX coach access behave as on the Progress tab. The architect asked for parity wherever possible.
+- **An unenrolled, non-staff user gets 403, not the Progress tab's 401.** This is the one deliberate break from parity: 401 means "not signed in", so a frontend couldn't tell "send them to log in" from "they aren't enrolled". #733 also refuses with 403.
+- **An unknown learner id and a learner the requester may not see get the identical 404.** This keeps the endpoint from revealing which user ids exist.
+- **The endpoint reuses #733's selection instead of querying the criteria hierarchy again.** That guarantees both endpoints cover exactly the same criteria and tags, including the archived and disabled exclusions.
+- **A competency's status is the learner's overall, cross-course status.** Course staff can therefore see a status the learner earned in another organization's course, for the competencies this course assesses. This is a stated known limitation.
+- **No new ADR for the deployer-supplied resolver setting.** The architect is avoiding new ADRs. #742, #745, and #753 reuse the same setting.

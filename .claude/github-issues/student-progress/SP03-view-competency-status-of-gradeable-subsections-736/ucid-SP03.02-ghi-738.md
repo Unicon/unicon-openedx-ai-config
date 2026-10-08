@@ -37,6 +37,18 @@ In these scenarios, L is a learner, and a caller permitted to read L's statuses 
 - Under openedx-core's default learner resolution, L.
 - On the LMS, L with an active enrollment in the course run, a member of the course run's staff who names L, or a member of its staff who is masquerading as L.
 
+The scenarios use these two competency taxonomies. Each scenario says which of these tags course run X has criteria for.
+
+```text
+Taxonomy A
+└── Problem Solving              (top-level tag)
+    └── Problem Definition
+        ├── Root Cause Analysis
+        └── Fishbone Diagrams
+Taxonomy B
+└── Communication                (top-level tag)
+```
+
 **Access under openedx-core's default learner resolution**
 
 ```gherkin
@@ -185,9 +197,7 @@ Scenario: Each recorded status is reported by name and keyed by its criterion's 
   And the result contains nothing that identifies L, neither L's username nor L's user id
 
 Scenario: The learner's statuses for a competency's ancestors are reported and matched to its lineage
-  Given a competency taxonomy in which "Root Cause Analysis" is a child of "Problem Definition", which is a child of the top-level tag "Problem Solving"
-  And "Fishbone Diagrams" is another child of "Problem Definition"
-  And course run X has criteria for "Root Cause Analysis" and for no other tag in that taxonomy
+  Given course run X has criteria for "Root Cause Analysis" and for no other tag in taxonomy A
   And L has recorded statuses for "Root Cause Analysis", "Problem Definition", "Problem Solving", and "Fishbone Diagrams"
   When a permitted caller requests L's competency statuses for course run X
   Then L's statuses for "Root Cause Analysis", "Problem Definition", and "Problem Solving" are returned
@@ -195,12 +205,12 @@ Scenario: The learner's statuses for a competency's ancestors are reported and m
   And L's status for "Fishbone Diagrams", which course run X does not assess, does not appear
 
 Scenario: A competency carries the learner's overall recorded status, while criterion statuses come only from course run X
-  Given competency "Analysis" has criteria in course run X and in course run Y
-  And L demonstrated "Analysis" through course run Y's criteria, so "Analysis" is recorded as "Demonstrated"
-  And L's recorded status for course run X's "Analysis" criterion is "AttemptedNotDemonstrated"
+  Given competency "Root Cause Analysis" has criteria in course run X and in course run Y
+  And L demonstrated "Root Cause Analysis" through course run Y's criteria, so "Root Cause Analysis" is recorded as "Demonstrated"
+  And L's recorded status for course run X's "Root Cause Analysis" criterion is "AttemptedNotDemonstrated"
   When a permitted caller requests L's competency statuses for course run X
-  Then "Analysis" is reported as "Demonstrated"
-  And course run X's "Analysis" criterion is reported as "AttemptedNotDemonstrated"
+  Then "Root Cause Analysis" is reported as "Demonstrated"
+  And course run X's "Root Cause Analysis" criterion is reported as "AttemptedNotDemonstrated"
   And no status for any course run Y criterion is returned
 ```
 
@@ -210,7 +220,7 @@ In these scenarios, L already has a recorded status through every criterion invo
 
 ```gherkin
 Scenario Outline: Statuses follow #733's result when part of the course run's competency data is retired
-  Given course run X has criteria for "Root Cause Analysis", a child of "Problem Definition" under the top-level tag "Problem Solving" in competency taxonomy A, and for "Communication" in competency taxonomy B
+  Given course run X has criteria for "Root Cause Analysis" and for "Communication"
   And "Root Cause Analysis"'s course-level group for course run X has two bottom-tier groups, each holding two criteria
   And L has a recorded status for every one of those criteria, for both competencies, and for every ancestor of each
   When <retirement>
@@ -232,7 +242,7 @@ Scenario Outline: Statuses follow #733's result when part of the course run's co
 
 **Subsections a learner cannot see (openedx-platform)**
 
-The Progress tab's own API, `/api/course_home/v1/progress/{course_key}`, sends the real score for a subsection set to never show individual assessment results, and the page hides it. This endpoint matches that: a learner who inspects the network response can read statuses the page does not show them.
+The Progress tab's own API, `/api/course_home/v1/progress/{course_key}`, sends the real score for a subsection set to never show individual assessment results, and the page hides it. This endpoint follows the same pattern: it returns statuses as stored, and #739 and #740 mask them in the browser, so a learner who inspects the network response can read statuses the page does not show them. For a subsection hidden from learners or restricted to a content group the learner is not in, the Progress tab's API leaves the subsection out entirely, so there this endpoint exposes more than the Progress tab does.
 
 ```gherkin
 Scenario: Statuses are returned for criteria on subsections whose content or results the learner cannot see
