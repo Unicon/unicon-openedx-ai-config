@@ -91,24 +91,24 @@ Scenario: The competency taxonomy itself is not duplicated
 
 # What does not carry over
 
-Scenario: Retired rules are not carried to the new run
-  Given the source run has a mastery rule that was retired after learners had already been
+Scenario: Archived rules are not carried to the new run
+  Given the source run has a mastery rule that was archived after learners had already been
     evaluated against it
   When a course author creates a new run of that course and the run finishes being created
-  Then the new run has no equivalent of the retired rule
+  Then the new run has no equivalent of the archived rule
   And the new run's criteria group contains only the rules still in force on the source run
-  And the source run still shows the retired rule and its learner history unchanged
+  And the source run still shows the archived rule and its learner history unchanged
 
-Scenario: A retired criteria group and everything under it are not carried to the new run
-  Given the source run has a criteria group that was retired
-  And rules and child groups are still recorded under that retired group
+Scenario: An archived criteria group and everything under it are not carried to the new run
+  Given the source run has a criteria group that was archived
+  And rules and child groups are still recorded under that archived group
   When a course author creates a new run of that course and the run finishes being created
-  Then the new run has no equivalent of the retired group
-  And the new run has no equivalent of any rule or child group recorded under the retired group
+  Then the new run has no equivalent of the archived group
+  And the new run has no equivalent of any rule or child group recorded under the archived group
 
 Scenario: A group left with a single rule in force is still carried over as a group
   Given a criteria group in the source run has two mastery rules
-  And one of those two rules has been retired
+  And one of those two rules has been archived
   When a course author creates a new run of that course and the run finishes being created
   Then the new run has an equivalent criteria group
   And that group combines its children the same way the source run's group does
@@ -172,7 +172,7 @@ This section is background and a suggested approach, not the source of truth. Th
 
 **What the criteria copy recreates, and where it attaches.** For MVP, a competency's criteria tree has exactly three levels: a shared root, a course-level group per course, and that course-level group's bottom-tier groups, which hold the mastery rules themselves. Nothing nests deeper. For each live course-level group of the source course, the copy recreates that group and its live bottom-tier children on the destination course, carrying names, ordering, logic operators, and the competency tag across unchanged. The recreated course-level group keeps the same parent (the shared root) as its source group rather than getting a new parent, which is how the two runs' course-level groups end up combined under the root's `OR`. Each recreated bottom-tier group points at the newly created copy of its course-level parent, not at the source's row. Groups with no course scope are not recreated at all. Each recreated rule keeps whatever rule-profile assignment or per-rule override its source had, so the new run evaluates exactly the way the source run does.
 
-**Retired rules do not travel.** A long-running source course accumulates archived groups and archived rules, because removing either is archive-only once learner status references it. The copy recreates what the source course currently evaluates, not its history, so archived rows are excluded: a course-level group is skipped along with its bottom-tier children if it was archived directly, and a bottom-tier group or an individual rule is skipped on its own if that's what was archived. Every row the copy creates is live.
+**Archived rules do not travel.** A long-running source course accumulates archived groups and archived rules, because removing either is archive-only once learner status references it. The copy recreates what the source course currently evaluates, not its history, so archived rows are excluded: a course-level group is skipped along with its bottom-tier children if it was archived directly, and a bottom-tier group or an individual rule is skipped on its own if that's what was archived. Every row the copy creates is live.
 
 **The whole per-course copy is one transaction.** The catalog record check, the tag copy, and the criteria copy run inside a single `transaction.atomic()`, so a failure anywhere leaves the new run with neither copied tags nor partial rules, and never a group tree missing some of its leaves. The underlying course structure clone has already committed by the time the event fires and is unaffected either way. Because this runs in a Celery task, the transaction is off the request path.
 
@@ -201,7 +201,7 @@ This section is background and a suggested approach, not the source of truth. Th
 - **History rows.** Both models carry `django-simple-history`. `bulk_create` does not write history rows, so use `simple_history.utils.bulk_create_with_history` (or create rows individually) so the copied rows have an initial historical record.  
 - **Not routed through the create path.** The copy constructs rows directly instead of calling the criteria-group and rule create APIs, for three reasons unrelated to archiving. The create path re-runs ADR 0002 Decision 4's rule-profile assignment computation, and a copy is not one of Decision 4's four listed write events, so going through create would overwrite the copied profile assignment. The create path also revalidates a tree that is already valid by construction, which would make a rerun fail on data predating a newer validation rule. And creation is per-row while this is a bulk tree operation. The consequence to accept deliberately: the copy does not inherit the creation-time `archived` enforcement added by \#717, so the archived filters above are the copy's own responsibility and must be tested here.  
 - **Transaction nesting.** The `openedx-core` function wraps its own work in `transaction.atomic()`; the platform task wraps the catalog check, the tag copy, and the call to that function in one outer `transaction.atomic()`. The atomic blocks inside the tagging calls become savepoints under it.  
-- **Cross-run coupling to be aware of when writing tests.** A recreated group is an ordinary row under the shared parent, so once the new run accumulates learner status the shared parent is no longer hard-deletable for any run, and archiving that shared parent through \#675 retires every run's group beneath it in one action. That follows from the shared-parent rule and is not special-cased here.  
+- **Cross-run coupling to be aware of when writing tests.** A recreated group is an ordinary row under the shared parent, so once the new run accumulates learner status the shared parent is no longer hard-deletable for any run, and archiving that shared parent through \#675 archives every run's group beneath it in one action. That follows from the shared-parent rule and is not special-cased here.  
 - **No new schema.** No model, field, or migration in this ticket. The `archived` field on both models arrives with \#716, which this ticket depends on.  
 - **Layering.** The new function is the higher layer calling the lower: `openedx_learning` imports `openedx_tagging` and `openedx_catalog`, and `openedx-platform` calls `openedx_learning.api`. `.importlinter` currently names neither `openedx_catalog` nor `openedx_learning` in `root_packages`; if \#613 adds `openedx_learning` there, `openedx_learning` must sit above `openedx_tagging` in the `src_layering` contract.  
 - **Out of scope, handled by companion tickets.** Course export (\#695) and course import (\#696) are the cross-instance pair that needs taxonomy identity resolution, which a same-instance rerun never does. Library copy is \#697 and \#698. Documentation across all the copy mechanisms is \#652. `ObjectTag` has no `archived` field today, so the tag step cannot filter on one; when it gains one, every copy mechanism's tag step needs the same filter the criteria step has here.  
@@ -249,13 +249,13 @@ Context **Dependencies and siblings**
 
 - Depends on \#613, which creates the CBE models and the applet's `api.py` this ticket adds a function to; on \#716, which adds the `archived` field the copy filters on; and on \#681, which provides the read endpoint the Competency Management page uses to render a run's criteria group.  
 - Sibling copy mechanisms, each out of scope here: course export \#695, course import \#696, copy to a library \#697, copy from a library \#698, documentation \#652.  
-- Retirement behavior this ticket must respect: \#674 archives a single rule, leaving its group live only if another live rule remains, and otherwise cascades the archive upward through any ancestor left with nothing live under it; \#675 archives a group's whole subtree all-or-nothing, flagging every row in it, then applies \#674's same upward cascade above it; \#717 enforces `archived` at creation time, which this copy deliberately does not go through.  
+- Archiving behavior this ticket must respect: \#674 archives a single rule, leaving its group live only if another live rule remains, and otherwise cascades the archive upward through any ancestor left with nothing live under it; \#675 archives a group's whole subtree all-or-nothing, flagging every row in it, then applies \#674's same upward cascade above it; \#717 enforces `archived` at creation time, which this copy deliberately does not go through.  
 - Edit endpoints the source-run/new-run isolation scenarios exercise: \#759 edits a mastery rule; \#760 edits a criteria group. Neither is expected to need changes for this ticket; the isolation follows from each run's course-scoped groups and rules being separate rows, per the field-by-field copy rules above.
 
 **ADRs**
 
 - `docs/openedx_tagging/decisions/0011-cross-instance-taxonomy-identity.rst` (ADR 0011, Status: Proposed): copy semantics, same-instance versus cross-instance, and copy-by-reference for taxonomies and tags.  
-- `docs/openedx_learning/decisions/0002-competency-criteria-model.rst` (ADR 0002): group and rule field definitions (Decisions 2 and 4), the prohibition on persisting empty groups (Decision 2), rule-profile scoping and archiving (Decision 3), and delete protection and archive-only retirement (Decision 7).  
+- `docs/openedx_learning/decisions/0002-competency-criteria-model.rst` (ADR 0002): group and rule field definitions (Decisions 2 and 4), the prohibition on persisting empty groups (Decision 2), rule-profile scoping and archiving (Decision 3), and delete protection and archive-only archiving (Decision 7).  
 - `docs/openedx_learning/decisions/0003-competency-criteria-versioning.rst` (ADR 0003): `django-simple-history` on both models (Decision 1), and the post-use archive rule for tag associations (Decision 3).  
 - `docs/openedx_learning/decisions/0001-competency-criteria-location.rst` (ADR 0001): places CBE at `src/openedx_learning/applets/cbe/` under an umbrella app with a single aggregated public API.
 

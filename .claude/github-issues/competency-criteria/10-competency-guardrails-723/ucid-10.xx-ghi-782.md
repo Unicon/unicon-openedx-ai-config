@@ -20,10 +20,10 @@ Scenario: The locked association protects the tag and taxonomy above it too
   When someone asks whether the tag, or its taxonomy, is safe to delete
   Then both report that they are depended upon, without either one carrying a lock of its own
 
-Scenario: Deleting a protected tag retires it instead of removing it
+Scenario: Deleting a protected tag archives it instead of removing it
   Given a learner has recorded mastery against a competency
   When an administrator deletes that competency
-  Then the competency is retired rather than removed
+  Then the competency is archived rather than removed
   And the learner's recorded mastery still resolves through it
 
 Scenario: Recording mastery for a second learner does not fail on an already-locked record
@@ -75,7 +75,7 @@ This section is background and a suggested approach, not the ticket's source of 
 - **Set the lock inside the existing transaction rather than opening one.** \#699 runs inside the caller's grade transaction by design, so opening another here would break the guarantee that the grade, the status, and the lock commit together.  
 - **Import only from the tagging app's public API**, `openedx_tagging.api`, never from its models or internals. Confirm with `lint-imports`.  
 - **Do not add an unlock anywhere.** Learner mastery statuses are not deleted, so a locked record stays locked.  
-- **Tests** in the competency applet tests: a status write locks the association; a second learner's status write against an already-locked association succeeds and leaves it locked; a graded object with no criteria issues no lock query; a query-count assertion showing the lock is one bulk call regardless of how many criteria were evaluated; a rolled-back status write leaves nothing locked; an end-to-end test that deleting a locked tag retires it rather than removing it, and that its taxonomy is likewise protected without either one carrying its own lock.  
+- **Tests** in the competency applet tests: a status write locks the association; a second learner's status write against an already-locked association succeeds and leaves it locked; a graded object with no criteria issues no lock query; a query-count assertion showing the lock is one bulk call regardless of how many criteria were evaluated; a rolled-back status write leaves nothing locked; an end-to-end test that deleting a locked tag archives it rather than removing it, and that its taxonomy is likewise protected without either one carrying its own lock.  
 - **Out of scope:** the lock API itself (\#777), the delete branches that read the lock (\#779, \#780), and any change to how or when a learner status is written.
 
 ## Files to modify 

@@ -34,24 +34,24 @@ Scenario: Applying a tag that was never associated creates a new association
 Nothing sets `deletion_locked=True` in production yet; \#782 is what does. Exercising any of these today means creating that state directly first (Django admin, shell, or a test fixture).
 
 ```
-Scenario: Removing an association that learner mastery depends on retires it instead
+Scenario: Removing an association that learner mastery depends on archives it instead
   Given a content object tagged with a tag that a learner has been evaluated against
   When that tag is removed from the object
   Then the association still exists but is archived
     And the learner's mastery status still resolves through it
 
-Scenario: Re-applying a retired tag brings the original association back
+Scenario: Re-applying an archived tag brings the original association back
   Given a content object whose association with a tag is archived
   When that same tag is applied to that object again
   Then the association is no longer archived
     And it is the same association as before, not a new one
 
-Scenario: Re-applying a retired tag keeps its mastery history attached
+Scenario: Re-applying an archived tag keeps its mastery history attached
   Given an archived association that a learner was evaluated against
   When that same tag is applied to that object again
   Then the learner's existing mastery status is still attached to that association
 
-Scenario: Replacing an object's tags retires only the depended-upon ones
+Scenario: Replacing an object's tags archives only the depended-upon ones
   Given a content object with two tags, one depended upon by learner mastery and one not
   When the object's tags are replaced with a list containing neither
   Then the depended-upon association is archived

@@ -35,7 +35,7 @@ Scenario: Deleting a tag that does not belong to the taxonomy is still refused
 Nothing sets `deletion_locked=True` (the field \#776 adds) in production yet; \#782 is what does. Exercising any of these today means creating that state directly first (Django admin, shell, or a test fixture).
 
 ```
-Scenario: Deleting a tag that learner mastery depends on retires it instead
+Scenario: Deleting a tag that learner mastery depends on archives it instead
   Given a tag that a learner has been evaluated against
   When it is deleted from its taxonomy
   Then the tag still exists but is archived
@@ -54,7 +54,7 @@ Scenario: A parent with a depended-upon subtag is archived too, not deleted
   Then the parent and the depended-upon subtag are both archived
     And the unrelated sibling subtag is deleted normally
 
-Scenario: Deleting a taxonomy that learner mastery depends on retires it instead
+Scenario: Deleting a taxonomy that learner mastery depends on archives it instead
   Given a taxonomy containing a tag that a learner has been evaluated against
   When the taxonomy is deleted
   Then the taxonomy still exists but is archived

@@ -58,12 +58,12 @@ Scenario: Return the profiles in a stable order
 
 # What the collection leaves out
 
-Scenario: Leave retired profiles out of the collection
-  Given an instance with a retired rule profile alongside the instance-wide default
+Scenario: Leave archived profiles out of the collection
+  Given an instance with an archived rule profile alongside the instance-wide default
   When the caller requests the rule profiles
-  Then the retired profile is not among those returned
+  Then the archived profile is not among those returned
   And the instance-wide default is returned
- # Verified via a unit test creating a retired row directly as a fixture: no archive endpoint
+ # Verified via a unit test creating an archived row directly as a fixture: no archive endpoint
   # exists yet to reach this state through a live call, so this is not Postman-testable.
 
 Scenario: Keep the instance's internal scope bookkeeping out of the response
@@ -128,9 +128,9 @@ This section is background and a suggested approach, not the source of truth. Th
 
 **Why the response is paginated from the first commit.** ADR 0002 Decision 2's closing boundaries state that pagination is supported for authoring and list APIs. Beyond that, pagination is the one thing here that cannot be added later without breaking clients: an unpaginated list is a bare JSON array, and wrapping it in an envelope changes the top-level JSON type. Because this repository is a published library, the page sizes are pinned on the view rather than inherited from the consuming project, so the envelope and the page size are part of this contract instead of varying by deployment.
 
-**What the response carries, and what it deliberately omits.** Each row carries an identifier, a scope type, the rule type, the rule payload, and whether the profile is retired. The identifier is the model's own primary key, because that is what the criterion-update endpoint accepts (\#759), and because the tagging app's REST API already exposes the primary key for taxonomies, which have no external identifier either. The retired flag is included even though today's active-only filter means it is always false, because `CompetencyRuleProfile` is exempt from hard deletion entirely per ADR 0002 Decision 7: retirement is archive-only, retired rows are permanent and stay queryable, and a client must be able to tell one apart without a later contract change. Three things are omitted on purpose. `scope_code` is omitted for the reason above. The three raw scope columns are omitted because the course and organization references are internal foreign keys that mean nothing to an authoring client, and emitting them as always-null today would commit the contract to that representation before any caller needs it. An in-use indicator is omitted because the guardrail it serves fires when a profile is edited, and no write endpoint is in scope here.
+**What the response carries, and what it deliberately omits.** Each row carries an identifier, a scope type, the rule type, the rule payload, and whether the profile is archived. The identifier is the model's own primary key, because that is what the criterion-update endpoint accepts (\#759), and because the tagging app's REST API already exposes the primary key for taxonomies, which have no external identifier either. The archived flag is included even though today's active-only filter means it is always false, because `CompetencyRuleProfile` is exempt from hard deletion entirely per ADR 0002 Decision 7: archiving is the only way to take a profile out of use, archived rows are permanent and stay queryable, and a client must be able to tell one apart without a later contract change. Three things are omitted on purpose. `scope_code` is omitted for the reason above. The three raw scope columns are omitted because the course and organization references are internal foreign keys that mean nothing to an authoring client, and emitting them as always-null today would commit the contract to that representation before any caller needs it. An in-use indicator is omitted because the guardrail it serves fires when a profile is edited, and no write endpoint is in scope here.
 
-**Why the collection is active-only, and why that is decided now.** Because retired profiles are never deleted, they accumulate permanently, so an unfiltered collection that included them would degrade without bound. Deciding this now also avoids a later behavior change: if the collection meant "everything" today and narrowed to "active" later, clients would notice. A parameter to include retired rows is a plausible future addition and is out of scope, as are scope filters; both are additive, because a client that sends no parameters keeps today's behavior.
+**Why the collection is active-only, and why that is decided now.** Because archived profiles are never deleted, they accumulate permanently, so an unfiltered collection that included them would degrade without bound. Deciding this now also avoids a later behavior change: if the collection meant "everything" today and narrowed to "active" later, clients would notice. A parameter to include archived rows is a plausible future addition and is out of scope, as are scope filters; both are additive, because a client that sends no parameters keeps today's behavior.
 
 **Who may read it, and how that gate composes with future scopes.** Anyone who can view the taxonomy a profile applies to may read that profile. Reading is gated on a new CBE permission whose predicate asks the tagging app's `oel_tagging.view_taxonomy` permission, passing the profile's taxonomy when the profile is taxonomy-scoped and no taxonomy otherwise. The instance-wide default has no taxonomy, and `view_taxonomy` with no taxonomy is granted to every caller, both in this repository's `can_view_taxonomy` ("anyone can list all taxonomies") and in the `openedx-platform` override of that permission. So every signed-in caller, including a course author who is not platform staff, can read the instance-wide default. That is the audience this endpoint needs: the Competency Management page is used by course authors (#672), it shows each criterion's threshold and groups criteria by rule, and a criterion that follows the default stores only a reference to the profile, not the threshold itself. Reading a criterion's competency tree (#681) is gated the same way, through `oel_tagging.view_tag`, which delegates to `view_taxonomy`. A rule profile holds only a rule and a threshold, no learner or course data. The predicate checks the permission through `user.has_perm` rather than importing the tagging predicate function, so that the `openedx-platform` override, registered with `rules.set_perm`, takes effect instead of this repository's default.
 
@@ -164,7 +164,7 @@ This section is background and a suggested approach, not the source of truth. Th
   - The response contains no `scope_code` key and no scope-column keys.  
   - The lookup still succeeds when a row's `scope_code` is unrelated to the query, which proves the null-column query rather than a string match is in use.  
   - A taxonomy-scoped row created directly in a fixture appears in the same collection alongside the default, with the taxonomy scope type and in identifier order. This is the actual proof that a second scope is additive.  
-  - A retired row created in a fixture is excluded.  
+  - An archived row created in a fixture is excluded.  
   - An empty table reports an empty collection rather than a missing resource.  
   - A signed-in caller who is not staff receives the instance-wide default, and an unidentified caller is refused.  
   - The predicate refuses a non-staff caller for a taxonomy-scoped profile whose taxonomy is disabled, and allows a staff caller for the same profile. This proves the predicate delegates to `view_taxonomy` rather than allowing everyone.  
@@ -200,13 +200,13 @@ Files to create and modify **New files**
 | tests/openedx\_learning/applets/cbe/test\_api.py | add filtering, ordering, and null-scope lookup tests |
 | tests/openedx\_learning/applets/cbe/test\_views.py | add response-shape, envelope, empty-collection, and refusal tests |
 
-- Context ADR 0002, `docs/openedx_learning/decisions/0002-competency-criteria-model.rst`: Decision 3 for the profile's columns, the seeded all-null-scope system default, the check constraint, and `scope_code` being internal-only; Decision 2's closing boundaries for pagination on list APIs; Decision 7 for archive-only retirement.  
+- Context ADR 0002, `docs/openedx_learning/decisions/0002-competency-criteria-model.rst`: Decision 3 for the profile's columns, the seeded all-null-scope system default, the check constraint, and `scope_code` being internal-only; Decision 2's closing boundaries for pagination on list APIs; Decision 7 for archive-only archiving.  
 - ADR 0003, `docs/openedx_learning/decisions/0003-competency-criteria-versioning.rst`, Decision 4: the pinned definition of a profile being in use.  
 - ADR 0001, `docs/openedx_learning/decisions/0001-competency-criteria-location.rst`: why CBE code sits at `src/openedx_learning/applets/cbe/`, and how the umbrella app aggregates its applets.  
 - `docs/openedx_content/decisions/0010-merge-authoring-apps-into-openedx-content.rst` for the applet convention and umbrella aggregation, with `src/openedx_content/api.py` as the working example.  
 - `docs/openedx_content/decisions/0003-identifier-conventions.rst` for `id`, `uuid`, and `key`.  
 - Prior art for a read-path list endpoint: `src/openedx_tagging/rest_api/v1/views.py`, `serializers.py`, `permissions.py`, and `urls.py`, plus `src/openedx_tagging/rest_api/paginators.py`; and `src/openedx_tagging/rules.py` for the taxonomy-administrator predicate and the permission-registration pattern.  
-- \#613 and \#641 land the `CompetencyRuleProfile` model. \#613 seeds the system-default row via a data migration, validates the rule payload at the model layer, adds the profile's retired flag, and registers `openedx_learning` in the installed apps and the layering contract. This ticket depends on all of it.  
+- \#613 and \#641 land the `CompetencyRuleProfile` model. \#613 seeds the system-default row via a data migration, validates the rule payload at the model layer, adds the profile's archived flag, and registers `openedx_learning` in the installed apps and the layering contract. This ticket depends on all of it.  
 - \#664 established the CBE REST package, the app-root URL configuration, the applet's public API module, and the mount at `api/cbe/rest_api/`.  
 - \#759 accepts a rule profile identifier from a caller, which is why this endpoint exposes one.
 

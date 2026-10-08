@@ -65,11 +65,11 @@ Scenario: An update that changes nothing leaves no audit entry
 
 # Requests that address nothing, or come from someone who may not make them
 
-Scenario: Reject an update to a retired group
-  Given a Competency Criteria Group that has been retired
+Scenario: Reject an update to an archived group
+  Given a Competency Criteria Group that has been archived
   When the user submits an update to it
   Then the update is refused as conflicting with the group's current state
-  And the group remains retired and otherwise unchanged
+  And the group remains archived and otherwise unchanged
 
 Scenario: Reject an update addressing a group under the wrong competency
   Given a Competency Criteria Group that belongs to one competency
@@ -112,7 +112,7 @@ This section is background and a suggested approach, not the source of truth. Th
 
 **What an author edits.** One field: the AND/OR operator that decides how the group combines its children. That operator is the substance of a criteria group, and changing it changes how mastery is computed for every learner evaluated from that point forward.
 
-**Retirement is the only state that stops an edit.** A group retired by \#675 is not editable at all, and no confirmation can override that.
+**Archiving is the only state that stops an edit.** A group archived by \#675 is not editable at all, and no confirmation can override that.
 
 **Where the logic lives, and how the audit trail stays honest.** The endpoint is a thin adapter: resolve the group from the URL, check permissions, validate the request's shape, delegate to a function in the applet's `api.py`, serialize the result. Keeping the refusals and the audit attribution in the api function means an in-process Studio caller behaves identically to an HTTP one. ADR 0003 Decision 1 puts `django-simple-history` on this model, so an edit that changes nothing must not save at all, or the history fills with entries that record no change.
 
@@ -122,7 +122,7 @@ This section is background and a suggested approach, not the source of truth. Th
 - **Api function.** `update_competency_criteria_group(group_id: int, *, logic_operator: str, user) -> CompetencyCriteriaGroup` in `src/openedx_learning/applets/cbe/api.py`, added to that module's `__all__`. The umbrella `src/openedx_learning/api.py` re-exports by wildcard, so it needs no edit. `logic_operator` is a required keyword because it is the only editable field, so there is no partial-update case to model.  
 - **Accepted body.** `logic_operator`, required. For `name`, `ordering`, `parent_id`, `course_id`, `oel_tagging_tag_id`, and `archived`: when one is present and its value matches what is stored, ignore it so a read-modify-write client can send the whole object back; when it differs, reject and name the field, rather than silently ignoring a failed authoring intent. Reject unrecognized keys.  
 - **Field validation.** Accept only the model's `AND` and `OR` values, and not null, derived from the model field's `choices` so the check comes from one place. \#664 describes `logic_operator` as both required and defaulting to `OR` without reconciling the two; this endpoint requires an explicit `AND` or `OR` either way, so it does not depend on how that is resolved. Do not validate the group's child count: setting the operator on a group with no children or one child is accepted. Studio's authoring flow does not call this endpoint before a group has its first child, though; the operator choice on a still-childless group is held client-side and flows through the child's create request instead.  
-- **Check order.** Resolve the group; reject if it resolves to a root group (`course_id` and `parent_id` both null); check permissions; validate the request's shape; refuse a retired group; detect a no-op and return success without saving; save. The root-group check runs before the permission check because it doesn't depend on the caller's identity and, unlike a course-scoped group, a root group has no single course to check permission against in the first place. Retirement precedes the no-op check because a retired row is not editable at all and a success response would imply the edit was accepted.  
+- **Check order.** Resolve the group; reject if it resolves to a root group (`course_id` and `parent_id` both null); check permissions; validate the request's shape; refuse an archived group; detect a no-op and return success without saving; save. The root-group check runs before the permission check because it doesn't depend on the caller's identity and, unlike a course-scoped group, a root group has no single course to check permission against in the first place. Archiving precedes the no-op check because an archived row is not editable at all and a success response would imply the edit was accepted.  
 - **Status codes.** 400 means the request is malformed or self-contradictory. 409 means the request is well formed but the state of the group blocks it.
 
 | Code | When |
@@ -132,7 +132,7 @@ This section is background and a suggested approach, not the source of truth. Th
 | 403 | The user lacks `oel_tagging.can_tag_object` (studio write access to the group's course, plus taxonomy view access on the competency's taxonomy). |
 | 404 | No group for that id, or the group does not belong to the URL's `competency_tag_id`. |
 | 405 | `PUT`. |
-| 409 | The group is retired. |
+| 409 | The group is archived. |
 
 - **Single atomic write.** Inside `transaction.atomic()`, one `.save(update_fields=["logic_operator"])`. Do not use `queryset.update()`: it does not fire `post_save` and would write no history row.  
 - **History attribution.** Set `instance._history_user` from the `user` argument before saving, so attribution does not depend on the consumer installing `simple_history.middleware.HistoryRequestMiddleware`. No model in this repo uses `HistoricalRecords()` yet, so this establishes the convention rather than following one; `django-simple-history` is already a declared dependency in `requirements/base.txt`.  
@@ -142,7 +142,7 @@ This section is background and a suggested approach, not the source of truth. Th
 - **No migration, no new model, no new field.** This ticket depends on \#716 for `archived` (a boolean field) on this model, and on \#613 for the models. Confirm \#613 before implementing rather than assuming.  
 - **Layering.** Lives in `src/openedx_learning/applets/cbe/`, imports only from `openedx_tagging` and Django or DRF, and adds no import beyond what \#664 establishes. `openedx_learning` is not yet among `.importlinter`'s root packages; adding it belongs to \#613.  
 - **Out of scope.**  
-  - Removing or retiring a group or its subtree, including setting `archived` (\#675).  
+  - Removing or archiving a group or its subtree, including setting `archived` (\#675).  
   - Updating a criterion's rule source (\#759).  
   - Renaming a group, which has no authoring control yet (\#671).  
   - Setting the sibling sequence number, which has no defined semantics and no consumer.  
@@ -152,7 +152,7 @@ This section is background and a suggested approach, not the source of truth. Th
   - Guarding against empty groups: creation and deletion are responsible for that, and this ticket never changes group membership.  
   - Reporting on a read path whether a group is in use (\#685).  
   - Checking whether a learner has a recorded status for the group or anything beneath it, and any confirmation or warning workflow for it. Owned by \#723 (Epic 10).  
-- **Tests.** One test per Acceptance Criteria scenario, plus the cases the scenarios do not reach. In `tests/openedx_learning/applets/cbe/test_api.py`: exactly one history row per real edit, and none for a no-op; a retired group refused even when the request is otherwise a no-op, which is what pins the check order; a root group rejected with 400 before any permission check or write; the permission-check course correctly resolved from both a course-level group's own `course_id` and a leaf group's `parent.course_id`; the operator accepted on a group with exactly one child; no `StudentCompetency*Status` row created, updated, or deleted, and none queried, on any path; the group's sequence number and parent unchanged by every path. In `tests/openedx_learning/applets/cbe/test_views.py`: one test per row of the status-code table above, including a body changing `name`, `parent_id`, or `course_id`.
+- **Tests.** One test per Acceptance Criteria scenario, plus the cases the scenarios do not reach. In `tests/openedx_learning/applets/cbe/test_api.py`: exactly one history row per real edit, and none for a no-op; an archived group refused even when the request is otherwise a no-op, which is what pins the check order; a root group rejected with 400 before any permission check or write; the permission-check course correctly resolved from both a course-level group's own `course_id` and a leaf group's `parent.course_id`; the operator accepted on a group with exactly one child; no `StudentCompetency*Status` row created, updated, or deleted, and none queried, on any path; the group's sequence number and parent unchanged by every path. In `tests/openedx_learning/applets/cbe/test_views.py`: one test per row of the status-code table above, including a body changing `name`, `parent_id`, or `course_id`.
 
 Files to create and modify **Modified files**
 
@@ -170,6 +170,6 @@ Files to create and modify **Modified files**
 - Prior art for the thin-view-plus-api-function shape and the error translation this ticket follows: `src/openedx_tagging/rest_api/v1/views.py` (`TaxonomyTagsView.update`) and `src/openedx_tagging/api.py` (`update_tag_in_taxonomy`).  
 - Permission machinery: `oel_tagging.can_tag_object` (studio write access to a course, plus taxonomy view access), checked via an inline `has_perm()` call in the api function rather than a DRF permission class. See \#665's `associate_competency_criterion()` for the `ObjectTagPermissionItem` pattern this reuses.  
 - The applet-api convention this function is published through: `docs/openedx_content/decisions/0010-merge-authoring-apps-into-openedx-content.rst`, with `src/openedx_content/api.py` as the working example.  
-- Related work: \#613 (data model); \#664 (creates groups and the REST scaffolding this extends); \#671 (the frontend counterpart that requires an editable operator and states the group name is system-managed); \#675 (removes a group and its subtree and owns `archived` as a retirement action); \#681 and \#685 (read endpoints); \#716 (the `archived` field); \#723 (the guardrails these confirmations serve); \#759 (the criterion-level update sibling).
+- Related work: \#613 (data model); \#664 (creates groups and the REST scaffolding this extends); \#671 (the frontend counterpart that requires an editable operator and states the group name is system-managed); \#675 (removes a group and its subtree and owns `archived` as an archiving action); \#681 and \#685 (read endpoints); \#716 (the `archived` field); \#723 (the guardrails these confirmations serve); \#759 (the criterion-level update sibling).
 
 </details>

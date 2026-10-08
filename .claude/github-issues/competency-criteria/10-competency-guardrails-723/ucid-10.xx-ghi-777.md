@@ -34,7 +34,7 @@ This section is background and a suggested approach, not the ticket's source of 
 
 ### In short
 
-**What the API is for.** A caller that stores data referencing a tag association calls the lock function to record that fact. From then on, deleting that association retires it instead of removing it, which is what keeps the caller's references resolvable. The tagging app never learns why the association is locked, only that it is.
+**What the API is for.** A caller that stores data referencing a tag association calls the lock function to record that fact. From then on, deleting that association archives it instead of removing it, which is what keeps the caller's references resolvable. The tagging app never learns why the association is locked, only that it is.
 
 **Only associations are locked; tags and taxonomies are asked about.** The dependency always attaches to an association, because that is what a competency criterion points at. A tag matters because associations exist beneath it, and a taxonomy because associations exist somewhere in it. So there is one setter, for associations, and two reader functions, `get_tags_locked_for_deletion()` and `is_taxonomy_locked_for_deletion()`,  
  that walk down from a tag or a taxonomy to answer the same question for them.
