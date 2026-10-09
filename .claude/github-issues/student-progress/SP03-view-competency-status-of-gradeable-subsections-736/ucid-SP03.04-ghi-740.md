@@ -83,7 +83,7 @@ Scenario: A card heading with no criteria of its own shows its competency's own 
 Scenario: A card heading below the top level shows its status, and its breadcrumb shows none
   Given "Root Cause Analysis" is a child of "Problem Definition", which is a child of "Problem Solving", a top-level tag
   And this course has criteria on "Root Cause Analysis"
-  And the learner's competency status is Demonstrated for "Problem Solving" and Partially Attempted for "Problem Definition"
+  And the learner's competency status is Demonstrated for "Problem Solving", because the learner met "Problem Solving"'s own requirements in another course, and Partially Attempted for "Problem Definition"
   When the learner opens the course's Progress tab
   Then the "Problem Definition" card heading shows "Partially Attempted"
   And no breadcrumb entry above it, including "Problem Solving", shows a status
@@ -119,32 +119,34 @@ Scenario Outline: A subsection with no result to hide never masks a competency
     | isn't released yet, so the learner sees it by name with an "Available" oval  |
 
 Scenario: Tags with the same name in two taxonomies each show their own status
-  Given "Workplace Skills" and "Accounting Standards" each have a top-level tag named "Communication", and this course has criteria on both
-  And the learner's competency status is Demonstrated for the "Workplace Skills" tag and none recorded for the "Accounting Standards" tag
+  Given two taxonomies, "Workplace Skills" and "Accounting Standards", each have a top-level tag named "Communication", and this course has criteria on both tags
+  And the learner's competency status is Demonstrated for the "Communication" tag in the "Workplace Skills" taxonomy, and none recorded for the "Communication" tag in the "Accounting Standards" taxonomy
   When the learner opens the course's Progress tab
-  Then the "Communication" card under the "Workplace Skills" heading shows "Demonstrated"
-  And the "Communication" card under the "Accounting Standards" heading shows "Available"
+  Then the "Communication" card under the "Workplace Skills" taxonomy heading shows "Demonstrated"
+  And the "Communication" card under the "Accounting Standards" taxonomy heading shows "Available"
 
 Scenario: No competency shows a status when the learner's statuses can't be loaded
   Given a course with competency criteria
-  And the site's LMS does not provide #738's competency status endpoint
+  And the request for the learner's competency statuses fails, for example because the site's LMS doesn't provide #738's endpoint
   When the learner opens the course's Progress tab
   Then the cards appear with their headings and tag rows
   And no card heading shows a status pill, and no tag row shows a pipe or a status, not even "Available"
   And no error message appears in their place
 
-Scenario Outline: Course staff see a learner's competency statuses, with the learner's hidden results masked
-  Given a learner whose competency status is Demonstrated for "Communication" and for "Inference", a tag row in the "Critical Thinking" card
+Scenario Outline: A staff member viewing a learner's progress sees the same statuses the learner sees on their own Progress tab
+  Given a learner in content group A, whose competency status is Demonstrated for "Communication" and for "Inference", a tag row in the "Critical Thinking" card
+  And "Group B Project", a subsection under "Communication", is restricted to content group B, so the learner's own Progress tab shows it as a placeholder row and "Communication" as "Demonstrated"
+  And "Unit 3 Quiz", a subsection under "Inference", is set to show assessment results only once it is past due, and its due date hasn't passed, so the learner's own Progress tab shows "Inference" and "Critical Thinking" as "Available"
   And the staff member has no competency statuses of their own
-  And "Unit 3 Quiz", a subsection under "Inference", is set to show assessment results only once it is past due, and its due date hasn't passed
-  When <viewer>
-  Then the "Communication" card heading shows "Demonstrated"
-  And the "Inference" tag row and the "Critical Thinking" card heading show "Available"
+  When a member of course staff <view>
+  Then "Group B Project" appears <appearance>
+  And the "Communication" card heading shows "Demonstrated", as on the learner's own Progress tab
+  And the "Inference" tag row and the "Critical Thinking" card heading show "Available", as on the learner's own Progress tab
 
   Examples:
-    | viewer                                                                                                 |
-    | a member of course staff opens that learner's progress page, for example from the instructor dashboard |
-    | a member of course staff views the Progress tab masquerading as that specific learner                  |
+    | view                                                                     | appearance                                                    |
+    | opens that learner's progress page, for example from the instructor dashboard | by name, because #734 shows staff every subsection there |
+    | views the Progress tab masquerading as that learner                      | as a placeholder row, as on the learner's own Progress tab    |
 
 Scenario: A screen reader user hears each competency's name with its status
   Given the "Critical Thinking" card heading's status is Partially Attempted
@@ -173,19 +175,25 @@ This is a suggested approach, not the source of truth. The User Story, Descripti
 
 **Summary**
 
-#739's `buildCompetencyStatuses` gains a map of tag statuses, in which every tag above a masked criterion reads "Available". Card headings show #739's `StatusOval`, and tag rows show a new `TagStatusPill`.
+Each card heading shows the learner's status for its tag in #739's `StatusOval`, which reads "Demonstrated" instead of a score when given none. Each tag row shows its status in a new `TagStatusPill`. #739's `buildCompetencyStatuses` supplies these statuses, and sets every tag above a masked subsection to "Available".
 
 **Approach**
 
 1. **Tag statuses.** Add `tags` to #739's `buildCompetencyStatuses` result, beside #739's `criteria`: a `Map` from tag `id` to a display status. Criterion ids and tag ids are different id spaces, so the two stay in separate maps. Consumers read both through #739's `useCompetencyStatuses`, whose shape is unchanged, so #743 and #745 get the same masked result. Cover every `id` in the `lineage` of every tag in #733's `tags`; that includes card headings with no criteria of their own. A tag shows its `student_competency_statuses` entry, or "Available" when it has none. A tag whose status is unknown is left out of the map, so it gets no pill and no pipe (#739 already logs the value).
-2. **Propagation.** For each criterion that #739 marks `masked`, take its tag, which is the `tag_id` of its group's root as `buildCompetencyCards` resolves it. Mark every `id` in that tag's `lineage`, which runs from the top of the taxonomy down to the tag itself. A masked tag shows "Available" whatever its stored status, including an unknown one. Because the map is keyed by tag id, a masked tag reads "Available" everywhere it appears, including as the heading of a different card. Unreleased subsections and placeholder rows are never `masked`, so they never propagate.
-3. **Headings.** `CompetencyCard` looks up the card's heading tag `id` (#734) and renders `StatusOval` without `percentGraded`, inside the heading element at the right end of the header. That way a screen reader moving by heading hears the status together with the name. Breadcrumb entries show nothing.
-4. **Tag rows.** `TagStatusPill` renders the target icon, the name, an `aria-hidden` pipe, and the status label as visible text, all inside one outlined pill tinted by status. Paragon has no component for this. `Chip` is the closest: without `onClick` it renders as a non-interactive `div`, and it supports `iconBefore`, but it has no tinted variants and its label never wraps (`.pgn__chip__label` sets `white-space: nowrap` with an ellipsis). Build `TagStatusPill` on `Chip`: per status, override its border and background custom properties and `--pgn-color-chip-label-base`, which also colors the icon, so the status text meets the contrast scenario; and let the label wrap. Without `onClick`, `Chip`'s `iconBefore` renders a plain `Icon` with no text alternative, so give the target icon its text alternative in an `sr-only` sibling, as #734 requires. Call out the Paragon gap in the PR description so it can be raised upstream.
-5. **Failure.** When #739's hook returns null `statuses`, headings get no pill and rows get no pipe or status. That includes a Progress API failure while #738 succeeds: without the Progress API the mask can't be computed, and showing #738's statuses unmasked could reveal a hidden result.
-6. **Test cases beyond the AC:**
+2. **Propagation.** For each criterion that #739 marks `masked`, take its tag, which is the `tag_id` of its group's root as `buildCompetencyCards` resolves it. Mark every `id` in that tag's `lineage`, which runs from the top of the taxonomy down to the tag itself. A masked tag shows "Available" whatever its stored status, including an unknown one. Because the map is keyed by tag id, a masked tag reads "Available" everywhere it appears, including as the heading of a different card. Unreleased subsections and placeholder rows are never `masked`, so they never mask the tags above them.
+3. **Staff route.** On the staff route, #734's outline is the staff member's, so a subsection the learner can't see is a named row there. For example, take "Group A Project" and "Group B Project", alternative paths joined by OR under "Communication", each restricted to its content group, for a Group A learner whose "Communication" status is Demonstrated:
+   - On the learner's own page, "Group B Project" isn't in the learner's outline, so it is a placeholder row. A placeholder row never masks the tags above it, so "Communication" reads "Demonstrated".
+   - On the staff route, "Group B Project" is a named row. The Progress API leaves it out of the learner's `section_scores`, and #739's rule masks a named row that is missing from `section_scores`. That mask would spread to the tags above it, so "Communication" would read "Available".
+
+   So when `targetUserId` is set, `buildCompetencyStatuses` leaves `masked` false for a named row that is missing from `section_scores`. Its oval still reads "Available", as #739 specifies. A row whose `show_grades` is false still masks, because the Progress API computes `show_grades` for the learner. Erring toward showing staff more is safe: masking exists so that some learners don't see results before others, and course staff can already see grades in the Gradebook. Masquerade needs nothing, because #734's outline is already the masqueraded learner's and `targetUserId` is unset.
+4. **Headings.** `CompetencyCard` looks up the card's heading tag `id` (#734) and renders #739's `StatusOval` without `percentGraded`, so a Demonstrated heading reads "Demonstrated" rather than a score, inside the heading element at the right end of the header. That way a screen reader moving by heading hears the status together with the name. Breadcrumb entries show nothing.
+5. **Tag rows.** `TagStatusPill` renders the target icon, the name, an `aria-hidden` pipe, and the status label as visible text, all inside one outlined pill tinted by status. Paragon has no component for this. `Chip` is the closest: without `onClick` it renders as a non-interactive `div`, and it supports `iconBefore`, but it has no tinted variants and its label never wraps (`.pgn__chip__label` sets `white-space: nowrap` with an ellipsis). Build `TagStatusPill` on `Chip`: per status, override its border and background custom properties and `--pgn-color-chip-label-base`, which also colors the icon, so the status text meets the contrast scenario; set `--pgn-size-chip-border-radius` to `var(--pgn-size-badge-border-radius-pill)`, because `Chip`'s default radius (`0.375rem`) is much squarer than the design's fully rounded pill; and let the label wrap. Without `onClick`, `Chip`'s `iconBefore` renders a plain `Icon` with no text alternative, so give the target icon its text alternative in an `sr-only` sibling, as #734 requires. Call out the Paragon gap in the PR description so it can be raised upstream.
+6. **Failure.** When #739's hook returns null `statuses`, headings get no pill and rows get no pipe or status. That includes a Progress API failure while #738 succeeds: without the Progress API the mask can't be computed, and showing #738's statuses unmasked could reveal a hidden result.
+7. **Test cases beyond the AC:**
    - When the Progress API fails while #738 succeeds, no tag status appears.
    - An unknown status shows no status on a heading or on a tag row.
    - A masked tag whose stored status is unknown shows "Available".
+   - On the staff route, a named row missing from `section_scores` doesn't mask its tags, and a row whose `show_grades` is false still does.
 
 Out of scope:
 
@@ -198,7 +206,7 @@ Paths are relative to the root of the plugin repository from #810.
 
 | File | Change |
 | --- | --- |
-| `src/data/buildCompetencyStatuses.js` | modified: tag statuses and propagation |
+| `src/data/buildCompetencyStatuses.js` | modified: tag statuses, propagation, and the staff-route mask rule |
 | `src/CompetencyCard.jsx` | modified: heading pill and tag row pills |
 | `src/TagStatusPill.jsx` | new |
 | `src/messages.js` | modified |
@@ -209,12 +217,8 @@ Paths are relative to the root of the plugin repository from #810.
   - A heading's status rolls up child tags the card doesn't show, so "Partially Attempted" can sit above rows that all read "Demonstrated".
   - Masking covers only this course's criteria, so a competency can read "Available" here and "Demonstrated" on another course's Progress tab.
   - A subsection whose results are hidden until its due date makes its competency and every ancestor read "Available" until that date passes. When its results are never shown, they read "Available" for the whole run. This applies even to competencies demonstrated in another course.
-  - On the staff route, a subsection the learner can't see masks its tags for the staff viewer, so staff can see "Available" where the learner sees a status.
+  - On the staff route, a subsection set to never show individual results (`never_but_include_grade`) doesn't mask its tags, because the Progress API leaves it out of `section_scores` the same way it leaves out subsections the learner can't see. Staff can therefore see a tag status that the learner sees as "Available". Masquerade matches the learner's page exactly.
 - Statuses for tags with no criteria of their own, such as most card headings, come from #643's roll-up through `Tag.parent`. Until #643 ships, those headings read "Available".
 - A distinct "results not released yet" state, instead of "Available" for a masked tag, is a possible UX follow-up with @illiphilli.
 
 </details>
-
-## Open Questions
-
-- (architect, final review) On the staff route, should a subsection the learner can't see mask tags for the staff viewer? The draft accepts it as a known limitation that errs toward hiding. The alternatives are fetching the target learner's outline on the staff route and using it only for the named-row test, or not masking missing subsections on the staff route, which would reveal `never_but_include_grade` results.
