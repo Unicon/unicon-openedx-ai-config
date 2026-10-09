@@ -96,20 +96,20 @@ Scenario: Placeholder rows have no oval
   Then Quiz 1's row shows an oval
   And the placeholder row shows no oval, no status, and no score
 
-Scenario: The cards appear together with their ovals
+Scenario: Ovals fill in without changing once shown
   Given a course with competency criteria
   And the learner's network connection is slow
   When the learner opens the course's Progress tab
-  Then each card appears with an oval already on every named row
-  And while the page loads, no card appears first without ovals, and no oval changes after it first appears
+  Then the cards may appear before the ovals, with no oval on any named row until the learner's statuses load
+  And once the statuses load, every named row shows its oval
+  And no oval changes after it first appears
 
 Scenario: The cards appear without ovals when the learner's statuses can't be loaded
   Given a course with competency criteria
-  And the site's LMS doesn't provide #738's competency status endpoint
+  And the request for the learner's competency statuses fails, for example because the site's LMS doesn't provide #738's endpoint
   When the learner opens the course's Progress tab
   Then the cards appear as #734 describes, with no oval on any named row, including no "Available" oval
   And no error message is shown to the learner
-  And the failure is reported to the site's logging service
 
 Scenario Outline: Course staff see the learner's ovals, with the learner's hidden results
   Given the learner scored 19 of 20 points on "Quiz 1", whose results are always shown, and on "Quiz 2", whose results are set never to be shown, so their recorded status on each is Demonstrated
@@ -176,20 +176,22 @@ The panel makes two more requests through #734's plugin-owned query client: #738
    - `statuses` is null when #738 or the Progress API fails; #734's query cache has already logged the error. Otherwise `statuses` is `buildCompetencyStatuses`'s result, memoized on the four responses' `data`.
    - The hook reads nothing from props or slot context, so #743's sidebar can call it from its own slot and share the cache without new requests.
 5. **Join guard.** The join assumes #733's `object_id` string equals the Progress API's `block_key` for the same subsection. Both are `str()` of the usage key, but the equality has not been confirmed on a devstack. If the two never match, every oval reads "Available" with no other symptom. So when `section_scores` lists subsections and no named row matches any `block_key`, the hook logs one error. Confirm the equality on a devstack before merging.
-6. **Panel.** `CompetencyProgressPanel` calls the hook with both values from `useProgressRouteParams`. It renders nothing while `isPending` is true, and it passes `statuses.criteria` down to `CriteriaGroupList` as a plain prop. Each named row looks up its own criterion `id` on the row, which assumes #734 carries it (see Open Questions). So a subsection under two tags, or in two groups under one tag, shows each criterion's own status. When `statuses` is null, the rows render as #734 has them, with no oval.
-   - #839's `useCompetencyPanelState` needs no change, because it decides from #733 alone.
-   - #839's loading rule ("until both #733's answer and the learner's course outline have arrived") becomes incomplete once this ticket lands, because the panel also waits for #738 and the Progress API. Whichever of #739 and #839 merges second combines the two conditions in `CompetencyProgressPanel`.
+6. **Panel.** `CompetencyProgressPanel` calls the hook with both values from `useProgressRouteParams`. It renders the cards as soon as #734 does, without waiting for the hook, and passes `statuses?.criteria` down to `CriteriaGroupList` as a plain prop. While `isPending` is true or `statuses` is null, the rows render as #734 has them, with no oval, so no row shows a temporary "Available" that later changes.
+   - `buildCompetencyCards` carries each named subsection row's criterion `id`, alongside the tag ids #734 already carries. Each named row looks up its own criterion `id`, so a subsection under two tags, or in two groups under one tag, shows each criterion's own status. Joining by `object_id` would give both rows the same status.
+   - #839's `useCompetencyPanelState` and its loading rule need no change, because the cards don't wait for #738 or the Progress API.
 7. **Oval.** `StatusOval({ status, percentGraded })` in `src/StatusOval.jsx` renders Available, Partially Attempted, Not Demonstrated, and Demonstrated. #740 reuses it on card headings.
    - Icons: #768's icons, which Paragon exports as `RadioButtonUnchecked`, `Contrast`, `RemoveCircle`, and `CheckCircle`.
    - Outlined "Available" oval: Paragon's `Badge` has no outlined variant. If the design's "Available" oval is outlined, override `Badge`'s `--pgn-badge-bg` and add a border locally, and call out the gap in the PR description.
    - Accessibility: when `percentGraded` is passed, the Demonstrated oval shows the percentage as visible text, with "Demonstrated" in an `sr-only` sibling placed before it, so a screen reader reads "Demonstrated, 95%". The icon is `aria-hidden`.
-   - Percentage format: apply the host's `getGradePercent` rule (a whole number, otherwise two decimals) to `Math.round(percentGraded * 10000)`, and format the result through `intl.formatNumber`. Applying the rule to the raw product would show 29% as "29.00%", because `0.29 * 100` is `28.999999999999996`.
+   - Percentage format: copy the Grade Summary table's `getGradePercent` verbatim (`toFixed(0)` when `percentGraded * 100` is a whole number, otherwise `toFixed(2)`), with the same right-to-left mark before "%" in RTL locales, so the oval matches the Progress tab exactly. That includes the host's float quirk: 0.29 shows as "29.00%", because `0.29 * 100` is `28.999999999999996`.
 8. **Test cases beyond the AC:**
    - A `PartiallyAttempted` criterion shows the Partially Attempted oval.
    - An unknown status shows no oval and is logged once.
    - When the Progress API fails while #738 succeeds, no ovals appear.
+   - When #738 or the Progress API fails, the failure is reported to the logging service.
+   - While the statuses are pending, named rows show no oval.
    - A masked criterion whose stored status is unknown shows "Available".
-   - `percentGraded` values of 0, 0.29, 0.6667, and 0.825 render as 0%, 29%, 66.67%, and 82.50%.
+   - `percentGraded` values of 0, 0.29, 0.6667, and 0.825 render as 0%, 29.00%, 66.67%, and 82.50%, the same as the Grade Summary table.
 
 Out of scope:
 
@@ -205,7 +207,7 @@ Paths are relative to the root of the plugin repository from #810.
 | `src/data/api.js` | modified: `getCompetencyStatuses` and `getProgressScores` |
 | `src/data/apiHooks.js` | modified: the two new queries and `useCompetencyStatuses` |
 | `src/data/buildCompetencyStatuses.js` | new |
-| `src/data/buildCompetencyCards.js` | modified: export the outline index |
+| `src/data/buildCompetencyCards.js` | modified: export the outline index, and carry each named row's criterion `id` |
 | `src/StatusOval.jsx` | new |
 | `src/CompetencyProgressPanel.jsx` | modified |
 | `src/CompetencyCard.jsx` | modified: passes `statuses` to `CriteriaGroupList` |
@@ -226,7 +228,4 @@ Paths are relative to the root of the plugin repository from #810.
 
 ## Open Questions
 
-- (architect, final review) Should #734's Technical Details carry each named subsection row's criterion `id`, the same way they now carry tag ids? One subsection under two tags has two statuses, so rows must join by criterion id, not by `object_id`. The draft assumes #734 carries it; otherwise #739 modifies `buildCompetencyCards`.
-- (architect, final review) Is masking that changes only the display acceptable for MVP? #738's response still carries the hidden status to the browser, and for `never_but_include_grade` subsections the platform itself sends nothing. The draft accepts it as a known limitation.
-- (architect, final review) Should the percentage formatter apply `getGradePercent`'s rule to the rounded value through `intl.formatNumber`, rather than copy it verbatim? A verbatim copy shows "29.00%" for 0.29 and isn't localized. The AC's examples come out the same either way. The draft uses the rounded, localized version.
-- (implementer) Should the two new queries keep the client's default retries on a 5xx response? The panel waits through the retries, about 7 seconds, before showing cards without ovals.
+- (implementer) Should the two new queries keep the client's default retries on a 5xx response? The named rows show no oval through the retries, about 7 seconds, before the panel gives up on the ovals.
