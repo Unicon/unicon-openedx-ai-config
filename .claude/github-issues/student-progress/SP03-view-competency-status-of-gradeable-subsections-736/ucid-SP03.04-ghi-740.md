@@ -43,7 +43,7 @@ These scenarios use #734's terms (card heading, tag row, breadcrumb, placeholder
 - A learner's competency status for a tag is the overall status the platform has recorded for that learner and that competency, across all courses: Partially Attempted, Demonstrated, or none recorded.
 - A card heading's status pill sits at the right end of the card header and shows a status icon and a status label.
 - A tag row's status is the label that follows the pipe after the tag's name, inside the row's outlined pill.
-- A subsection hides its score when the course hides that subsection's result from the learner on the Progress tab, which #739 shows as an "Available" oval.
+- A subsection hides its score when the course hides that subsection's result from the learner on the Progress tab. On a named row, #739 shows this as an "Available" oval.
 - Each status's colors are the ones in the attached design.
 - Unless a scenario says otherwise, every subsection in the course shows its score to the learner, so no status is masked.
 
@@ -118,6 +118,13 @@ Scenario Outline: A subsection with no result to hide never masks a competency
     | is visible only to staff, so the learner sees it as a placeholder row        |
     | isn't released yet, so the learner sees it by name with an "Available" oval  |
 
+Scenario: A subsection hidden from the course outline still masks its competency while its results are hidden
+  Given "Bonus Case Study", a subsection under "Analysis" in the "Critical Thinking" card, is hidden from the course outline, so the learner sees it as a placeholder row
+  And the learner reached it through a direct link and scored 19 of 20 points on it, so their competency status for "Analysis" is Demonstrated
+  And "Bonus Case Study" is set to show assessment results only once it is past due, and its due date hasn't passed
+  When the learner opens the course's Progress tab
+  Then the "Analysis" tag row and the "Critical Thinking" card heading show "Available"
+
 Scenario: Tags with the same name in two taxonomies each show their own status
   Given two taxonomies, "Workplace Skills" and "Accounting Standards", each have a top-level tag named "Communication", and this course has criteria on both tags
   And the learner's competency status is Demonstrated for the "Communication" tag in the "Workplace Skills" taxonomy, and none recorded for the "Communication" tag in the "Accounting Standards" taxonomy
@@ -180,9 +187,10 @@ Each card heading shows the learner's status for its tag in #739's `StatusOval`,
 **Approach**
 
 1. **Tag statuses.** Add `tags` to #739's `buildCompetencyStatuses` result, beside #739's `criteria`: a `Map` from tag `id` to a display status. Criterion ids and tag ids are different id spaces, so the two stay in separate maps. Consumers read both through #739's `useCompetencyStatuses`, whose shape is unchanged, so #743 and #745 get the same masked result. Cover every `id` in the `lineage` of every tag in #733's `tags`; that includes card headings with no criteria of their own. A tag shows its `student_competency_statuses` entry, or "Available" when it has none. A tag whose status is unknown is left out of the map, so it gets no pill and no pipe (#739 already logs the value).
-2. **Propagation.** For each criterion that #739 marks `masked`, take its tag, which is the `tag_id` of its group's root as `buildCompetencyCards` resolves it. Mark every `id` in that tag's `lineage`, which runs from the top of the taxonomy down to the tag itself. A masked tag shows "Available" whatever its stored status, including an unknown one. Because the map is keyed by tag id, a masked tag reads "Available" everywhere it appears, including as the heading of a different card. Unreleased subsections and placeholder rows are never `masked`, so they never mask the tags above them.
+2. **Propagation.** For each criterion that #739 marks `masked`, take its tag, which is the `tag_id` of its group's root as `buildCompetencyCards` resolves it. Mark every `id` in that tag's `lineage`, which runs from the top of the taxonomy down to the tag itself. A masked tag shows "Available" whatever its stored status, including an unknown one. Because the map is keyed by tag id, a masked tag reads "Available" everywhere it appears, including as the heading of a different card. Unreleased subsections are never `masked`, so they never mask the tags above them.
+   - Placeholder rows: #739's `criteria` covers named rows only, so check each placeholder criterion here. A placeholder criterion masks its tag's lineage when its `object_id` is in the learner's `section_scores` index with `show_grades` false. A learner can reach a subsection hidden from the outline (`hide_from_toc`) through a direct link and submit it, so a hidden result can sit behind its recorded status. Other placeholder rows, such as staff-only or other-group subsections, aren't in the learner's `section_scores`, so they never mask.
 3. **Staff route.** On the staff route, #734's outline is the staff member's, so a subsection the learner can't see is a named row there. For example, take "Group A Project" and "Group B Project", alternative paths joined by OR under "Communication", each restricted to its content group, for a Group A learner whose "Communication" status is Demonstrated:
-   - On the learner's own page, "Group B Project" isn't in the learner's outline, so it is a placeholder row. A placeholder row never masks the tags above it, so "Communication" reads "Demonstrated".
+   - On the learner's own page, "Group B Project" isn't in the learner's outline, so it is a placeholder row. Because it belongs to another group, the learner can't open it, and it isn't in the learner's `section_scores`. So, unlike a hidden-from-outline subsection with hidden results (step 2), its placeholder row doesn't mask the tags above it, and "Communication" reads "Demonstrated".
    - On the staff route, "Group B Project" is a named row. The Progress API leaves it out of the learner's `section_scores`, and #739's rule masks a named row that is missing from `section_scores`. That mask would spread to the tags above it, so "Communication" would read "Available".
 
    So when `targetUserId` is set, `buildCompetencyStatuses` leaves `masked` false for a named row that is missing from `section_scores`. Its oval still reads "Available", as #739 specifies. A row whose `show_grades` is false still masks, because the Progress API computes `show_grades` for the learner. Erring toward showing staff more is safe: masking exists so that some learners don't see results before others, and course staff can already see grades in the Gradebook. Masquerade needs nothing, because #734's outline is already the masqueraded learner's and `targetUserId` is unset.
@@ -194,6 +202,7 @@ Each card heading shows the learner's status for its tag in #739's `StatusOval`,
    - An unknown status shows no status on a heading or on a tag row.
    - A masked tag whose stored status is unknown shows "Available".
    - On the staff route, a named row missing from `section_scores` doesn't mask its tags, and a row whose `show_grades` is false still does.
+   - A placeholder criterion whose subsection is in `section_scores` with `show_grades` false masks its tags. One whose subsection is missing from `section_scores`, such as a staff-only or other-group subsection, doesn't.
 
 Out of scope:
 
