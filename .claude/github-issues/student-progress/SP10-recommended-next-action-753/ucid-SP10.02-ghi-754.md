@@ -17,9 +17,9 @@ This is the algorithm that will be used to calculate the Recommended Next Action
    - Any criterion whose ancestor group (at any level), whose competency, or whose competency's parent in the taxonomy already reports "Demonstrated" for this learner, even when that specific criterion has no status row of its own. This is what keeps an already-satisfied OR group from still recommending its untouched siblings. A competency demonstrated in another course counts.
 4. Split what's left into three groups, based on what the learner has submitted in each subsection:
    - **Continue candidates:** the learner has submitted some of the subsection's graded parts but not all of them, and the subsection still accepts a submission from the learner.
-   - **Retry candidates:** the learner has submitted every graded part, every one has been graded, a criterion there is still not "Demonstrated," and the subsection accepts a resubmission from the learner. A subsection with a submission still awaiting grading is neither a continue nor a retry candidate.
-   - **Not-started candidates:** the learner hasn't submitted any of the subsection's graded parts.
-5. Recommend from the first group that has any candidates, in the order continue, retry, not-started. Within that group, recommend the subsection with the soonest due date for the learner. Subsections with no due date come after all dated ones, and ties go to the subsection that comes first in the course outline (section order, then subsection order). Otherwise, there's no recommendation.
+   - **Retry candidates:** the learner has submitted every graded part, every one has been graded, a criterion there is still not "Demonstrated," and the subsection accepts a resubmission from the learner. A subsection whose graded work staff reset for the learner, so the learner has submitted nothing there since, is still a retry candidate when the learner has a status on a remaining criterion there. A subsection with a submission still awaiting grading is neither a continue nor a retry candidate.
+   - **Not-started candidates:** the learner hasn't submitted any of the subsection's graded parts and has no status on any criterion there.
+5. Recommend the candidate, from any of the three groups, with the soonest due date for the learner. Subsections with no due date come after all dated ones. When several candidates share the soonest due date, or none of them has a due date, prefer a continue candidate, then a retry candidate, then a not-started candidate, and among candidates of the same group, the one that comes first in the course outline (section order, then subsection order). Otherwise, there's no recommendation.
 6. Return, for the selected subsection: its display name, a ready-to-use navigation URL, and, for each of its criteria that is not "Demonstrated" and not removed in step 3, the criterion id, competency tag id, competency name, status (null when the learner has no status row), and rule.
 
 The response payload will be something to the effect of this:
@@ -102,9 +102,9 @@ Scenario: A retake lists only what is left to demonstrate there
   And the result names "Poetry Assignment 2" and links to it in the courseware
   And the recommendation lists only "Writing Poetry", with its competency name, the learner's status of attempted but not demonstrated, and the rule of a grade of at least 80 percent
 
-Scenario Outline: A subsection to continue comes before a retake, and a retake before a new attempt, whatever the due dates
+Scenario Outline: Among candidates due on the same date, a subsection to continue comes before a retake, and a retake before a new attempt
   Given subsection P is <P's kind>, and subsection R is <R's kind>
-  And R comes before P in the course outline, and the learner's due date for R is sooner than for P
+  And R comes before P in the course outline, and R and P have the same due date for the learner
   And no other subsection in course run X is a candidate of any kind
   When the learner requests their recommended next action in course run X
   Then P is recommended as <recommendation>
@@ -115,8 +115,9 @@ Scenario Outline: A subsection to continue comes before a retake, and a retake b
     | one to continue     | a new attempt   | a subsection to continue |
     | a retake            | a new attempt   | a retake               |
     | a retake whose graded work staff reset for the learner, so the learner has submitted nothing there since | a new attempt | a retake |
+    | one to continue, and neither P nor R has a due date | a retake | a subsection to continue |
 
-Scenario Outline: Among candidates of the same kind, the one due soonest for the learner is recommended
+Scenario Outline: The candidate due soonest for the learner is recommended, whatever its kind
   Given course run X has three <candidates>: P, Q, and R, in that course outline order
   And <due dates>
   And no other subsection in course run X is a candidate of any kind
@@ -128,6 +129,8 @@ Scenario Outline: Among candidates of the same kind, the one due soonest for the
     | subsections the learner hasn't started | R is due soonest and Q is due last                                                       | R           |
     | retakes                          | R is due soonest and Q is due last                                                             | R           |
     | subsections to continue          | R is due soonest and Q is due last                                                             | R           |
+    | candidates where P is one to continue, Q is a retake, and R is a new attempt | R is due soonest and P is due last                               | R           |
+    | candidates where P is one to continue, Q is a retake, and R is a new attempt | only R has a due date                                            | R           |
     | subsections the learner hasn't started | only Q has a due date                                                                    | Q           |
     | subsections the learner hasn't started | none of them has a due date                                                              | P           |
     | subsections the learner hasn't started | P and R share the soonest due date, and Q is due later                                   | P           |
@@ -154,7 +157,9 @@ Scenario: A new attempt lists every criterion on the subsection, none with a sta
 
 ```gherkin
 Scenario Outline: A subsection whose criteria are already satisfied higher up is not recommended
-  Given subsection D1 comes first in course run X's outline, and the learner hasn't started it
+  Given subsection D1 comes first in course run X's outline, carries a criterion for "Writing Poetry", and is one the learner hasn't started
+  And D1's criterion shares OR group A with D2's criterion, and group A and group B, which holds D3's criterion, sit under "Writing Poetry"'s course-level OR group for course run X
+  And "Writing Poetry" is a child of the competency "Literary Skills" in the taxonomy, and "Research" is not
   And subsection E, later in the outline, carries a criterion for "Research" and is one the learner hasn't started
   And <satisfied>
   When the learner requests their recommended next action in course run X
@@ -359,7 +364,7 @@ This is a suggested approach, not the source of truth. The User Story, Descripti
 
 **Summary**
 
-openedx-core adds one Python API function that returns a learner's remaining criteria in a course run: the criteria the learner hasn't demonstrated and that nothing above them already satisfies, meaning no Demonstrated ancestor group, competency, or ancestor competency in the taxonomy. openedx-platform adds a new LMS djangoapp for CBE learner features. Its endpoint accepts and refuses callers the way ProgressTabView does, sorts the openable subsections that carry remaining criteria by the learner's due dates, and asks #855 about each one in that order. The first subsection to continue wins, else the first to retake, else the first to start. When nothing qualifies, the response carries a resume link computed for the target learner.
+openedx-core adds one Python API function that returns a learner's remaining criteria in a course run: the criteria the learner hasn't demonstrated and that nothing above them already satisfies, meaning no Demonstrated ancestor group, competency, or ancestor competency in the taxonomy. openedx-platform adds a new LMS djangoapp for CBE learner features. Its endpoint accepts and refuses callers the way ProgressTabView does, sorts the openable subsections that carry remaining criteria by the learner's due dates, and asks #855 about each one in that order. The first due date that has any candidate wins. Among candidates sharing that due date, a subsection to continue beats a retake, which beats a new attempt. When nothing qualifies, the response carries a resume link computed for the target learner.
 
 **Approach**
 
@@ -389,7 +394,7 @@ openedx-platform, in a new `lms/djangoapps/cbe_learner/` app with no models:
       - New (`not_started`): `attempted` is false, no remaining criterion on the subsection has a status row, and `accepts` is `"yes"` or `"unknown"`.
       - Anything else is not a candidate. That includes a subsection whose counting components are all submitted while one is still awaiting grading (`all_submitted` true, `all_scored` false), and a retake whose `accepts` is `"unknown"`.
 
-      The first continue ends the walk, because continue outranks the other kinds and the list is already in order. Otherwise, after the walk, recommend the first retake, or else the first new attempt. `"unknown"` qualifies a continue for the same reason it qualifies a new attempt: the content the learner hasn't submitted to yet is usually the content #855 can't check, such as an external tool. #855 answers `"no"` once the subsection is past the learner's due date plus grace period, so #754 checks no dates itself.
+      The walk stops once it has classified every subsection that shares the due date of the first candidate it finds, treating "no due date" as one shared date. Among those candidates, recommend the first continue, else the first retake, else the first new attempt, in the step 3 order. `"unknown"` qualifies a continue for the same reason it qualifies a new attempt: the content the learner hasn't submitted to yet is usually the content #855 can't check, such as an external tool. #855 answers `"no"` once the subsection is past the learner's due date plus grace period, so #754 checks no dates itself.
    5. When the walk finds nothing, the reason is `nothing_actionable` if any remaining subsection was openable, and `nothing_openable` if none was. The outline alone decides which of the two applies.
 7. The hidden-score skip applies only to retake candidates. A continue candidate is recommended even when its subsection never shows results, because it asks the learner to submit the parts they haven't submitted yet, not to redo a scored attempt. A retake's score is hidden when #739's masking rule holds for the learner: its `show_correctness` is `never_but_include_grade`, or `ShowCorrectness.correctness_available(show_correctness, due, learner_has_staff_access)` is false. `show_correctness` comes from the collected block structure (the grades transformer collects it). `due` is the learner's due date from step 6.3. `learner_has_staff_access` comes from `has_access(learner, "staff", course_key)`, as in ProgressTabView.
 8. `resume_url` is set for every null `next_action` except `no_criteria_in_course`. When `get_key_to_last_completed_block(learner, course_key)` succeeds, `resume_url` is the absolute `jump_to` URL for that block, as on the course home. On `UnavailableCompletionData`, it is `make_learning_mfe_courseware_url(course_key, sequence)` for the first sequence in outline order that is in `accessible_sequences`, or for the course alone when no sequence is. Don't reuse the course home's code path, because it builds this fallback from the requester's outline.
@@ -398,7 +403,7 @@ openedx-platform, in a new `lms/djangoapps/cbe_learner/` app with no models:
 Tests the Acceptance Criteria don't cover:
 
 - openedx-core: a Demonstrated bottom-tier group, course-level group, root group, competency status, or ancestor competency at any depth each drops its criteria, including a sibling criterion with no status row. These drop nothing: a group status other than Demonstrated, another learner's rows, a Demonstrated descendant competency, a Demonstrated tag with the same value in another taxonomy, and a Demonstrated sibling whose value is a prefix of the criterion tag's value ("Writing" beside "Writing Poetry"). `status` is `None` when there is no row. #733's exclusions give `has_criteria=False`. The query count is the same for one criterion as for many, and for a two-level taxonomy as for a deeper one.
-- openedx-platform: #855 is never called for an unopenable subsection or on the `no_criteria_in_course` and `all_demonstrated` paths, and it is not called again after the first continue. A continue later in due-date order beats an earlier retake or new attempt. #855 answers whether a subsection accepts a submission from a learner now, whether the learner has attempted it, and whether every counting component is submitted and scored. Each AC example is a product state that produces one of #855's answers; ranking tests drive those answers through a mock, because #855's own tests cover the product states behind each answer.
+- openedx-platform: #855 is never called for an unopenable subsection or on the `no_criteria_in_course` and `all_demonstrated` paths, and it is not called for a subsection due after the first due date that has a candidate. A candidate with an earlier due date beats one of any kind due later, and on the same due date a continue beats a retake, which beats a new attempt. #855 answers whether a subsection accepts a submission from a learner now, whether the learner has attempted it, and whether every counting component is submitted and scored. Each AC example is a product state that produces one of #855's answers; ranking tests drive those answers through a mock, because #855's own tests cover the product states behind each answer.
 - The openedx-core read is covered by the unit tests in the openedx-core bullet above, not by AC scenarios.
 
 Out of scope:
@@ -434,4 +439,4 @@ Out of scope:
 
 ## Open Questions
 
-- (implementer) In what order should #754 call #855, and should anything be cached? A subsection's kind depends on #855's answer, so the walk calls #855 for every openable subsection with remaining criteria unless it finds a continue. That means a learner with no subsection in progress, the common case, costs one #855 call per candidate. Recommended: walk the candidates once in due-date order, calling #855 one subsection at a time, stopping at the first continue and remembering the first retake and the first new attempt on the way. Build the learner's collected block structure once per request and pass it to #855 through the optional `collected_block_structure` argument #855 proposes. Profile a course with about 50 subsections carrying criteria; if it is too slow, add a batch form of #855 that takes many subsection keys as a follow-up.
+- (implementer) In what order should #754 call #855, and should anything be cached? A subsection's kind depends on #855's answer, so the walk calls #855 for each openable subsection with remaining criteria, in due-date order, until it has found a candidate and classified every subsection sharing that candidate's due date. In the worst case, when nothing is actionable, that is one #855 call per openable subsection. Recommended: walk the candidates once in due-date order, calling #855 one subsection at a time, and stop as described in the Approach. Build the learner's collected block structure once per request and pass it to #855 through the optional `collected_block_structure` argument #855 proposes. Profile a course with about 50 subsections carrying criteria; if it is too slow, add a batch form of #855 that takes many subsection keys as a follow-up.
