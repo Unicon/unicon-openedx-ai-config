@@ -217,15 +217,15 @@ Scenario Outline: Archiving a group takes its whole subtree out of the result wh
     | first bottom-tier group             |
     | course-level group for course run X |
 
-Scenario Outline: A competency whose tag or taxonomy is retired is left out with everything beneath it
+Scenario Outline: A competency whose tag or taxonomy is archived is left out with everything beneath it
   Given course run X has criteria for competency "Root Cause Analysis" in competency taxonomy A and for competency "Communication" in competency taxonomy B
-  And <retirement>
+  And <archiving>
   When a permitted caller requests course run X's competency criteria
   Then "Root Cause Analysis", its root group, and every group and criterion beneath that root group are absent
   And "Communication" and its criteria are still returned under taxonomy B
 
   Examples:
-    | retirement                                                   |
+    | archiving                                                    |
     | the "Root Cause Analysis" tag is archived                    |
     | taxonomy A is archived, and none of its tags is              |
     | taxonomy A is disabled                                       |

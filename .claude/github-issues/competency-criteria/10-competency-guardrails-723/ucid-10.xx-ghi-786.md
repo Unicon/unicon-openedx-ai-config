@@ -86,7 +86,7 @@ This section is background and a suggested approach, not the ticket's source of 
 
 ### In short
 
-**Why one wording covers both outcomes.** The server decides whether to remove the association or retire it, based on whether learner mastery depends on it, and does not report which it did. So the dialog cannot describe the mechanism. It can say the action cannot be undone from this screen and that existing learner mastery is unaffected, both of which are true either way.
+**Why one wording covers both outcomes.** The server decides whether to remove the association or archive it, based on whether learner mastery depends on it, and does not report which it did. So the dialog cannot describe the mechanism. It can say the action cannot be undone from this screen and that existing learner mastery is unaffected, both of which are true either way.
 
 **What the frontend sends is unchanged.** Removal on this page goes through the \#674 and \#675 delete endpoints, and the archive-or-delete branch is entirely server-side in those endpoints. This ticket adds a confirmation in front of the existing request and changes nothing about the request itself.
 
@@ -94,7 +94,7 @@ This section is background and a suggested approach, not the ticket's source of 
 
 **There are two entry points to a direct association removal, confirmed against the actual Competency Management UI:** the "X" on an already-associated subsection's chip in the Browse Courses panel, and the "X" on that same association's item in the rule box's own Selected Content list. Both must show the confirmation.
 
-**The third and fourth entry points are deleting a whole Rule Group or course section (\#709) and deleting a whole rule box (\#833).** This ticket gates both with the same dialog, since each removes or retires every association beneath it. For a rule box, one confirmation covers all of the box's criteria, not one per criterion.
+**The third and fourth entry points are deleting a whole Rule Group or course section (\#709) and deleting a whole rule box (\#833).** This ticket gates both with the same dialog, since each removes or archives every association beneath it. For a rule box, one confirmation covers all of the box's criteria, not one per criterion.
 
 ### Implementation specifics
 
@@ -110,6 +110,6 @@ This section is background and a suggested approach, not the ticket's source of 
 - \#674 and \#675 are the server-side branch this confirmation sits in front of.  
 - \#709 specifies the whole-group delete action, and \#833 the whole-rule-box delete action, that this ticket also gates.
 
-The approved implementation approach on \#655, for why the author is not told whether the association was removed or retired.
+The approved implementation approach on \#655, for why the author is not told whether the association was removed or archived.
 
 </details>

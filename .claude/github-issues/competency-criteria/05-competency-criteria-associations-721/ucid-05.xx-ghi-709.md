@@ -43,11 +43,11 @@ Scenario: Deleting a Course Group removes that course's whole section, with no c
   And the other Course Group and its contents are unchanged
   And the deleted Course Group is still gone after I reload the page
 
-Scenario: A Rule Group the server retires rather than removes disappears like any other
+Scenario: A Rule Group the server archives rather than removes disappears like any other
   Given a Course Group holds two saved Rule Groups, and a learner already has recorded progress on a subsection in one of them
   When I delete that Rule Group
   Then it disappears from the page, the same as a Rule Group no learner has progress in
-  And nothing on the page tells me whether it was removed or retired
+  And nothing on the page tells me whether it was removed or archived
   And the Course Group's other Rule Group is unchanged
 
 Scenario: Deleting an unsaved empty Rule Group removes it without contacting the server

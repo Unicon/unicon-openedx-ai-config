@@ -70,6 +70,8 @@ Only Technical Details is collapsed. Everything else stays open on the page.
 
 Reference other work by **GitHub issue number only** (e.g. "see #618"), found in its cache filename after ghi-. Only reference by Use Case IDs (ucid) only when that ticket's file says ghi-pending, and replace it once a number exists. Never use spreadsheet IDs or any tracker a reader outside the team can't open. Don't mention target releases or roadmap timing anywhere in the ticket.
 
+Say "archived", never "retired", for a taxonomy, tag, criterion, rule profile, or anything else taken out of use, because archived is the lifecycle term the code and ADRs use. The same goes for "archive" and "archiving" in place of "retire" and "retirement". The one exception is Open edX user account retirement, the platform's account-deletion pipeline, which keeps its own name.
+
 ## 1. User Story (human)
 
 Why the user cares, in one sentence:

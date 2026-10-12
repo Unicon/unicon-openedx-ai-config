@@ -22,7 +22,7 @@ Scenario: Archiving a tag notifies every affected content object, even without a
   When that tag is archived by a tag-level delete request
   Then a content-tag-changed notification is emitted once for each of those two objects
 
-Scenario: Search stops returning a retired framework's tags
+Scenario: Search stops returning an archived framework's tags
   Given content indexed with tags from a taxonomy
   When that taxonomy is archived and the notifications are processed
   Then searching no longer returns those tags for that content
@@ -77,7 +77,7 @@ This section is background and a suggested approach, not the ticket's source of 
 
 **Finding the affected objects means reading archived rows.** By the time this runs, \#778 has made archived records invisible to the normal read paths, and \#780's ancestor archiving may have archived several tags in the same request. Use the opt-out \#778 documents — likely a keyword like `include_archived=True` on the relevant `openedx_tagging.api` read function, or a queryset method, though \#778 hasn't pinned down the exact shape yet — so this ticket's queries see archived rows while ordinary callers keep the default filtered view.
 
-A note on manually verifying this end-to-end. This repo has no UI of its own to check this in. Once openedx-platform and Meilisearch are both involved, the Libraries search/filter UI is a reasonable place to confirm a retired tag stops appearing, since it's a straightforward consumer of the same per-object tags data this event refreshes. That's a devstack-level check across repos, not part of this ticket's own automated tests.
+A note on manually verifying this end-to-end. This repo has no UI of its own to check this in. Once openedx-platform and Meilisearch are both involved, the Libraries search/filter UI is a reasonable place to confirm an archived tag stops appearing, since it's a straightforward consumer of the same per-object tags data this event refreshes. That's a devstack-level check across repos, not part of this ticket's own automated tests.
 
 ### Implementation specifics
 
