@@ -1,4 +1,4 @@
-# [Release Docs] Docs for course section and sub-competency count
+# [Release Docs] Docs for Recommended Next Action
 
 GitHub: https://github.com/openedx/openedx-core/issues/756 (#756, OPEN)
 Cached: 2026-09-21
