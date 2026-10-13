@@ -14,10 +14,17 @@ This ticket updates the Courses & Content panel so that when a course's course-l
 
 ## UX Design
 
-@illiphilli, please add the UX design screenshot(s) and the Figma link for this ticket.
+- Figma: 
+- [A1 · Archived message](https://www.figma.com/design/VhAdaucNQS49x0Afp9xPZw/Competency-Application?node-id=3231-57561)
+[A2 · Loading](https://www.figma.com/design/VhAdaucNQS49x0Afp9xPZw/Competency-Application?node-id=3231-57587)
+[A3 · Load failed](https://www.figma.com/design/VhAdaucNQS49x0Afp9xPZw/Competency-Application?node-id=3231-57613)
+- Screenshots: 
 
-- Figma: TBD
-- Screenshots: TBD
+<img width="1600" height="1161" alt="Image" src="https://github.com/user-attachments/assets/aaaf290a-2c4e-4613-a24f-f1f1e854afa7" />
+
+<img width="1600" height="1161" alt="Image" src="https://github.com/user-attachments/assets/a7510ee6-e8ed-4ab2-9ad1-79781c4b2b0d" />
+
+<img width="1600" height="1161" alt="Image" src="https://github.com/user-attachments/assets/2ca09ee8-349e-4f50-996c-cb8a18d57d89" />
 
 ## Acceptance Criteria
 
