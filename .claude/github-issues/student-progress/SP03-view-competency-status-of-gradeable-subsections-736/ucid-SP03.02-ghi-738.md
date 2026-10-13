@@ -37,7 +37,17 @@ In these scenarios, L is a learner, and a caller permitted to read L's statuses 
 - Under openedx-core's default learner resolution, L.
 - On the LMS, L with an active enrollment in the course run, a member of the course run's staff who names L, or a member of its staff who is masquerading as L.
 
-A recorded status is one that #699 and #643 write when L's work is graded. Before those are merged, the reviewer records the same statuses directly, through a Django shell or a test fixture. Scenarios under a heading marked openedx-platform are verified in the LMS PR. All other scenarios are verified in the openedx-core PR. Cases that can't be set up through the product's APIs are covered by the unit tests listed in Technical Details rather than here. Those cases include a criterion recorded as "PartiallyAttempted", a group subtree deeper than three levels, and the archived states that #733's archive cascades prevent.
+The scenarios use these two competency taxonomies. Each scenario says which of these tags course run X has criteria for.
+
+```text
+Taxonomy A
+└── Problem Solving              (top-level tag)
+    └── Problem Definition
+        ├── Root Cause Analysis
+        └── Fishbone Diagrams
+Taxonomy B
+└── Communication                (top-level tag)
+```
 
 **Access under openedx-core's default learner resolution**
 
@@ -132,6 +142,22 @@ Scenario Outline: A signed-in user with neither an active enrollment nor a staff
     | enrolled in course run X, has recorded statuses there, and has since unenrolled                                          |
 ```
 
+**Learner ids that match no user**
+
+```gherkin
+Scenario Outline: A learner id that matches no user is refused as not found
+  Given <requester>
+  When the requester asks for competency statuses for course run X, naming learner id <learner id>
+  Then the request is refused as not found
+  And the response is identical to the one given for a learner the requester may not see
+
+  Examples:
+    | requester                                                         | learner id                          |
+    | a signed-in user under openedx-core's default learner resolution | "abc", which is not an integer      |
+    | a member of course run X's staff, requesting from the LMS        | "abc", which is not an integer      |
+    | a member of course run X's staff, requesting from the LMS        | an integer that matches no user     |
+```
+
 **Course resolution**
 
 ```gherkin
@@ -158,7 +184,7 @@ Scenario Outline: A request with nothing to report returns an empty result
 **What the result contains**
 
 ```gherkin
-Scenario: Each recorded status is reported by name and matched to an item in #733's result
+Scenario: Each recorded status is reported by name and keyed by its criterion's or tag's id
   Given course run X has three criteria for competency "Root Cause Analysis"
   And L's recorded status is "Demonstrated" for the first criterion and "AttemptedNotDemonstrated" for the second, and L has no recorded status for the third
   And L's recorded status for "Root Cause Analysis" is "PartiallyAttempted"
@@ -166,27 +192,25 @@ Scenario: Each recorded status is reported by name and matched to an item in #73
   Then the first criterion is reported as "Demonstrated" and the second as "AttemptedNotDemonstrated"
   And "Root Cause Analysis" is reported as "PartiallyAttempted"
   And the third criterion does not appear
-  And each criterion status names the identifier that #733's result gives that criterion
-  And the "Root Cause Analysis" status names the identifier that #733's result gives the "Root Cause Analysis" tag
+  And each criterion status carries that criterion's id
+  And the "Root Cause Analysis" status carries the "Root Cause Analysis" tag's id
   And the result contains nothing that identifies L, neither L's username nor L's user id
 
 Scenario: The learner's statuses for a competency's ancestors are reported and matched to its lineage
-  Given a competency taxonomy in which "Root Cause Analysis" is a child of "Problem Definition", which is a child of the top-level tag "Problem Solving"
-  And "Fishbone Diagrams" is another child of "Problem Definition"
-  And course run X has criteria for "Root Cause Analysis" and for no other tag in that taxonomy
+  Given course run X has criteria for "Root Cause Analysis" and for no other tag in taxonomy A
   And L has recorded statuses for "Root Cause Analysis", "Problem Definition", "Problem Solving", and "Fishbone Diagrams"
   When a permitted caller requests L's competency statuses for course run X
   Then L's statuses for "Root Cause Analysis", "Problem Definition", and "Problem Solving" are returned
-  And each ancestor's status names the identifier of that ancestor's entry in the lineage #733's result gives "Root Cause Analysis"
+  And each ancestor's status carries that ancestor tag's id
   And L's status for "Fishbone Diagrams", which course run X does not assess, does not appear
 
 Scenario: A competency carries the learner's overall recorded status, while criterion statuses come only from course run X
-  Given competency "Analysis" has criteria in course run X and in course run Y
-  And L demonstrated "Analysis" through course run Y's criteria, so "Analysis" is recorded as "Demonstrated"
-  And L's recorded status for course run X's "Analysis" criterion is "AttemptedNotDemonstrated"
+  Given competency "Root Cause Analysis" has criteria in course run X and in course run Y
+  And L demonstrated "Root Cause Analysis" through course run Y's criteria, so "Root Cause Analysis" is recorded as "Demonstrated"
+  And L's recorded status for course run X's "Root Cause Analysis" criterion is "AttemptedNotDemonstrated"
   When a permitted caller requests L's competency statuses for course run X
-  Then "Analysis" is reported as "Demonstrated"
-  And course run X's "Analysis" criterion is reported as "AttemptedNotDemonstrated"
+  Then "Root Cause Analysis" is reported as "Demonstrated"
+  And course run X's "Root Cause Analysis" criterion is reported as "AttemptedNotDemonstrated"
   And no status for any course run Y criterion is returned
 ```
 
@@ -196,7 +220,7 @@ In these scenarios, L already has a recorded status through every criterion invo
 
 ```gherkin
 Scenario Outline: Statuses follow #733's result when part of the course run's competency data is retired
-  Given course run X has criteria for "Root Cause Analysis", a child of "Problem Definition" under the top-level tag "Problem Solving" in competency taxonomy A, and for "Communication" in competency taxonomy B
+  Given course run X has criteria for "Root Cause Analysis" and for "Communication"
   And "Root Cause Analysis"'s course-level group for course run X has two bottom-tier groups, each holding two criteria
   And L has a recorded status for every one of those criteria, for both competencies, and for every ancestor of each
   When <retirement>
@@ -217,6 +241,8 @@ Scenario Outline: Statuses follow #733's result when part of the course run's co
 ```
 
 **Subsections a learner cannot see (openedx-platform)**
+
+The Progress tab's own API, `/api/course_home/v1/progress/{course_key}`, sends the real score for a subsection set to never show individual assessment results, and the page hides it. This endpoint follows the same pattern: it returns statuses as stored, and #739 and #740 mask them in the browser, so a learner who inspects the network response can read statuses the page does not show them. For a subsection hidden from learners or restricted to a content group the learner is not in, the Progress tab's API leaves the subsection out entirely, so there this endpoint exposes more than the Progress tab does.
 
 ```gherkin
 Scenario: Statuses are returned for criteria on subsections whose content or results the learner cannot see
@@ -251,16 +277,14 @@ In openedx-platform:
    2. Call `get_student_user()`, so its 404s come before the enrollment refusal.
    3. Raise `PermissionDenied` when the requester lacks staff access and the resolved learner has no active enrollment, the same check `ProgressTabView` makes with `CourseEnrollment.get_enrollment(...).is_active`. This is 403 rather than `ProgressTabView`'s 401, because the AC separate a refused request from an unauthenticated one, and #733 refuses with 403.
 
-Tests must cover these cases in openedx-core, beyond the AC:
+Beyond the Acceptance Criteria, tests must cover these internal behaviors in openedx-core:
 - With no course-level groups, the call costs exactly one query and never reads the status tables. With statuses present, the query count doesn't grow with the number of rows.
 - A criterion recorded as `PartiallyAttempted` is returned as stored.
 - A group subtree deeper than three levels returns statuses for criteria at every depth.
 - For each state #733's cascades prevent, the statuses returned are exactly the learner's rows whose ids are in #733's result. Those states are an archived group whose children aren't archived, an archived object tag under a criterion that isn't, an active group whose criteria are all archived, and a tag that isn't archived under an archived ancestor.
 - A configured resolver is honored: one that returns another user yields that user's statuses, and one that raises `PermissionDenied` yields 403.
-- A non-integer `learner_id` gets the same 404 as an unknown id, per step 3.
 
 Tests must cover these cases in openedx-platform:
-- Staff naming a learner id that matches no user get the same 404 as a refused requester.
 - Staff who aren't enrolled and are masquerading as a specific learner get that learner's statuses. This test fails if the staff check moves after `get_student_user()`.
 - `ProgressTabView`'s existing tests pass unchanged.
 
@@ -285,6 +309,7 @@ Tests must cover these cases in openedx-platform:
 - Known limitations:
   - The competency status is the learner's overall, cross-course status. Course staff can therefore read status a learner earned in other organizations' courses, for the competencies this course run assesses, including for a user who never enrolled in it.
   - Statuses for criteria on subsections whose results the course hides are returned as stored, and #739 and #740 mask them, so they are readable in the network response. The competency-level status already reflects those results, so masking only the criterion rows on the server wouldn't hide them.
+  - The extracted `get_student_user()` keeps `ProgressTabView`'s CCX coach check, so a CCX coach can read statuses for a learner in their CCX, as on the Progress tab.
   - Statuses are returned without recomputation, so they can trail a grade by the asynchronous roll-up in `docs/openedx_learning/decisions/0004-competency-mastery-concurrency.rst`.
 - Out of scope:
   - CCX courses.
@@ -292,9 +317,3 @@ Tests must cover these cases in openedx-platform:
   - The per-subsection percentage score, which the plugin reads from `/api/course_home/v1/progress/{course_key}` (`block_key`, `percent_graded`).
 
 </details>
-
-## Open Questions
-
-- (architect, final review) Should the LMS refusal check the resolved learner's enrollment, as `ProgressTabView` does, rather than the requester's? The two differ only for a CCX coach naming a learner. CCX is out of scope, but the extracted `get_student_user()` keeps `ProgressTabView`'s CCX coach check, so a CCX coach can reach this endpoint for a learner in their CCX. The draft follows `ProgressTabView`.
-- (architect, final review) Should the enrollment refusal return 403 rather than `ProgressTabView`'s 401? The draft uses 403, for the reason given in Approach step 5.3.
-- (architect, final review) Should the learner-facing access pattern, #733's rebindable permission plus this ticket's resolver setting, get a short ADR in Proposed status in `docs/openedx_learning/decisions/`? #742, #745, and #753 copy this security boundary. The draft leaves the ADR out of this ticket's scope.
