@@ -9,7 +9,6 @@ As a course author, I want competency tags on my content to be shown without con
 
 ## Acceptance Criteria
 
-**Note:** The Libraries *remove-control* scenario needs a manufactured state (fixture, shell, or direct API call) — Competency Management can't tag library content directly, and copying tags into a library currently drops them (a confirmed defect). The Libraries *add-control* scenario needs no such workaround: it only checks what's offered in the add-tag dropdown, testable directly in Studio.
 
 ```
 Scenario: A competency tag is shown without a remove control
@@ -35,17 +34,6 @@ Scenario: Competency taxonomies are not offered for adding tags
   Then competency taxonomies are not offered as a choice
   And every other taxonomy is offered as it is today
 
-Scenario: A competency tag on the Libraries page also has no remove control
-  Given library content tagged with a competency and an ordinary tag
-  When its tags are shown on the Libraries page
-  Then the competency has no remove control and the ordinary tag does
-
-Scenario: Competency taxonomies are not offered for adding tags on the Libraries page
-  Given library content
-  When the author opens the control for adding a tag
-  Then competency taxonomies are not offered as a choice
-  And every other taxonomy is offered as it is today
-
 Scenario: A competency tag is still readable
   Given a content object tagged with a competency
   When its tags are shown
@@ -61,9 +49,19 @@ Scenario: An author using a keyboard or screen reader is not offered the hidden 
 
 ## Description
 
-Course Outline and Libraries show each tag with a remove control, plus an add-tag control for any taxonomy. Competency tags get no special treatment today, so an author can remove or add one from a page that knows nothing about the competency criteria built on it.
+Course Outline show each tag with a remove control, plus an add-tag control for any taxonomy. Competency tags get no special treatment today, so an author can remove or add one from a page that knows nothing about the competency criteria built on it.
 
-**Two payloads, two gating tickets.** Removing reads the per-object tag payload, gated by \#783. Adding reads the taxonomy list (`useTaxonomyList`), gated by \#618. The two halves are independent. This ticket uses the taxonomy type from the tagging payloads to disallow users from adding or removing tag associations from the Course Outline and Libraries pages.
+**Two payloads, two gating tickets.** Removing reads the per-object tag payload, gated by \#783. Adding reads the taxonomy list (`useTaxonomyList`), gated by \#618. The two halves are independent. This ticket uses the taxonomy type from the tagging payloads to disallow users from adding or removing tag associations from the Course Outline pages.
+
+Figma Links:
+Add [Course Outline competency tags](https://www.figma.com/design/VhAdaucNQS49x0Afp9xPZw/Competency-Application?node-id=2972-25103).
+
+Screenshots:
+
+<img width="1600" height="1480" alt="Image" src="https://github.com/user-attachments/assets/39dc6f9c-d8f4-4acd-970d-6116f147f7f0" />
+
+<img width="1600" height="1480" alt="Image" src="https://github.com/user-attachments/assets/ed827281-4fb8-42c3-a2db-752a971156c7" />
+
 
 <details>
 <summary>Technical Details</summary>
@@ -78,17 +76,14 @@ This section is background and a suggested approach, not the ticket's source of 
 
 **Hiding has to mean removed, not visually suppressed.** A control that is merely styled out of sight is still focusable by keyboard and still announced by a screen reader, and in this case it is still clickable, so it would remain a route to breaking competency configuration for exactly the authors least able to recover from it. The control must not be rendered.
 
-**Both pages already share one component, confirmed against the frontend code.** Course Outline's tag display and the Libraries pages' tag display both use the same `content-tags-drawer` module (`ContentTagsDrawer.tsx` and `ContentTagsDrawerHelper.jsx`) in `frontend-app-authoring`. There is one component to change, not two.
-
 ### Implementation specifics
 
 - **Gate the remove control on the taxonomy type field \#783 adds** to each tag in the per-object tag payload. Do not match on taxonomy name, and do not maintain a client-side list of competency taxonomy ids.  
 - **Gate the add-tag taxonomy filtering on the taxonomy type \#618 adds to the taxonomy list payload** (`useTaxonomyList`), independent of \#783. Filter competency taxonomies out of that list so the author is not offered a taxonomy they cannot usefully pick. Leave every other taxonomy exactly as it is.  
 - **Do not render the removal control** for a competency tag, rather than hiding it with CSS or disabling it. A disabled control is still discoverable and still communicates that the action ought to be possible.  
-- **Edit the shared `content-tags-drawer` component**, used identically by Course Outline and Libraries; no per-page duplication needed.  
 - **Handle the per-object payload not carrying the taxonomy type field.** Until \#783 is deployed, or against an older backend, the type may be absent from that payload. Treat absent as "not a competency" so the remove control behaves as it does today rather than hiding on every tag. The same applies to the add-tag list until \#618 is deployed.  
 - **Do not add an explanatory tooltip or message** in this ticket. Telling the author where to manage competency tags instead is a reasonable idea and is not in the approved scope; raise it separately rather than inventing copy here.  
-- **Tests:** a competency tag renders with no removal control in the DOM; an ordinary tag renders with one; a mixed object renders correctly; competency taxonomies are absent from the add-tag list; the competency's name is still rendered; a per-object payload with the type field absent renders today's remove controls; a keyboard traversal test asserting no removal control for a competency is focusable. Cover the Libraries page as well as the Course Outline page.  
+- **Tests:** a competency tag renders with no removal control in the DOM; an ordinary tag renders with one; a mixed object renders correctly; competency taxonomies are absent from the add-tag list; the competency's name is still rendered; a per-object payload with the type field absent renders today's remove controls; a keyboard traversal test asserting no removal control for a competency is focusable. 
 - **Out of scope:** the backend field (\#783), the Competency Management page's own controls, and any confirmation dialog, which are \#785 and \#786.
 
 ### Files to modify
@@ -96,7 +91,7 @@ This section is background and a suggested approach, not the ticket's source of 
 | File | Nature of modification |
 | :---- | :---- |
 | `content-tags-drawer/ContentTagsDrawer.tsx` / `ContentTagsDrawerHelper.jsx` | gate the remove control on the per-object payload's taxonomy type, and the add-tag taxonomy list on its own taxonomy type |
-| the corresponding tests | rendered-without-control, mixed-object, add-list-filtered, absent-field-fallback, and keyboard-traversal tests, for both Course Outline and Libraries |
+| the corresponding tests | rendered-without-control, mixed-object, add-list-filtered, absent-field-fallback, and keyboard-traversal tests, for Course Outline |
 
 Context 
 

@@ -1,8 +1,3 @@
-# [FE] Display Competency Statuses for Learner in Course
-
-GitHub: https://github.com/openedx/openedx-core/issues/740 (#740, OPEN)
-Cached: 2026-09-21
-
 ## User Story
 As a learner, I need to know my mastery status for each competency in my course in order to understand what I need to work on improving and how I can speak about my skills.
 
@@ -31,16 +26,16 @@ If any subsection under a competency tag in this course shows "Available" becaus
 
 ## UX Design
 
-@illiphilli, please add the UX design screenshot(s) and the Figma link for this ticket.
+- [Figma Link](https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=983-3817&t=2Jkl6fnaAmO6aSi1-1)
+- Screenshots:
 
-- Figma: TBD
-- Screenshots: TBD
+<img width="799" height="892" alt="Image" src="https://github.com/user-attachments/assets/85cdd996-4487-4133-b175-7aa521503704" />
 
 ## Acceptance Criteria
 
 These scenarios use #734's terms (card heading, tag row, breadcrumb, placeholder row) and these:
 
-- A learner's competency status for a tag is the overall status the platform has recorded for that learner and that competency, across all courses: Partially Attempted, Demonstrated, or none recorded.
+- A learner's competency status for a tag is the overall status the platform has recorded for that learner and that competency, across all courses: Partially Attempted, Demonstrated, or none recorded (shows as available).
 - A card heading's status pill sits at the right end of the card header and shows a status icon and a status label.
 - A tag row's status is the label that follows the pipe after the tag's name, inside the row's outlined pill.
 - A subsection hides its score when the course hides that subsection's result from the learner on the Progress tab. On a named row, #739 shows this as an "Available" oval.

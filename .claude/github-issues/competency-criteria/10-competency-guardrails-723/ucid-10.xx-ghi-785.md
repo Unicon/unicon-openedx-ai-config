@@ -10,9 +10,9 @@ As a course author, I want to confirm before I change a competency rule, in orde
 ## Acceptance Criteria
 
 ```
-Scenario: Editing a criterion asks for confirmation before saving
-  Given an author has changed a competency criterion
-  When they submit the change
+Scenario: Saving a criterion's score threshold asks for confirmation first
+  Given an author has changed a criterion's score threshold in the score popover
+  When they choose Save in the popover
   Then a confirmation explaining that only future evaluations are affected is shown
     And the change is not yet saved
 
@@ -22,20 +22,27 @@ Scenario: Confirming saves the change
   Then the change is saved
     And the confirmation closes
 
-Scenario: Cancelling abandons the save and keeps the author's edits
-  Given the confirmation is shown for an edited criterion
+Scenario: Cancelling a score threshold change abandons the save and keeps the author's edits
+  Given the confirmation is shown after the author chose Save in the score popover
   When the author cancels
   Then the change is not saved
-    And the author's unsaved edits are still on screen
+    And the author's unsaved edits are still in the score popover
 
-Scenario: Editing a criteria group asks for confirmation too
-  Given an author has changed a competency criteria group
-  When they submit the change
-  Then the same kind of confirmation is shown before saving
+Scenario: Choosing a new any/all value for a criteria group asks for confirmation right away
+  Given a criteria group set to combine its rules with "any"
+  When the author chooses "all" in its any/all dropdown
+  Then the same kind of confirmation is shown immediately
+    And the change is not yet saved
+
+Scenario: Cancelling an any/all change switches the dropdown back
+  Given the confirmation is shown after the author changed a criteria group's dropdown from "any" to "all"
+  When the author cancels
+  Then the change is not saved
+    And the dropdown shows "any" again
 
 Scenario: The confirmation appears whether or not any learner has been evaluated
   Given a criterion that no learner has been evaluated against
-  When an author edits and submits it
+  When an author changes its score threshold and chooses Save in the score popover
   Then the confirmation is still shown
 
 Scenario: A save that fails does not claim to have succeeded
@@ -57,6 +64,25 @@ Editing a competency criterion or criteria group on the Competency Management pa
 
 This ticket adds the confirmation step. The wording and behavior come from the design spike \#775.
 
+Figma Links:
+[E1 · Edit a rule's score (Cancel / Save)](https://www.figma.com/design/VhAdaucNQS49x0Afp9xPZw/Competency-Application?node-id=3056-39361)
+[E2 · Confirm rule change](https://www.figma.com/design/VhAdaucNQS49x0Afp9xPZw/Competency-Application?node-id=3056-39817)
+[E4 · Change a group's any/all](https://www.figma.com/design/VhAdaucNQS49x0Afp9xPZw/Competency-Application?node-id=3056-40729)
+[E5 · Confirm logic change](https://www.figma.com/design/VhAdaucNQS49x0Afp9xPZw/Competency-Application?node-id=3056-41185)
+[E2b · Save failed](https://www.figma.com/design/VhAdaucNQS49x0Afp9xPZw/Competency-Application?node-id=3062-41986)
+
+Screenshots:
+
+<img width="1600" height="1161" alt="Image" src="https://github.com/user-attachments/assets/da445053-19c6-44de-9f26-414c73c80532" />
+
+<img width="1600" height="1161" alt="Image" src="https://github.com/user-attachments/assets/3cb7e231-f2ce-45cf-a215-2de574673934" />
+
+<img width="1600" height="1161" alt="Image" src="https://github.com/user-attachments/assets/a110be53-ba95-4155-8adf-a13696c39152" />
+
+<img width="1600" height="1161" alt="Image" src="https://github.com/user-attachments/assets/c66aaeae-f520-4952-a809-ae9be3d9ff55" />
+
+<img width="1600" height="1161" alt="Image" src="https://github.com/user-attachments/assets/8b717fa8-18f7-4325-b7f1-ce831fc15637" />
+
 <details>
 <summary>Technical Details</summary>
 
@@ -68,22 +94,22 @@ This section is background and a suggested approach, not the ticket's source of 
 
 **What the wording has to be true about.** An edit changes future evaluations only. It never rewrites a status a learner already earned, and it never removes anything. That is the whole content of the message, and it is why this dialog is worded differently from the delete confirmation in \#786.
 
-**The two edit surfaces, confirmed against the actual Competency Management UI (not assumed):** a criterion's rule threshold (operator and percentage, in the "Competency Completion Rule" panel under a course/content association) and a criteria group's combining logic (the "any"/"all" dropdown). These are two different controls, not one shared save path — see the open complication below for what that means for this ticket.
+**The two edit surfaces, confirmed against the actual Competency Management UI (not assumed):** a criterion's rule threshold (operator and percentage, in the "Competency Completion Rule" panel under a course/content association) and a criteria group's combining logic (the "any"/"all" dropdown). These are two different controls, not one shared save path, so each one opens the confirmation in its own way, as described below.
 
 **Take the wording from the design spike rather than this ticket.** The starting text is a draft that \#775 refines, along with the responsive and accessible behavior. Do not treat the sample copy in the spike as final without checking what \#775 concluded.
 
-**Open complication, not yet resolved: there is no distinct save action to gate.** Both edit surfaces above currently auto-apply on change; there is no visible "Save" step to intercept, which is what "gate the submit, not the field" below assumes exists. Confirming before a change takes effect may mean intercepting every field's change handler directly rather than a single submit action, which is a materially different (and likely harder) interaction than what \#775's starting design (a dialog with Cancel/Save Changes buttons) assumes. This probably needs to go back to \#775 before this ticket's own implementation approach can be trusted, rather than being resolved here.
+**How each edit surface opens the confirmation, per \#775.** Both surfaces apply a change as soon as it is made today, so there is no save step to intercept. \#775 adds one where it is needed. The score popover gets Cancel and Save buttons, and Save opens the confirmation; the author's edits stay in the popover until they confirm or cancel. The any/all dropdown has no separate save step, so choosing a new value opens the confirmation right away. Cancelling that confirmation switches the dropdown back to its previous value, because a dropdown has no unsaved edit to keep on screen.
 
 ### Implementation specifics
 
-- **Gate the submit, not the field.** Let the author edit freely; intercept the save. *(See the open complication above: it's not yet clear this ticket has a "submit" to gate.)*  
+- **Gate the score popover's Save and the any/all dropdown's change.** Add Cancel and Save buttons to the score popover, let the author edit the threshold freely, and open the confirmation from Save. For the dropdown, hold the newly chosen value as pending and open the confirmation; send the update only when the author confirms.  
 - **Use the dialog \#775 specifies**, including its final wording, button labels, focus behavior, and small-screen layout. If \#775 has not landed, block on it rather than inventing copy: the wording is the substance of this ticket.  
 - **Reuse the project's existing modal component** rather than building one, so focus trapping and screen-reader announcement come for free and match the rest of the authoring frontend.  
-- **Cancelling preserves form state.** Do not reset the form, refetch, or navigate away.  
+- **What cancelling does depends on the surface.** In the score popover, cancelling the confirmation preserves the popover's form state: do not reset the form, refetch, or navigate away. For the any/all dropdown, cancelling restores the value it had before the author's choice.  
 - **Show the confirmation for both record types**, a criterion and a criteria group, from whatever edit surfaces exist for each.  
 - **Do not condition it on learner status.** No extra request to find out whether anyone has been evaluated; the dialog is unconditional.  
 - **Surface a save failure to the author** and leave their edits on screen. Do not close the dialog on failure in a way that loses the change.  
-- **Tests:** submitting shows the dialog and does not save; confirming saves; cancelling does not save and preserves edits; both record types show it; a criterion with no learner status still shows it; a failed save reports the failure and keeps the edits; focus moves into the dialog and it is keyboard dismissible.  
+- **Tests:** Save in the score popover shows the dialog and does not save; choosing a new any/all value shows the dialog and does not save; confirming saves; cancelling after the popover's Save does not save and keeps the edits in the popover; cancelling after an any/all change does not save and restores the previous value; both record types show it; a criterion with no learner status still shows it; a failed save reports the failure and keeps the edits; focus moves into the dialog and it is keyboard dismissible.  
 - **Out of scope:** the delete confirmation for an association (\#786), the design itself (\#775), the backend update endpoints, which \#759 and \#760 provide, and any change to what an edit does server-side.  
 - Context \#775 is the design spike that produces this dialog's wording, responsive behavior, and accessible behavior.  
 - The approved implementation approach on \#655, for the decision that edit warnings are unconditional and that tag and taxonomy edits get none.  
