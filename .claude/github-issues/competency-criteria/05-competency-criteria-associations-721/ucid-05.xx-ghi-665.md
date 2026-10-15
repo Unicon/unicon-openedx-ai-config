@@ -1,7 +1,7 @@
-# [BE] Build endpoint for creating Competency Criteria when a gradeable-subsection association is selected
+# [BE] Create CompetencyCriteria
 
 GitHub: https://github.com/openedx/openedx-core/issues/665 (#665, OPEN)
-Cached: 2026-09-21
+Cached: 2026-10-15
 
 # [BE] Build endpoint for creating Competency Criteria when a gradeable-subsection association is selected
 
@@ -24,11 +24,11 @@ Scenario: No group supplied, no existing groups at all for this tag and course
   When a POST request is sent to the create-criterion endpoint for that competency with a valid gradeable-subsection object_id and no group_id
   Then the response returns status code 201
   And a root CompetencyCriteriaGroup is created for the competency (course_id null, parent null)
-  And a course-level CompetencyCriteriaGroup is created, parented under the root, scoped to object_id's parsed course
-  And a new leaf CompetencyCriteriaGroup is created, parented under the course-level group, named from the course's display name
+  And a course-level CompetencyCriteriaGroup is created, parented under the root, scoped to object_id's parsed course, named from the competency's value and the course's display name
+  And a new leaf CompetencyCriteriaGroup is created, parented under the course-level group, with an empty name
   And a CompetencyCriterion is created, associated with that new leaf CompetencyCriteriaGroup
   And the response body's "group_id" refers to that new leaf group
-  And the response body includes the criterion's "id", "group_id", "oel_tagging_objecttag_id", and any supplied "rule_type_override"/"rule_payload_override"
+  And the response body includes the criterion's "id", "group_id", "object_tag_id", "rule_profile_id", and any supplied "rule_type_override"/"rule_payload_override"
 
 Scenario: No group supplied, logic_operator provided
   Given a competency exists with no CompetencyCriteriaGroup rows at all
