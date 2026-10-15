@@ -219,18 +219,18 @@ Scenario: A competency carries the learner's overall recorded status, while crit
 In these scenarios, L already has a recorded status through every criterion involved. Without one, deleting a criterion, group, tag, or taxonomy removes it outright instead of archiving it.
 
 ```gherkin
-Scenario Outline: Statuses follow #733's result when part of the course run's competency data is retired
+Scenario Outline: Statuses follow #733's result when part of the course run's competency data is archived
   Given course run X has criteria for "Root Cause Analysis" and for "Communication"
   And "Root Cause Analysis"'s course-level group for course run X has two bottom-tier groups, each holding two criteria
   And L has a recorded status for every one of those criteria, for both competencies, and for every ancestor of each
-  When <retirement>
+  When <archiving>
   And a permitted caller requests L's competency statuses for course run X
   Then L's statuses are returned for exactly the criteria and tags that #733's result for course run X contains, including the tags in each competency's lineage
-  And none of L's statuses for the retired item, for anything beneath it, or for any ancestor that no remaining competency in course run X has in its lineage, is returned
+  And none of L's statuses for the archived item, for anything beneath it, or for any ancestor that no remaining competency in course run X has in its lineage, is returned
   And L's statuses for "Communication" and its criteria are still returned
 
   Examples:
-    | retirement                                                                                     |
+    | archiving                                                                                     |
     | one criterion in the first bottom-tier group is archived through #674                          |
     | the first bottom-tier group is archived through #675                                           |
     | "Root Cause Analysis"'s course-level group for course run X is archived through #675           |

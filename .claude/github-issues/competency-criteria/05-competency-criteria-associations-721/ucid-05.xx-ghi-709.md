@@ -1,16 +1,16 @@
 # [FE] Delete Competency Course & Rule Groups
 
 GitHub: https://github.com/openedx/openedx-core/issues/709 (#709, OPEN)
-Cached: 2026-09-25
+Cached: 2026-10-14
 
 ## User Story
 As a course author, I want to delete a whole Rule Group or a whole Course Group from a competency's rules in one action, in order to fix a mistake or delete/archive rules I no longer want without removing each association one at a time.
 
 ## Description
 
-This ticket implements the functionality for the trash can icon for both Course Groups and Rule Groups. When the user clicks on the trash can icon, the frontend should call the backend endpoint that deletes CompetencyCriteriaGroups with the id of the group that should be deleted. Upon a successful deletion, the frontend should update to accurately display only the remaining groups. Upon an unsuccessful deletion, the frontend should report to the user that an error occurred.
+This ticket implements the functionality for the ⋮ menu on both Course Groups and Rule Groups. When the user chooses the menu's **Remove group** item on a Rule Group, or its **Remove from [competency]** item on a Course Group, the frontend should call the backend endpoint that deletes CompetencyCriteriaGroups with the id of the group that should be deleted. Upon a successful deletion, the frontend should update to accurately display only the remaining groups. Upon an unsuccessful deletion, the frontend should report to the user that an error occurred.
 
-After a delete, focus moves to the Rule Group directly above the deleted one, or to the one directly below it if there's nothing above. If a deletion fails, the frontend shows an error and refreshes the panel so it matches the backend. The trash can icon is hidden on courses the user can't edit.
+After a delete, focus moves to the Rule Group directly above the deleted one, or to the one directly below it if there's nothing above. If a deletion fails, the frontend shows an error and refreshes the panel so it matches the backend. The ⋮ button is hidden on courses the user can't edit.
 
 ## Context
 - #675 is the backend delete endpoint.
@@ -18,17 +18,16 @@ After a delete, focus moves to the Rule Group directly above the deleted one, or
 
 ## UX Design
 
-@illiphilli, please add the UX design screenshot(s) and the Figma link for this ticket.
+- [Figma Design](https://www.figma.com/design/VhAdaucNQS49x0Afp9xPZw/Competency-Application?node-id=1919-58613&t=rA6fTGbkOfP1iSUx-1)
 
-- Figma: TBD
-- Screenshots: TBD
+<img width="1774" height="1287" alt="Image" src="https://github.com/user-attachments/assets/6192113b-24ff-42c1-a54d-b46c2e60aae1" />
 
 ## Acceptance Criteria
 
 ```gherkin
 Scenario: Deleting a saved Rule Group removes it and its content, with no confirmation
   Given a Course Group holds three saved Rule Groups
-  When I click the trash can icon on the second Rule Group
+  When I choose Remove group from the ⋮ menu on the second Rule Group
   Then no confirmation is shown
   And the Rule Group stays on the page until the server confirms the deletion, and then it disappears along with every rule box and subsection in it
   And the other two Rule Groups and their contents are unchanged
@@ -37,7 +36,7 @@ Scenario: Deleting a saved Rule Group removes it and its content, with no confir
 
 Scenario: Deleting a Course Group removes that course's whole section, with no confirmation
   Given Course Groups for two courses are shown, and one of them holds more than one saved Rule Group
-  When I click the trash can icon on that Course Group
+  When I choose Remove from [competency] from the ⋮ menu on that Course Group
   Then no confirmation is shown
   And once the server confirms the deletion, that Course Group disappears along with every Rule Group, rule box, and subsection in it
   And the other Course Group and its contents are unchanged
@@ -53,7 +52,7 @@ Scenario: A Rule Group the server archives rather than removes disappears like a
 Scenario: Deleting an unsaved empty Rule Group removes it without contacting the server
   Given I added an empty Rule Group to a Course Group with "+ Rule Group" and have put no content in it
   And the saved Rule Group directly above it holds more than one rule box
-  When I click the trash can icon on the empty Rule Group
+  When I choose Remove group from the ⋮ menu on the empty Rule Group
   Then it disappears immediately, with no confirmation shown and nothing sent to the server
   And the saved Rule Group directly above it is in focus, together with the first rule box in it
   And no empty Rule Group or empty rule box is left on the page, and the controls to add a Rule Group or a rule box are available again
@@ -123,7 +122,7 @@ Scenario: Deleting the last group I can see moves focus to a Course Group anothe
 Scenario Outline: Deleting a group that does not hold focus leaves focus where it is
   Given two Course Groups are shown, each holding more than one saved Rule Group
   And in the upper Course Group, a Rule Group with more than one rule box is in focus, together with a rule box in it other than its first
-  When I click the trash can icon on <target>
+  When I choose the remove item from the ⋮ menu on <target>
   Then the same Rule Group and the same rule box are still in focus
 
   Examples:
@@ -134,7 +133,7 @@ Scenario Outline: Deleting a group that does not hold focus leaves focus where i
 Scenario Outline: A failed deletion shows an error and refreshes the panel to match the server
   Given a saved Rule Group is in focus
   And the server is unable to delete <target>
-  When I click the trash can icon on <target>
+  When I choose the remove item from the ⋮ menu on <target>
   Then <target> is not removed from the page before the server responds
   And an error message is shown
   And the panel is refreshed from the server, and <target> is still shown, with the contents the server holds for it
@@ -148,7 +147,7 @@ Scenario Outline: A failed deletion shows an error and refreshes the panel to ma
 Scenario Outline: Deleting a group another author already deleted counts as a successful deletion
   Given a saved Rule Group is in focus
   And another author has already deleted <target>
-  When I click the trash can icon on <target>
+  When I choose the remove item from the ⋮ menu on <target>
   Then <target> disappears, and no error message is shown
   And focus moves as it would after a successful deletion
 
@@ -157,26 +156,26 @@ Scenario Outline: Deleting a group another author already deleted counts as a su
     | that Rule Group                |
     | that Rule Group's Course Group |
 
-Scenario: The trash can icon is offered only on courses I can edit
+Scenario: The ⋮ menu is offered only on courses I can edit
   Given Course Groups for two courses are shown, and I have studio write access to only one of those courses
   When I view the associations panel
-  Then the Course Group for the course I can edit, and each Rule Group in it, shows a trash can icon
-  And the Course Group for the course I cannot edit, and each Rule Group in it, shows no trash can icon, not even a disabled one
+  Then the Course Group for the course I can edit, and each Rule Group in it, shows a ⋮ button
+  And the Course Group for the course I cannot edit, and each Rule Group in it, shows no ⋮ button, not even a disabled one
 
-Scenario: Clicking again while a deletion is in progress does not delete twice
-  Given I have clicked the trash can icon on a saved Rule Group or Course Group, and the server has not responded yet
-  When I click that trash can icon again, or any other trash can icon on the panel
-  Then every trash can icon on the panel is disabled until the server responds, and no second deletion is sent
+Scenario: Opening a menu again while a deletion is in progress does not delete twice
+  Given I have chosen the remove item from the ⋮ menu on a saved Rule Group or Course Group, and the server has not responded yet
+  When I open that ⋮ menu again, or any other ⋮ menu on the panel
+  Then every ⋮ button on the panel is disabled until the server responds, and no second deletion is sent
   And once the server confirms the first deletion, the group disappears with no error shown
 
 Scenario: Subsections cannot be selected while a deletion is in progress
-  Given I have clicked the trash can icon on a saved Rule Group or Course Group, and the server has not responded yet
+  Given I have chosen the remove item from the ⋮ menu on a saved Rule Group or Course Group, and the server has not responded yet
   When I look at the content panel
   Then every subsection's select control is disabled until the deletion finishes
 
 Scenario Outline: Keyboard focus follows the new selection target after a delete
-  Given I reach the trash can icon on <target> using only the keyboard
-  When I press Enter on it and the deletion succeeds
+  Given I reach the ⋮ button on <target> using only the keyboard
+  When I open its menu, press Enter on the remove item, and the deletion succeeds
   Then keyboard focus moves to <keyboard focus afterward>
 
   Examples:
@@ -198,10 +197,11 @@ One provider action deletes a saved Course Group or Rule Group through #675 and 
 **Approach**
 
 1. `deleteCompetencyCriteriaGroup(tagId, groupId)` in `data/api.ts` sends `DELETE /api/cbe/v1/competencies/<tag_id>/criteria-groups/<group_id>/` (#675). `useDeleteCompetencyCriteriaGroup(tagId)` in `data/apiHooks.ts` invalidates `competencyQueryKeys.competencyCriteriaGroups(tagId)` in `onSettled`, following `useDeleteTaxonomy` in `src/taxonomy/data/apiHooks.ts`, and additionally returns the `invalidateQueries` promise from `onSettled`. Returning the promise means the mutation settles, and `isPending` clears, only after the refetch has landed, on success and failure alike. Treat a success response as "gone" whether #675 hard-deleted or archived the group: #681 excludes archived rows, and the page never reads `archived` or the cascade counts.
-2. Add a trash `IconButton` with Paragon's `Delete` icon to each `CriteriaGroupBox` card, saved and placeholder alike, and to each `CourseGroupSection` header.
-   - Render it only when `canEditCourse(courseId)` is true.
+2. Add a ⋮ `IconButton` (Inline size, `more_vert`) that opens a menu to each `CriteriaGroupBox` card, saved and placeholder alike, and to each `CourseGroupSection` header. The menu's item is **Remove group** on a Rule Group and **Remove from [competency]** on a Course Group.
+   - Give the button the accessible name "More actions for this group" on a Rule Group and "More actions for [course name]" on a Course Group.
+   - Render the ⋮ button only when `canEditCourse(courseId)` is true.
    - The handler calls `e.stopPropagation()`. Without that, the click also reaches the card's own focus handler and puts that group in focus, and the delete then moves focus away from the group the author was working in.
-   - While `isDeletingGroup` is true, every trash control on the panel, including the placeholder's, is disabled. That serializes deletes, so two focus resolutions never race. Also guard `deleteGroup` with a ref, since a double click can land before the disabled state renders.
+   - While `isDeletingGroup` is true, every ⋮ button on the panel, including the placeholder's, is disabled. That serializes deletes, so two focus resolutions never race. Also guard `deleteGroup` with a ref, since a double click can land before the disabled state renders.
    - The content panel's select control from #670 is also disabled while `isDeletingGroup` is true, so a subsection can't be added to a group that is being deleted.
 3. In `CompetencyAssociationsContext.tsx`, add two actions:
    - `deleteGroup(groupId)` serves both levels, because #675 accepts a Course Group id and a Rule Group id alike. Just before sending, it snapshots the page order: the visible Course Group ids in render order, each with its Rule Group ids in #672's sibling order. After the mutation settles it calls `resolveFocusAfterRemoval(snapshot, groupId)`. On a failure it also calls `showToast`, except on a 404: #675 returns 404 for a group that is already gone, and the page treats that as a successful deletion.
@@ -223,7 +223,7 @@ One provider action deletes a saved Course Group or Rule Group through #675 and 
 
 Out of scope:
 
-- The confirmation dialog (#786), which goes between the trash handler and `deleteGroup`.
+- The confirmation dialog (#786), which goes between the menu item's handler and `deleteGroup`.
 - Deleting a rule box or a placeholder rule box (#833).
 - Deleting an association (#710).
 - Explaining archived courses in the Courses & Content panel (#841).
@@ -238,10 +238,10 @@ Out of scope:
 | `src/taxonomy/competency-management/data/apiHooks.ts` (provisional) | modified: add `useDeleteCompetencyCriteriaGroup` |
 | `src/taxonomy/competency-management/CompetencyAssociationsContext.tsx` (provisional) | modified: add `deleteGroup`, `removePlaceholderGroup`, `resolveFocusAfterRemoval`, `isDeletingGroup`, and the keyboard focus request |
 | `src/taxonomy/competency-management/utils.ts` (provisional) | modified: add `focusTargetAfterRemoval` and the page-order snapshot |
-| `src/taxonomy/competency-management/criteria-groups/CriteriaGroupBox.tsx` (provisional) | modified: add the Rule Group trash control and make the card a keyboard focus target |
-| `src/taxonomy/competency-management/criteria-groups/CourseGroupSection.tsx` (provisional) | modified: add the Course Group trash control, and expand the section when the keyboard focus request names one of its cards |
+| `src/taxonomy/competency-management/criteria-groups/CriteriaGroupBox.tsx` (provisional) | modified: add the Rule Group ⋮ menu and make the card a keyboard focus target |
+| `src/taxonomy/competency-management/criteria-groups/CourseGroupSection.tsx` (provisional) | modified: add the Course Group ⋮ menu, and expand the section when the keyboard focus request names one of its cards |
 | `src/taxonomy/competency-management/criteria-groups/CourseGroupList.tsx` (provisional) | modified: make the empty-state message focusable |
-| `src/taxonomy/competency-management/messages.ts` | modified: add the trash control labels and the delete error |
+| `src/taxonomy/competency-management/messages.ts` | modified: add the ⋮ menu labels and the delete error |
 | the content panel component from #670 (provisional) | modified: disable the subsection select control while `isDeletingGroup` is true |
 
 **Additional context**

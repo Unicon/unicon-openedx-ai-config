@@ -1,4 +1,4 @@
-# [BE] Enforce competency-hierarchy dominance for Competency Criteria
+# [BE] Add Competency hierarchy dominance validation to Competency Criteria Creation
 
 GitHub: https://github.com/openedx/openedx-core/issues/666 (#666, OPEN)
 Cached: 2026-09-21

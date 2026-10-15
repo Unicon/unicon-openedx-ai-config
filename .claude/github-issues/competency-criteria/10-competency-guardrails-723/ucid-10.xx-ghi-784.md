@@ -1,7 +1,7 @@
-# [FE] Hide tag removal and tag adding for competency tags on Course Outline and Libraries
+# [FE] Hide tag removal and tag adding for competency tags on Course Outline
 
 GitHub: https://github.com/openedx/openedx-core/issues/784 (#784, OPEN)
-Cached: 2026-09-21
+Cached: 2026-10-14
 
 ## User Story
 

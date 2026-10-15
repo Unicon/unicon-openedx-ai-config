@@ -9,13 +9,13 @@ Repo: `openedx-core`, single-repo. No `openedx-platform` changes — this ticket
 
 ## Use Case
 
-As a Platform Administrator, I want to remove a Competency Criteria Group — including its descendant groups and all criteria beneath it — in one action, so that I can retire an entire branch of a competency's mastery rule without having to remove each nested criterion and group individually, while any learner progress already recorded anywhere in that branch is preserved rather than destroyed.
+As a Platform Administrator, I want to remove a Competency Criteria Group — including its descendant groups and all criteria beneath it — in one action, so that I can archive an entire branch of a competency's mastery rule without having to remove each nested criterion and group individually, while any learner progress already recorded anywhere in that branch is preserved rather than destroyed.
 
 ## Description
 
 **Current state**
 
-No endpoint exists today to remove a `CompetencyCriteriaGroup`. Per ADR 0002 Decision 2, a group can have child groups and leaf `CompetencyCriterion` rows nested beneath it to unbounded depth (current frontend authoring caps depth at 3, but the backend does not). Per Decision 7, hard delete of a `CompetencyCriteriaGroup` is allowed only while no learner status rows exist anywhere in the tree being removed; once any exist, retirement must be archive-only. The same protection extends to whatever ancestor groups already sit above the removed subtree, per \#674.
+No endpoint exists today to remove a `CompetencyCriteriaGroup`. Per ADR 0002 Decision 2, a group can have child groups and leaf `CompetencyCriterion` rows nested beneath it to unbounded depth (current frontend authoring caps depth at 3, but the backend does not). Per Decision 7, hard delete of a `CompetencyCriteriaGroup` is allowed only while no learner status rows exist anywhere in the tree being removed; once any exist, archiving must be archive-only. The same protection extends to whatever ancestor groups already sit above the removed subtree, per \#674.
 
 **Requested change**
 
@@ -26,7 +26,7 @@ A new endpoint, identified by the group and the competency (tag) it belongs to, 
 - Walks the full subtree: the target group, every descendant `CompetencyCriteriaGroup` at any depth, and every `CompetencyCriterion` under any of those groups.  
 - Checks whether **any** node in that subtree has a referencing learner-status row (`StudentCompetencyCriteriaGroupStatus` for a group node, `StudentCompetencyCriteriaStatus` for a criterion leaf).  
   - If none exists anywhere in the subtree: hard-deletes the entire subtree (all descendant criteria, then all descendant groups, then the target group) in one transaction.  
-  - If any exists anywhere in the subtree: archives the entire subtree instead — every group and every criterion in it gets `archived=True` — in one transaction. The subtree is never partially hard-deleted and partially archived; a single status row anywhere in the branch retires the whole branch to archive-only, keeping the tree internally consistent.  
+  - If any exists anywhere in the subtree: archives the entire subtree instead — every group and every criterion in it gets `archived=True` — in one transaction. The subtree is never partially hard-deleted and partially archived; a single status row anywhere in the branch archives the whole branch to archive-only, keeping the tree internally consistent.  
 - On a hard-delete, also removes each `oel_tagging_objecttag` row the subtree's criteria pointed to, but only for an `ObjectTag` no `CompetencyCriterion` outside the subtree still references (same rule as \#674; the underlying `Tag` — the competency definition — is never touched, only the association). On an archive, no `ObjectTag` is touched at all, for the same ADR 0002 Decision 7 reason \#674 documents.  
 - After the subtree is resolved, walks upward from the target group's own parent using \#674's ancestor-cascade logic, reused rather than reimplemented here: an archive event keeps archiving ancestors with no remaining non-archived children; a hard-delete event keeps deleting ancestors with no children left (archiving instead if one has its own `StudentCompetencyCriteriaGroupStatus`, or if its only remaining children are archived), stopping once a level still has active content. The response reports only the target subtree's own outcome (`id`, `archived`, cascade counts); it doesn't report what happened above the target, same as \#674.  
 - Gates on `oel_tagging.can_tag_object`: studio write access to the target group's own course, plus taxonomy view access on the competency's taxonomy. Resolved from the target group itself: its own `course_id` if it's course-level, or `parent.course_id` if it's a leaf. One check suffices for the whole request; the reject-root-group rule above guarantees the target group resolves to exactly one course, the same course whose content this request deletes.  

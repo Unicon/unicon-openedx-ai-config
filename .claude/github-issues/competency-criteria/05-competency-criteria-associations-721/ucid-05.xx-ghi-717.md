@@ -10,9 +10,9 @@ Cached: 2026-09-21
 ## Use Case
 
 As a course author adding content to a competency's rules:
-- I want to be stopped if I try to add content to a course whose competency rules were retired, so that retired rules stay retired.
+- I want to be stopped if I try to add content to a course whose competency rules were archived, so that archived rules stay archived.
 - I want to be able to start a competency's rules again after I've removed every course from it, so that removing the last course never locks the whole competency.
-- I want to be able to add a subsection again after its earlier association was retired, so that an old, retired association never blocks a new one.
+- I want to be able to add a subsection again after its earlier association was archived, so that an old, archived association never blocks a new one.
 
 ## Description
 
@@ -20,15 +20,15 @@ This ticket makes `archived` mean what ADR 0002 promises for new Competency Crit
 
 **Current state**
 
-Once \#716 adds `archived` to `CompetencyCriteriaGroup`/`CompetencyCriterion`, a branch or a criterion can be permanently retired (cascade-archived, or archived directly) when a learner-status row blocks hard deletion. ADR 0002 Decision 7 names `CompetencyCriteriaGroup` and `CompetencyCriteria` directly among the models whose retirement "may be archive-only (hidden from authoring and new associations)", the same guarantee Decision 3 already gives `CompetencyRuleProfile.archived`. \#665 predates `archived` and gets both sides of that guarantee wrong:
+Once \#716 adds `archived` to `CompetencyCriteriaGroup`/`CompetencyCriterion`, a branch or a criterion can be permanently archived (cascade-archived, or archived directly) when a learner-status row blocks hard deletion. ADR 0002 Decision 7 names `CompetencyCriteriaGroup` and `CompetencyCriteria` directly among the models whose archiving "may be archive-only (hidden from authoring and new associations)", the same guarantee Decision 3 already gives `CompetencyRuleProfile.archived`. \#665 predates `archived` and gets both sides of that guarantee wrong:
 
 - `resolve_supplied_leaf_group()` validates only that the supplied `group_id` names a leaf belonging to the right tag and course; `resolve_or_create_leaf_group()`'s `get_or_create()` calls for the root and course-level groups return an existing row regardless of its `archived` state. An author can explicitly target an archived leaf, or unknowingly derive into and grow an archived root or course-level branch.  
-- The duplicate-association check rejects a `(tag_id, object_id)` pairing whenever any `CompetencyCriterion` references the existing `ObjectTag`, active or archived. An archived criterion's `ObjectTag` is deliberately preserved (per \#674's ADR 0002 Decision 7 protection, so its history stays resolvable), but that same preserved reference now permanently blocks ever creating a fresh criterion for that content, even though retiring the old one was never meant to have that effect.
+- The duplicate-association check rejects a `(tag_id, object_id)` pairing whenever any `CompetencyCriterion` references the existing `ObjectTag`, active or archived. An archived criterion's `ObjectTag` is deliberately preserved (per \#674's ADR 0002 Decision 7 protection, so its history stays resolvable), but that same preserved reference now permanently blocks ever creating a fresh criterion for that content, even though archiving the old one was never meant to have that effect.
 
 **Requested change**
 
 - `resolve_supplied_leaf_group()` rejects with a 400 when the resolved leaf is archived.  
-- `resolve_or_create_leaf_group()` reactivates the root group it would reuse when that root is archived (sets `archived=False`), then continues resolving the course-level group under it. The root is archived only when every course-level group under it is archived (\#674/\#675's upward cascade), so without this, retiring the competency's last course would lock the whole competency against new criteria. Reactivating the root does not touch any of its archived children.  
+- `resolve_or_create_leaf_group()` reactivates the root group it would reuse when that root is archived (sets `archived=False`), then continues resolving the course-level group under it. The root is archived only when every course-level group under it is archived (\#674/\#675's upward cascade), so without this, archiving the competency's last course would lock the whole competency against new criteria. Reactivating the root does not touch any of its archived children.  
 - `resolve_or_create_leaf_group()` rejects with a 400 when the course-level group it would reuse is archived. It does not fall back to creating a fresh course-level group: hitting an archived course-level group is always a rejection, never a silent substitution.  
 - The derive path's leaf creation needs no new check: a leaf is always freshly created there, never reused, so it's never already archived.  
 - The duplicate-association check's `CompetencyCriterion.objects.filter(oel_tagging_objecttag=existing_object_tag).exists()` query is scoped to `archived=False`: only an active criterion referencing the same `ObjectTag` blocks a new association; an archived one no longer does.  
@@ -36,7 +36,7 @@ Once \#716 adds `archived` to `CompetencyCriteriaGroup`/`CompetencyCriterion`, a
 
 **Explicitly out of scope**
 
-- Reactivating (unarchiving) a retired course-level group, leaf, or criterion. Archiving is one-directional for everything below the root; once a course-level group is archived, new criteria for that course under this competency are rejected. Accepted as permanent for MVP, matching `CompetencyRuleProfile`'s own archive-only, no-unarchive precedent. The root is the one exception, reactivated as described above.  
+- Reactivating (unarchiving) an archived course-level group, leaf, or criterion. Archiving is one-directional for everything below the root; once a course-level group is archived, new criteria for that course under this competency are rejected. Accepted as permanent for MVP, matching `CompetencyRuleProfile`'s own archive-only, no-unarchive precedent. The root is the one exception, reactivated as described above.  
 - Any change to \#665's `UniqueConstraint`s. This ticket assumes they stand as defined.  
 - Rejecting a `group_id` that doesn't exist or was hard-deleted: already a 404 via \#665's existing `get_object_or_404`, unaffected by this ticket.  
 - Surfacing archived state on any GET/list endpoint. \#681's GET excludes archived rows, and reporting which courses have an archived course-level group is 10.22, a separate ticket under epic \#723 with no GitHub issue yet. This ticket only changes create-time behavior.
@@ -130,7 +130,7 @@ Test strategy: unit tests for `resolve_or_create_leaf_group()` (archived root re
 - **\#665:** defines `resolve_or_create_leaf_group()`, `resolve_supplied_leaf_group()`, and `associate_competency_criterion()`, the functions this ticket modifies, plus the two partial `UniqueConstraint`s (one root per competency; one course-level group per competency+course) that make "create a fresh sibling instead of erroring" schema-illegal once the existing row is archived. Also the source of this ticket's actor and permission model (`oel_tagging.can_tag_object`), unchanged here.  
 - **\#716:** adds the `archived` field this ticket checks, ahead of \#674 and \#675 too.  
 - **\#674 / \#675:** their cascade mechanics (an ancestor archives only once every child is already archived) are in Technical Details, where they justify this ticket's check placement.  
-- **ADR 0002 Decision 7** (`docs/openedx_learning/decisions/0002-competency-criteria-model.rst`): names `CompetencyCriteriaGroup`/`CompetencyCriteria` directly under archive-only, hidden-from-new-associations retirement, the primary citation for this ticket.  
+- **ADR 0002 Decision 7** (`docs/openedx_learning/decisions/0002-competency-criteria-model.rst`): names `CompetencyCriteriaGroup`/`CompetencyCriteria` directly under archive-only, hidden-from-new-associations archiving, the primary citation for this ticket.  
 - **ADR 0002 Decision 3**: the same guarantee already implemented for `CompetencyRuleProfile.archived`, the precedent this ticket extends, including its own no-unarchive-path precedent, with the root reactivation as the one exception.  
 - **ADR 0002 Decision 2**: a persisted group is never empty. An archived root still holds its archived children, so reactivating it never leaves an empty group, and stopping the cascade below the root instead would leave an empty root whenever the last course-level group is hard-deleted.
 - `src/openedx_tagging/rest_api/v1/exception_handlers.py`: confirms only `APIException`/`Http404`/`PermissionDenied` become clean error responses here, why the new check must raise `rest_framework.exceptions.ValidationError`, not Django's core one.  

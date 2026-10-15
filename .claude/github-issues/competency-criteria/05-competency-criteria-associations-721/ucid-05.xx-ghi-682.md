@@ -1,4 +1,4 @@
-# [BE] Implement the plan to handle large quantities of competency criteria associations (pagination, filtering, cues to user, other?) on the backend
+# [BE] Add filtering to GET Competency Criteria & Groups
 
 GitHub: https://github.com/openedx/openedx-core/issues/682 (#682, OPEN)
 Cached: 2026-09-21

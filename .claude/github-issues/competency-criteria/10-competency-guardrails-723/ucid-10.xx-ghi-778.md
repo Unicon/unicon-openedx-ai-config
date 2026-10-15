@@ -5,7 +5,7 @@ Cached: 2026-09-21
 
 ## User Story
 
-As a course author, I want a retired taxonomy, tag, or tag association to stop appearing anywhere I work, in order to not see or pick something that is no longer in use while the learner mastery history behind it stays intact.
+As a course author, I want an archived taxonomy, tag, or tag association to stop appearing anywhere I work, in order to not see or pick something that is no longer in use while the learner mastery history behind it stays intact.
 
 ## Acceptance Criteria
 

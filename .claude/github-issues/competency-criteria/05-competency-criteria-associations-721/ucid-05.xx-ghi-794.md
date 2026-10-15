@@ -1,4 +1,4 @@
-# [FE] Manage & Apply Competencies: change an existing bottom-tier group's combining logic and an existing rule box's score
+# [FE] Update/Edit Competency Criteria & Groups
 
 GitHub: https://github.com/openedx/openedx-core/issues/794 (#794, OPEN)
 Cached: 2026-09-21

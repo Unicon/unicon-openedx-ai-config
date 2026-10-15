@@ -5,7 +5,7 @@ Cached: 2026-09-21
 
 ## User Story
 
-As a plugin or feature developer building on tagging, I want to mark a tag association as depended upon by my feature, in order to have the tagging app retire it rather than destroy it when someone deletes it, without the tagging app needing to know anything about my feature.
+As a plugin or feature developer building on tagging, I want to mark a tag association as depended upon by my feature, in order to have the tagging app archive it rather than destroy it when someone deletes it, without the tagging app needing to know anything about my feature.
 
 ## Acceptance Criteria
 

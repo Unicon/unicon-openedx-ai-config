@@ -1,4 +1,4 @@
-# [BE] Read which courses are blocked for a competency by dominance rules
+# [BE] Get Competency Dominance Courses
 
 GitHub: https://github.com/openedx/openedx-core/issues/796 (#796, OPEN)
 Cached: 2026-09-21

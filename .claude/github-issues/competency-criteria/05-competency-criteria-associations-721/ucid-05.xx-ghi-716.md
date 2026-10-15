@@ -1,4 +1,4 @@
-# [BE] Add archived field to CompetencyCriteriaGroup and CompetencyCriterion
+# [BE] Add archived field to Competency Criteria & Group models
 
 GitHub: https://github.com/openedx/openedx-core/issues/716 (#716, OPEN)
 Cached: 2026-09-21
@@ -15,7 +15,7 @@ As a developer implementing CBE's archive-vs-delete behavior across several tick
 
 **Current state**
 
-Neither `CompetencyCriteriaGroup` nor `CompetencyCriterion` has an `archived` field. Multiple downstream tickets each need it to implement ADR 0002 Decision 7's archive-only retirement rule, and were drafted with "whichever lands first adds it" coordination language instead of a single owner.
+Neither `CompetencyCriteriaGroup` nor `CompetencyCriterion` has an `archived` field. Multiple downstream tickets each need it to implement ADR 0002 Decision 7's archive-only rule, and were drafted with "whichever lands first adds it" coordination language instead of a single owner.
 
 **Requested change**
 

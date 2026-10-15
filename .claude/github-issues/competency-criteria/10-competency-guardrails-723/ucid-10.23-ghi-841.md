@@ -1,7 +1,7 @@
 # [FE] Explain archived competency rules in the Courses & Content panel
 
 GitHub: https://github.com/openedx/openedx-core/issues/841 (#841, OPEN)
-Cached: 2026-09-25
+Cached: 2026-10-14
 
 ## User Story
 As a course author, I need to know which courses' rules for a competency were archived, in order to understand why I can't add new Competency Criteria associations for that course.

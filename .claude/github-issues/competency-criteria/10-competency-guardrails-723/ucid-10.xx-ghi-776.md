@@ -5,7 +5,7 @@ Cached: 2026-09-21
 
 ## User Story
 
-As a platform administrator, I want the tagging data that competency mastery depends on to be able to record that it has been retired, and to record which tag associations something depends on, in order to have my deletions preserve learner mastery history instead of destroying it.
+As a platform administrator, I want the tagging data that competency mastery depends on to be able to record that it has been archived, and to record which tag associations something depends on, in order to have my deletions preserve learner mastery history instead of destroying it.
 
 ## Acceptance Criteria
 
@@ -23,9 +23,9 @@ There is no manual QA path. Acceptance is determined by a PR reviewer verifying 
 
 ## Description
 
-`Taxonomy`, `Tag`, and `ObjectTag` in `openedx_tagging` can only be hard-deleted today. There is no way to retire one while keeping it readable, and no way for the tagging app to know that something outside it depends on a record. Both are needed before a delete can branch between removing a record and retiring it.
+`Taxonomy`, `Tag`, and `ObjectTag` in `openedx_tagging` can only be hard-deleted today. There is no way to archive one while keeping it readable, and no way for the tagging app to know that something outside it depends on a record. Both are needed before a delete can branch between removing a record and archiving it.
 
-`deletion_locked=True` on an `ObjectTag` records that a learner status now depends on it: it means any future delete request against that association must archive it instead of removing the row. `Tag` and `Taxonomy` don't carry their own `deletion_locked` field; whether either one is locked is derived from whether any of the `ObjectTag`s beneath it are locked. `archived=True`, on any of the three models, means a record has already been retired along that path: it is hidden from active use, but its row and the learner history pointing to it stay in place.
+`deletion_locked=True` on an `ObjectTag` records that a learner status now depends on it: it means any future delete request against that association must archive it instead of removing the row. `Tag` and `Taxonomy` don't carry their own `deletion_locked` field; whether either one is locked is derived from whether any of the `ObjectTag`s beneath it are locked. `archived=True`, on any of the three models, means a record has already been archived along that path: it is hidden from active use, but its row and the learner history pointing to it stay in place.
 
 This ticket adds the four fields and nothing else. They are inert on merge: \#777 adds the API that sets and reads the lock, \#778 makes archived records inert on read and write paths, and \#779 through \#781 add the delete branches that use both.
 

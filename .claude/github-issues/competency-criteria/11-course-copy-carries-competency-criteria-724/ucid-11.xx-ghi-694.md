@@ -153,7 +153,7 @@ Scenario: Carrying tags and rules over needs no permission beyond creating the r
 
 Creating a new run of a course in Studio clones the course content only. Neither the content tags nor the competency mastery rules attached to that content are recreated on the new run.
 
-A course that has been running for a while also holds retired rules. Once any learner has been evaluated against a mastery rule, removing that rule retires it instead of deleting it, so the learner's history stays traceable to the rule that produced it. Retirement is a decision about the rule, not about one run, and a new run has no learner history for a retired rule to explain. The new run therefore carries exactly the rules the author currently sees in force on the source run, and nothing that is retired or that sits beneath something retired.
+A course that has been running for a while also holds archived rules. Once any learner has been evaluated against a mastery rule, removing that rule archives it instead of deleting it, so the learner's history stays traceable to the rule that produced it. Archiving is a decision about the rule, not about one run, and a new run has no learner history for an archived rule to explain. The new run therefore carries exactly the rules the author currently sees in force on the source run, and nothing that is archived or that sits beneath something archived.
 
 <details>
 <summary>Technical Details</summary>

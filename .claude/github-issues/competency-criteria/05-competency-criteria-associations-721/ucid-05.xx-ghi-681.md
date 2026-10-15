@@ -1,4 +1,4 @@
-# [BE] Build GET endpoint to fetch Competency Criteria Groups and Criteria for a competency
+# [BE] GET Competency Criteria & Groups
 
 GitHub: https://github.com/openedx/openedx-core/issues/681 (#681, OPEN)
 Cached: 2026-09-21
