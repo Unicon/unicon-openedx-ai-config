@@ -3,8 +3,6 @@
 GitHub: https://github.com/openedx/openedx-core/issues/665 (#665, OPEN)
 Cached: 2026-10-15
 
-# [BE] Build endpoint for creating Competency Criteria when a gradeable-subsection association is selected
-
 **Blocked by** \#613 (the CBE data model): `CompetencyCriteriaGroup`/`CompetencyCriterion` exist only as approved design in ADR 0002, not yet in code.
 
 Repo: `openedx-core` (endpoint plus a constraints migration) and `openedx-platform` (CMS-side wiring).
@@ -286,7 +284,7 @@ def associate_competency_criterion(
 
 1. Resolve the competency `Tag` from the URL's `tag_id`; 404 if missing or not backed by a `CompetencyTaxonomy`.  
 2. Parse `object_id` via `UsageKey.from_string`; 400 with a field-level error if it doesn't parse.  
-3. Resolve the `CourseRun` from the parsed key's course key via `openedx_catalog.api.get_course_run()`; 400 if no matching row. This `course_run` is the single source of truth for course: it drives both leaf-group naming and the course-scope check, whichever branch runs.  
+3. Resolve the `CourseRun` from the parsed key's course key via `openedx_catalog.api.get_course_run()`; 400 if no matching row. This `course_run` is the single source of truth for course: it drives the course-scope check, whichever branch runs.  
 4. Permission check: build the taxonomy/object-id permission object and check `oel_tagging.can_tag_object`; 403 on failure. This composite (studio write access to the subsection's course plus taxonomy view access) is already registered globally by `openedx-platform`'s `content_tagging` app, so no new predicate is needed.  
 5. **Duplicate check**: look up `ObjectTag.objects.filter(object_id=object_id, taxonomy_id=tag.taxonomy_id, tag_id=tag.id).first()`. If found, check whether any `CompetencyCriterion` already references it (`CompetencyCriterion.objects.filter(oel_tagging_objecttag=existing_object_tag).exists()`); if so, reject with a 400 `ValidationError` (this repo's existing pattern for uniqueness violations — see `src/openedx_tagging/rest_api/v1/serializers.py`'s `validate_tag_value`; there is no 409 usage anywhere in this codebase's REST API). If no `ObjectTag` exists yet for this tag on this object, there is nothing to conflict with; proceed. This check runs before any group creation, regardless of whether `group_id` was supplied, so a duplicate attempt via the derive-or-create path doesn't leave behind an orphaned empty group (ADR 0002 forbids persisting empty groups).  
 6. **`group_id`/`logic_operator` exclusivity check**: if both `group_id` and `logic_operator` are supplied, reject with a 400 `ValidationError` naming the conflict, before resolving or creating anything. `logic_operator` only ever sets a newly created leaf's operator; an existing leaf's operator is #675's to change, not this endpoint's, so the two fields together are a client error rather than an ambiguity for this endpoint to resolve on its own.  
@@ -323,7 +321,7 @@ Verify against every scenario in Acceptance Criteria above.
 - `src/openedx_tagging/rest_api/v1/serializers.py`'s `validate_tag_value`: this repo's only existing uniqueness-violation precedent, a 400 `ValidationError`, the pattern the duplicate-association check follows. No 409 usage exists anywhere in this codebase's REST API.  
 - `src/openedx_tagging/models/base.py`'s `ObjectTag`: `unique_together` on `(object_id, taxonomy, tag_id)`, which the duplicate-association check relies on.  
 - `src/openedx_tagging/api.py` (`get_object_tags`, `tag_object`): the two public functions this ticket's read-merge-write logic composes.  
-- `openedx_catalog.api.get_course_run()`: resolves the `CourseRun` from a course key; also the source of a course's display name for leaf-group naming. See Open Questions for why gradeable-subsection validation isn't checked against it.
+- `openedx_catalog.api.get_course_run()`: resolves the `CourseRun` from a course key. See Open Questions for why gradeable-subsection validation isn't checked against it.
 
 ## Files to create and modify
 
