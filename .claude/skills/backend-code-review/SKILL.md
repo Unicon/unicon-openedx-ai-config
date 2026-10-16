@@ -11,8 +11,8 @@ commit, or push from this skill.
 
 This skill runs at the top-level session (directly, or as `spike-and-stabilize`'s final
 step, which is explicitly run by "the strong main model, not the sub-agent"). Per the
-Delegation rule in `CLAUDE.md`, whoever runs it dispatches the sub-agents below directly;
-it never runs inside a dispatched sub-agent that would then need to dispatch further.
+Delegation rule in `CLAUDE.md`, whoever runs it dispatches the sub-agents the parent skill
+names; it never runs inside a dispatched sub-agent that would then need to dispatch further.
 
 ## Parent skill
 
@@ -42,8 +42,13 @@ detailed questions about this Backend code review and raise any further concerns
 7. If there are any database queries, are they thoroughly, efficiently, and concisely unit tested?
 8. If there are any database queries added or changed, are they properly optimized and performant?
 9. If there are any database queries added or changed, are they properly secured?
+10. If a model field is added, which generic surfaces pick it up without any code naming it: an admin registration
+    without an explicit `fields` list, a serializer or form using `__all__`, import/export, `model_to_dict`? Enumerate
+    them and check each against what the ticket says may read or write the field.
 
 Additional Notes:
 
-1. For ordinary schema-only migrations, rely on repository-standard migration checks and tests of the business behavior
-   using the schema. Do not suggest tests of the schema itself as they would not be standard practice. 
+1. A schema-only migration needs no test of its own. The criterion it serves counts as covered in the parent skill's
+   acceptance-criteria table when a behavior test sets and reads the new column or constraint, alongside the
+   repository's standard migration check when it has one. A new column that no test touches is a `Gap`, even when
+   the migration applies cleanly.

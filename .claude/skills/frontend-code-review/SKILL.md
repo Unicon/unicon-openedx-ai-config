@@ -11,8 +11,8 @@ commit, or push from this skill.
 
 This skill runs at the top-level session (directly, or as `spike-and-stabilize`'s final
 step, which is explicitly run by "the strong main model, not the sub-agent"). Per the
-Delegation rule in `CLAUDE.md`, whoever runs it dispatches the sub-agents below directly;
-it never runs inside a dispatched sub-agent that would then need to dispatch further.
+Delegation rule in `CLAUDE.md`, whoever runs it dispatches the sub-agents the parent skill
+names; it never runs inside a dispatched sub-agent that would then need to dispatch further.
 
 ## Parent skill
 
