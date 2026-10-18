@@ -1,6 +1,6 @@
 # [BE] Compute whether a learner can submit to a subsection
 
-GitHub: pending (no issue yet)
+GitHub: https://github.com/openedx/openedx-core/issues/855 (#855, OPEN)
 Cached: 2026-10-06
 
 ## User Story
@@ -153,7 +153,7 @@ These items use the following terms:
   | The subsection's counting component is an LTI component. | Unknown |
   | The subsection is a timed or proctored exam in a course whose exams run on the edx-exams service, and the learner has answered nothing. | Unknown |
   | Checking the subsection's only counting component fails with an unexpected error. | Unknown |
-  | The subsection's counting component is an ORA that uses its own dates, and its submission deadline has not passed. | Yes |
+  | The subsection's counting component is an ORA that uses its own dates, the learner has never submitted a response, and its submission deadline has not passed. | Yes |
   | The subsection's counting component is a problem with attempts left. | No |
 
 **Combining components**
@@ -193,14 +193,14 @@ These items use the following terms:
 
 - [ ] A failed component check is logged with the course and the component, and the check returns its answers instead of raising the error. The failed component makes an answer unknown only when the other components don't settle that answer.
 
-  | The subsection | Accepts work? | Attempted? | All own work done? | All scored? |
+  | The subsection | `accepts_learner_work` | `attempted` | `all_learner_work_done` | `all_scored` |
   | --- | --- | --- | --- | --- |
   | It has an ORA and a problem. Checking the ORA fails, and the learner has not answered the problem. | Yes | Unknown | No | No |
   | Its only counting component is an ORA, and checking the ORA fails. | Unknown | Unknown | Unknown | Unknown |
 
 **What the learner has done**
 
-- [ ] The learner counts as having attempted the subsection once they have submitted to or been scored on any counting component, graded or not, or started an exam attempt.
+- [ ] The learner counts as having attempted the subsection once they have submitted to or been scored on any counting component, graded or not, or started an exam attempt. An exam attempt the learner has created or declined but not started doesn't count.
 
   | Learner activity | Attempted? |
   | --- | --- |
@@ -208,6 +208,8 @@ These items use the following terms:
   | The learner submitted an answer to one problem. | Yes |
   | The learner received a score from an LTI component. | Yes |
   | The learner started an attempt at the subsection's timed exam and has answered nothing. | Yes |
+  | The learner's attempt at the subsection's proctored exam was created, but the learner has not started the exam or answered anything. | No |
+  | The learner declined proctoring on the subsection's optional proctored exam and has answered nothing. | No |
   | The learner submitted the subsection's practice exam. | Yes |
   | The learner opened the subsection's problems without submitting an answer. | No |
   | The learner saved an ORA draft without submitting it. | No |
@@ -216,7 +218,7 @@ These items use the following terms:
 
 - [ ] The check reports whether the learner has done all of their own work on every counting component, and whether every one has been scored. In every case, the subsection has a problem and an ORA, both counting components.
 
-  | Learner activity | All own work done? | All scored? |
+  | Learner activity | `all_learner_work_done` | `all_scored` |
   | --- | --- | --- |
   | The learner answered the problem and has not touched the ORA. | No | No |
   | The learner answered the problem, and the ORA response is awaiting grading. | Yes | No |
@@ -224,6 +226,14 @@ These items use the following terms:
   | The learner answered the problem, submitted the ORA response, and still owes their own peer or self assessment step. | No | No |
   | The learner answered the problem, and checking the ORA fails with an unexpected error. | Unknown | Unknown |
   | The learner answered the problem, the ORA response had been graded, staff then reset the learner's state, and the learner has not resubmitted. | No | No |
+
+- [ ] Once the learner's edx-proctoring exam attempt has ended, the learner counts as having done all of their own work on the exam, even if they left problems unanswered. In every case, the exam is a practice exam with two problems.
+
+  | The learner's exam attempt | `all_learner_work_done` | `all_scored` |
+  | --- | --- | --- |
+  | The learner submitted it with one problem unanswered. | Yes | No |
+  | The learner submitted it with both problems answered. | Yes | Yes |
+  | It is in progress, and the learner has answered one problem. | No | No |
 
 **Whose answers, and no side effects**
 
@@ -280,7 +290,7 @@ The check builds the learner's own view of the subsection with `get_course_block
 
 2. Build the learner's view with `get_course_blocks(user, subsection_key)` and its default transformers. That view already leaves out blocks the learner can't see (unreleased, staff-only, hidden by cohort, not picked from randomized library content), and each block's `due` is the learner's own date from edx-when. Blocks locked by audit content gating stay in the view with `authorization_denial_reason` set, evaluated for `user`; the content gating partition is the only partition that sets that field. A counting component is a block in this view with `has_score` true, `weight` not 0, and a `max_score` (collected by `GradesTransformer`) that is not 0. Components in ungraded subsections count too, so don't filter on `graded` the way `get_ora_as_assignments` does. Return `None` when the subsection itself is absent from the learner's block structure or has no counting components, because there is nothing to evaluate. The block structure doesn't collect the grace period (the subsection's inherited `graceperiod`), problems' `max_attempts`, or ORA's `allow_learner_resubmissions` and `resubmissions_grace_period`. Read them from the modulestore without binding to a user, for example with `modulestore().get_item(subsection_key, depth=None)`.
 
-3. For each counting component, decide whether it accepts work from the learner now: yes, no, or unknown. Use the first rule below that applies. The answer says only what the learner could do, not whether they should. A learner can reset a submitted practice exam or an ungraded ORA response themselves, so both answer yes, and #754 decides from the other three fields whether recommending them makes sense.
+3. For each counting component, decide whether it accepts work from the learner now: yes, no, or unknown. Use the first rule below that applies. The answer says only what the learner could do, not whether they should. A learner can reset a submitted practice exam or an ORA response awaiting grading themselves, so both answer yes, and #754 decides from the other three fields whether recommending them makes sense.
    1. `authorization_denial_reason` is set: no.
    2. The subsection is an exam (`MilestonesAndSpecialExamsTransformer.is_special_exam`) and `exams_ida_enabled(course_key)` is on: no when any counting component in the subsection counts as attempted under step 4, otherwise unknown. The edx-exams service keeps no local attempt records, so the check can't tell an exam in progress from a submitted one. An exam is in progress only for its time limit, so once the learner has answered anything, the exam has almost always been submitted.
    3. The subsection is an exam, and the learner has an edx-proctoring attempt for it. Read the newest attempt from `ProctoredExamStudentAttempt` directly (step 6), filtered on `user`, `proctored_exam__course_id`, and `proctored_exam__content_id`, newest `created` first, because a practice exam can have several rows. Staff "remove attempt" hard-deletes the row, so a removed attempt no longer counts.
@@ -298,8 +308,8 @@ The check builds the learner's own view of the subsection with `get_course_block
    If evaluating a component raises an exception, the check logs it with the course key and the component's usage key, treats that component as unknown for all four fields, and continues.
 
 4. Read three more facts for every counting component, whichever rule decided its answer in step 3. Each fact is yes or no, or unknown for a component whose check raised an exception.
-   - Attempted: a problem with `attempts > 0`, an ORA with an active submission, or any other type with `StudentModule.grade` set. On an exam subsection, any edx-proctoring attempt row also makes the subsection attempted.
-   - Learner work done: a problem with `attempts > 0`, an ORA with an active submission whose workflow status isn't `peer`, `self`, or `training`, or any other type with `StudentModule.grade` set. An exam attempt row makes no component done.
+   - Attempted: a problem with `attempts > 0`, an ORA with an active submission, or any other type with `StudentModule.grade` set. On an exam subsection, an edx-proctoring attempt the learner has started also makes the subsection attempted: any status other than `eligible`, `created`, `download_software_clicked`, `ready_to_start`, or `declined`.
+   - Learner work done: a problem with `attempts > 0`, an ORA with an active submission whose workflow status isn't `peer`, `self`, or `training`, or any other type with `StudentModule.grade` set. An edx-proctoring attempt that has ended under step 3.3, including a `submitted` practice attempt the learner could reset, makes every counting component in the exam done, because submitting the exam is the learner's last step even when they left problems unanswered. An attempt that hasn't ended makes no component done.
    - Scored: a problem once it is submitted, because it is scored on submission; an ORA whose active submission has a `submissions.models.Score` row, read directly like `Submission`; or any other type with `StudentModule.grade` set.
 
 5. Combine the component answers into the four fields:
