@@ -31,10 +31,10 @@ The check is an internal function, and QA sees it only through #754's recommenda
 These items use the following terms:
 
 - The check is the function this ticket adds. Its caller, #754's code, gives it a learner and a subsection. It returns four answers, each of which is yes, no, or unknown:
-  - whether the subsection accepts work from the learner now, meaning a new submission or an ORA peer, self, or training step the learner still owes
-  - whether the learner has attempted anything in the subsection
-  - whether the learner has done all of their own work on every counting component, meaning they submitted it and finished any ORA step they owe
-  - whether every counting component has a score for the learner
+  - `accepts_learner_work`: whether the subsection accepts work from the learner now, meaning a new submission or an ORA peer, self, or training step the learner still owes
+  - `attempted`: whether the learner has attempted anything in the subsection
+  - `all_learner_work_done`: whether the learner has done all of their own work on every counting component, meaning they submitted it and finished any ORA step they owe
+  - `all_scored`: whether every counting component has a score for the learner
 - When the learner can't see the subsection, or it has no counting components, the check returns nothing to evaluate instead of the four answers.
 - A counting component is a component in the subsection that is scored, is worth more than zero points, and is visible to the learner. Components in ungraded subsections count too. HTML and video components are never counting components.
 - The learner's due date is the subsection's due date as it applies to that learner. It can differ from the course-wide date, for example because of an individual extension or a self-paced schedule.
@@ -93,7 +93,7 @@ These items use the following terms:
   | It is marked declined, because the learner chose to take an optional proctored exam without proctoring, which shows the exam as ordinary content. | Yes |
   | It is in progress. | Yes |
   | It is waiting for the learner to confirm submission, and the learner can still go back to the exam. | Yes |
-  | It is in progress, its time limit has run out, and nothing has recorded the time-out yet. The learner sees that the exam is over when they open it. | Yes |
+  | It is in progress, its time limit has run out, and nothing has recorded the time-out yet. The learner has nothing left to do, because each problem was graded when the learner submitted it. | No |
   | It was submitted, including an attempt whose time ran out, which edx-proctoring records as submitted. | No |
   | It is awaiting a second review. | No |
   | It was verified. | No |
@@ -101,16 +101,16 @@ These items use the following terms:
   | It ended in an error. | No |
   | It ended in an error, and staff then marked it ready to resume. | Yes |
 
-- [ ] A practice exam that the learner can reset themselves accepts work when the reset would leave the learner something to submit.
+- [ ] A practice exam whose attempt has ended accepts work when the learner can reset the attempt themselves and the reset leaves them something to submit. A learner can reset any ended practice attempt except a verified one. Resetting starts a new attempt. When the old attempt was submitted, the reset also wipes the learner's problem answers and attempt counts, so the learner starts the problems fresh. When the old attempt ended any other way, the reset keeps the problems' answers and attempt counts as they were, so the problems decide.
 
-  | The learner's newest practice exam attempt | The exam's problems | Accepts work? |
+  | The learner's newest practice exam attempt | What a reset does to the exam's problems | Accepts work? |
   | --- | --- | --- |
-  | It was submitted. | Every attempt is used, but the learner's reset also clears the problems' state. | Yes |
-  | It ended in an error. | Attempts are left. | Yes |
-  | It ended in an error. | Every attempt is used, and the learner's reset leaves the problems' state in place. | No |
-  | It was verified, so the learner can't reset it. | Attempts are left. | No |
+  | It was submitted, and the learner has used every attempt on the problems. | The reset wipes the problems, so every attempt is available again. | Yes |
+  | It ended in an error, and the problems have attempts left. | The reset keeps the problems as they are, and attempts remain. | Yes |
+  | It ended in an error, and the learner has used every attempt on the problems. | The reset keeps the problems as they are, so no attempts remain. | No |
+  | It was verified, and the problems have attempts left. | The learner can't reset a verified attempt, so the attempts left on the problems can't be used. | No |
 
-- [ ] A timed or proctored exam in a course whose exams run on the edx-exams service reports unknown until the learner has attempted a counting component, and does not accept work afterward. In every case, the exam's problems have attempts left.
+- [ ] A timed or proctored exam in a course whose exams run on the edx-exams service reports unknown until the learner has attempted a counting component, and does not accept work afterward. The edx-exams service keeps the learner's exam attempt in a separate system the check can't read, so the check can't tell an exam in progress from a submitted one. Once the learner has answered anything, the check assumes the exam was submitted, because an exam stays in progress only for its time limit. In every case, the exam's problems have attempts left under their own attempt limits.
 
   | Learner activity | Accepts work? |
   | --- | --- |
@@ -209,7 +209,7 @@ These items use the following terms:
   | The learner submitted the subsection's practice exam. | Yes |
   | The learner opened the subsection's problems without submitting an answer. | No |
   | The learner saved an ORA draft without submitting it. | No |
-  | The learner launched an LTI component that has not sent a score. | No |
+  | The learner launched an LTI component that has not sent a score. The platform keeps no record of a launch, so the check can't tell this from an LTI component the learner never opened. | No |
   | The learner has never opened the subsection. | No |
 
 - [ ] The check reports whether the learner has done all of their own work on every counting component, and whether every one has been scored. In every case, the subsection has a problem and an ORA, both counting components.
@@ -278,11 +278,11 @@ The check builds the learner's own view of the subsection with `get_course_block
 
 2. Build the learner's view with `get_course_blocks(user, subsection_key)` and its default transformers. That view already leaves out blocks the learner can't see (unreleased, staff-only, hidden by cohort, not picked from randomized library content), and each block's `due` is the learner's own date from edx-when. Blocks locked by audit content gating stay in the view with `authorization_denial_reason` set, evaluated for `user`; the content gating partition is the only partition that sets that field. A counting component is a block in this view with `has_score` true, `weight` not 0, and a `max_score` (collected by `GradesTransformer`) that is not 0. Components in ungraded subsections count too, so don't filter on `graded` the way `get_ora_as_assignments` does. Return `None` when the subsection itself is absent from the learner's block structure or has no counting components, because there is nothing to evaluate. The block structure doesn't collect the grace period (the subsection's inherited `graceperiod`), problems' `max_attempts`, or ORA's `allow_learner_resubmissions` and `resubmissions_grace_period`. Read them from the modulestore without binding to a user, for example with `modulestore().get_item(subsection_key, depth=None)`.
 
-3. For each counting component, decide whether it accepts work from the learner now: yes, no, or unknown. Use the first rule below that applies.
+3. For each counting component, decide whether it accepts work from the learner now: yes, no, or unknown. Use the first rule below that applies. The answer says only what the learner could do, not whether they should. A learner can reset a submitted practice exam or an ungraded ORA response themselves, so both answer yes, and #754 decides from the other three fields whether recommending them makes sense.
    1. `authorization_denial_reason` is set: no.
    2. The subsection is an exam (`MilestonesAndSpecialExamsTransformer.is_special_exam`) and `exams_ida_enabled(course_key)` is on: no when any counting component in the subsection counts as attempted under step 4, otherwise unknown. The edx-exams service keeps no local attempt records, so the check can't tell an exam in progress from a submitted one. An exam is in progress only for its time limit, so once the learner has answered anything, the exam has almost always been submitted.
    3. The subsection is an exam, and the learner has an edx-proctoring attempt for it. Read the newest attempt from `ProctoredExamStudentAttempt` directly (step 6), filtered on `user`, `proctored_exam__course_id`, and `proctored_exam__content_id`, newest `created` first, because a practice exam can have several rows. Staff "remove attempt" hard-deletes the row, so a removed attempt no longer counts.
-      - The attempt hasn't ended when its status is one of edx-proctoring's incomplete statuses (`eligible`, `created`, `download_software_clicked`, `ready_to_start`, `started`, `ready_to_submit`), when it is `declined`, which shows the learner the exam as ordinary content, or when staff have set its `ready_to_resume` flag. Such an exam falls through to the rules below and is judged by its problems. edx-proctoring records a time-out only when its API next reads the attempt, so a `started` attempt whose time has run out also falls through. The learner sees that the exam is over when they open it, and that visit records the time-out.
+      - The attempt hasn't ended when its status is one of edx-proctoring's incomplete statuses (`eligible`, `created`, `download_software_clicked`, `ready_to_start`, `started`, `ready_to_submit`), when it is `declined`, which shows the learner the exam as ordinary content, or when staff have set its `ready_to_resume` flag. Such an exam falls through to the rules below and is judged by its problems. The exception is a `started` or `ready_to_submit` attempt whose time limit has run out, which has ended: no. edx-proctoring records a time-out only when its API next reads the attempt, so the stored status can still say `started`. Compute the time left with `edx_proctoring.utils.get_time_remaining_for_attempt`, which reads only the attempt's `started_at` and `allowed_time_limit_mins` and writes nothing.
       - Any other status means the attempt has ended: no. The exception is a practice exam (`ProctoredExam.is_practice_exam`) whose status isn't `verified`, because the learner can reset it themselves. A `submitted` practice attempt is yes, because that reset also deletes the exam's problem state. Any other ended practice attempt falls through to its problems, because that reset leaves the problem state in place.
    4. Problem: mirror `ProblemBlock.closed()`. The answer is no when `max_attempts` is set and the learner's `attempts` (from their `StudentModule.state` JSON) has reached it, or when the close date has passed. The close date is the learner's due date for the subsection, or `CourseOverview.end` when there is no due date, plus the grace period. Otherwise the answer is yes.
    5. ORA: find the learner's active submission with `Submission.objects.filter(student_item__student_id__in=<ids>, student_item__course_id=str(course_key), student_item__item_id=str(usage_key))`. Here `<ids>` are the learner's `anonymous_user_id` values from a plain `AnonymousUserId.objects.filter(user=user, course_id=course_key)` query (model in `common/djangoapps/student/models`). No rows means no submission. `Submission.objects` already excludes submissions that a staff reset or a learner reset soft-deleted, and a submission that staff removed from grading stays active. Then:
@@ -300,7 +300,11 @@ The check builds the learner's own view of the subsection with `get_course_block
    - Learner work done: a problem with `attempts > 0`, an ORA with an active submission whose workflow status isn't `peer`, `self`, or `training`, or any other type with `StudentModule.grade` set. An exam attempt row makes no component done.
    - Scored: a problem once it is submitted, because it is scored on submission; an ORA whose active submission has a `submissions.models.Score` row, read directly like `Submission`; or any other type with `StudentModule.grade` set.
 
-5. Combine the component answers into the four fields. `accepts_learner_work` and `attempted` are true when any component is yes for them. `all_learner_work_done` and `all_scored` are false when any component is no for them. Otherwise a field is unknown when any component is unknown for it, and false or true, respectively, when none is. A failed component check therefore makes a field unknown only when the other components don't settle it. When it is the only counting component, all four fields are unknown.
+5. Combine the component answers into the four fields:
+   - `accepts_learner_work` and `attempted` each ask whether any component qualifies. Each is true when any component is yes, unknown when no component is yes but at least one is unknown, and false when every component is no.
+   - `all_learner_work_done` and `all_scored` each ask whether every component qualifies. Each is false when any component is no, unknown when no component is no but at least one is unknown, and true when every component is yes.
+
+   For example, in a subsection with an unanswered problem and an ORA whose check failed, `attempted` is unknown (the problem is no, the ORA unknown), and `all_learner_work_done` is false (the problem alone settles it). When the failed component is the only counting component, all four fields are unknown.
 
 6. Keep the check read-only. `StudentModule`, `Submission`, `Score`, `AssessmentWorkflow`, and `ProctoredExamStudentAttempt` are read directly through their models rather than through their packages' APIs, because those APIs write on read. Never bind a block as the learner (no `get_block_for_descriptor` and no `FieldDataCache`). Don't call any of these, because each one writes:
    - `submissions.api.get_submissions`, which creates a `StudentItem`
