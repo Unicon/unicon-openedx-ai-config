@@ -18,9 +18,9 @@ Next in the sentence should be the name of the subsection, which links out to it
 
 Then the sentence should say "and score <threshold>", where the threshold reads the same way as the rule lines on the competency cards: "80% or better", "40% or lower", or "exactly 100%". If the subsection's criteria have different thresholds that can't be combined into one, this part is left out.
 
-The sentence ends with "toward demonstrating <competency>", listing every competency in the response's criteria (for example "Writing Poetry and Analysis").
+The sentence ends with "to demonstrate <competency>", listing every competency in the response's criteria (for example "Writing Poetry and Analysis").
 
-Therefore, the sentence displayed in the "RECOMMENDED NEXT ACTION" notice will say: "Take/Retake <Subsection Name/Link> and score <threshold> toward demonstrating <competency>."
+Therefore, the sentence displayed in the "RECOMMENDED NEXT ACTION" notice will say: "Take/Retake <Subsection Name/Link> and score <threshold> to demonstrate <competency>."
 
 ## Context
 - Corresponding architecture spike: #757
@@ -44,10 +44,10 @@ These scenarios use the following terms:
 
 ```gherkin
 Scenario Outline: The recommendation reads as one sentence that starts with Take or Retake
-  Given the learner's recommendation is to <action> "Poetry Assignment 1", toward "Writing Poetry", whose criterion on it requires 80% or better
+  Given the learner's recommendation is to <action> "Poetry Assignment 1", to demonstrate "Writing Poetry", whose criterion on it requires 80% or better
   When the learner opens the course's Progress tab
   Then the notice appears in the right-hand CBE progress panel, headed "RECOMMENDED NEXT ACTION"
-  And the notice reads "<verb> Poetry Assignment 1 and score 80% or better toward demonstrating Writing Poetry."
+  And the notice reads "<verb> Poetry Assignment 1 and score 80% or better to demonstrate Writing Poetry."
 
   Examples:
     | action | verb   |
@@ -61,9 +61,9 @@ Scenario: The subsection's name links to the subsection
   And no other part of the notice's sentence is a link
 
 Scenario Outline: The score uses the same wording as the competency cards' rule lines
-  Given the learner's recommendation is to take "Quiz 3", toward "Analysis", whose criterion on it requires a score <comparison> <threshold>%
+  Given the learner's recommendation is to take "Quiz 3", to demonstrate "Analysis", whose criterion on it requires a score <comparison> <threshold>%
   When the learner opens the course's Progress tab
-  Then the notice reads "Take Quiz 3 and score <score> toward demonstrating Analysis."
+  Then the notice reads "Take Quiz 3 and score <score> to demonstrate Analysis."
 
   Examples:
     | comparison       | threshold | score           |
@@ -74,10 +74,10 @@ Scenario Outline: The score uses the same wording as the competency cards' rule 
     | exactly equal to | 100       | exactly 100%    |
 
 Scenario Outline: Criteria that compare the same way show the one score that satisfies all of them
-  Given the learner's recommendation is to retake "Final Project", toward "Writing Poetry" and "Analysis"
+  Given the learner's recommendation is to retake "Final Project", to demonstrate "Writing Poetry" and "Analysis"
   And the criterion for "Writing Poetry" requires <first> and the criterion for "Analysis" requires <second>
   When the learner opens the course's Progress tab
-  Then the notice reads "Retake Final Project and score <score> toward demonstrating Writing Poetry and Analysis."
+  Then the notice reads "Retake Final Project and score <score> to demonstrate Writing Poetry and Analysis."
 
   Examples:
     | first         | second        | score         |
@@ -86,10 +86,10 @@ Scenario Outline: Criteria that compare the same way show the one score that sat
     | exactly 100%  | exactly 100%  | exactly 100%  |
 
 Scenario Outline: The score is left out when the criteria compare in different ways or require different exact scores
-  Given the learner's recommendation is to retake "Final Project", toward "Writing Poetry" and "Analysis"
+  Given the learner's recommendation is to retake "Final Project", to demonstrate "Writing Poetry" and "Analysis"
   And the criterion for "Writing Poetry" requires <first> and the criterion for "Analysis" requires <second>
   When the learner opens the course's Progress tab
-  Then the notice reads "Retake Final Project toward demonstrating Writing Poetry and Analysis."
+  Then the notice reads "Retake Final Project to demonstrate Writing Poetry and Analysis."
 
   Examples:
     | first         | second        |
@@ -98,16 +98,16 @@ Scenario Outline: The score is left out when the criteria compare in different w
     | exactly 90%   | exactly 100%  |
 
 Scenario: The score is left out when a criterion's rule isn't recognized
-  Given the learner's recommendation is to take "Lab 2", toward "Analysis" and "Lab Safety"
+  Given the learner's recommendation is to take "Lab 2", to demonstrate "Analysis" and "Lab Safety"
   And the criterion for "Analysis" requires 80% or better, and the criterion for "Lab Safety" uses a rule the plugin doesn't recognize
   When the learner opens the course's Progress tab
-  Then the notice reads "Take Lab 2 toward demonstrating Analysis and Lab Safety."
+  Then the notice reads "Take Lab 2 to demonstrate Analysis and Lab Safety."
   And the unrecognized rule is reported to the site's logging service
 
 Scenario Outline: Every competency the subsection counts toward is named, as a list, in the order the server returns them
-  Given the learner's recommendation is to retake "Poetry Assignment 1", toward <competencies>, in that order, each requiring 80% or better
+  Given the learner's recommendation is to retake "Poetry Assignment 1", to demonstrate <competencies>, in that order, each requiring 80% or better
   When the learner opens the course's Progress tab
-  Then the notice reads "Retake Poetry Assignment 1 and score 80% or better toward demonstrating <list>."
+  Then the notice reads "Retake Poetry Assignment 1 and score 80% or better to demonstrate <list>."
 
   Examples:
     | competencies                                 | list                                   |
@@ -116,9 +116,9 @@ Scenario Outline: Every competency the subsection counts toward is named, as a l
 
 Scenario: A competency with two criteria on the subsection is named once
   Given the learner's recommendation is to retake "Poetry Assignment 1"
-  And the subsection has two criteria toward "Writing Poetry", in two different groups, one requiring 75% or better and one requiring 80% or better
+  And the subsection has two criteria to demonstrate "Writing Poetry", in two different groups, one requiring 75% or better and one requiring 80% or better
   When the learner opens the course's Progress tab
-  Then the notice reads "Retake Poetry Assignment 1 and score 80% or better toward demonstrating Writing Poetry."
+  Then the notice reads "Retake Poetry Assignment 1 and score 80% or better to demonstrate Writing Poetry."
 
 Scenario Outline: A link to resume the course appears when there is no recommendation
   Given a course with competency criteria
@@ -175,15 +175,15 @@ Scenario: A failure while displaying the notice doesn't hide the rest of the pan
   And the failure is reported to the site's logging service
 
 Scenario: Course staff viewing a learner's progress see that learner's recommendation
-  Given learner A's recommendation is to retake "Poetry Assignment 1", toward "Writing Poetry", whose criterion on it requires 80% or better
+  Given learner A's recommendation is to retake "Poetry Assignment 1", to demonstrate "Writing Poetry", whose criterion on it requires 80% or better
   When a member of course staff opens learner A's progress page, for example from the instructor dashboard
-  Then the notice reads "Retake Poetry Assignment 1 and score 80% or better toward demonstrating Writing Poetry."
+  Then the notice reads "Retake Poetry Assignment 1 and score 80% or better to demonstrate Writing Poetry."
 
 Scenario: Course staff moving between learners see each learner's own recommendation
-  Given learner A's recommendation is to retake "Poetry Assignment 1", and learner B's is to take "Quiz 2", toward "Analysis", whose criterion on it requires 70% or better
+  Given learner A's recommendation is to retake "Poetry Assignment 1", and learner B's is to take "Quiz 2", to demonstrate "Analysis", whose criterion on it requires 70% or better
   And a member of course staff has opened learner A's progress page
   When the staff member opens learner B's progress page in the same browser session
-  Then the notice reads "Take Quiz 2 and score 70% or better toward demonstrating Analysis."
+  Then the notice reads "Take Quiz 2 and score 70% or better to demonstrate Analysis."
   And "Poetry Assignment 1" doesn't appear in the notice
 
 Scenario: Course staff viewing a learner with no recommendation can open the course where that learner left off
@@ -194,20 +194,20 @@ Scenario: Course staff viewing a learner with no recommendation can open the cou
 
 Scenario: Course staff viewing the course as a specific learner see what the server returns for that session
   Given a member of course staff is viewing the course as learner A
-  And the server returns the recommendation to retake "Poetry Assignment 1", toward "Writing Poetry", whose criterion on it requires 80% or better, for that session
+  And the server returns the recommendation to retake "Poetry Assignment 1", to demonstrate "Writing Poetry", whose criterion on it requires 80% or better, for that session
   When the staff member opens the course's Progress tab
-  Then the notice reads "Retake Poetry Assignment 1 and score 80% or better toward demonstrating Writing Poetry."
+  Then the notice reads "Retake Poetry Assignment 1 and score 80% or better to demonstrate Writing Poetry."
   And the request for the recommendation names no learner
 
 Scenario: The notice shows the current recommendation after the learner returns from a subsection
-  Given the learner opened the course's Progress tab, and the notice read "Take Quiz 1 and score 80% or better toward demonstrating Analysis."
+  Given the learner opened the course's Progress tab, and the notice read "Take Quiz 1 and score 80% or better to demonstrate Analysis."
   And the learner followed the link, submitted "Quiz 1", and the server now recommends taking "Quiz 2"
   When the learner returns to the Progress tab in the same browser session, without reloading the page
   Then the notice shows the recommendation for "Quiz 2"
   And "Quiz 1" doesn't appear in the notice
 
 Scenario: The notice shows the current recommendation after the learner uses the browser's Back button
-  Given the learner opened the course's Progress tab, and the notice read "Take Quiz 1 and score 80% or better toward demonstrating Analysis."
+  Given the learner opened the course's Progress tab, and the notice read "Take Quiz 1 and score 80% or better to demonstrate Analysis."
   And the learner followed the link, submitted "Quiz 1", and the server now recommends taking "Quiz 2"
   When the learner uses the browser's Back button to return to the Progress tab
   Then the notice shows the recommendation for "Quiz 2"
@@ -234,7 +234,7 @@ Scenario: A keyboard and screen reader user can use the resume link
   And the link is announced with its link text
 
 Scenario: The notice reflows on a small screen
-  Given the learner's recommendation is for a subsection with a long name, toward three competencies with long names
+  Given the learner's recommendation is for a subsection with a long name, to demonstrate three competencies with long names
   When the learner opens the course's Progress tab at a phone-sized viewport
   Then the notice's sentence wraps onto more lines instead of being cut off
   And the page doesn't scroll horizontally
