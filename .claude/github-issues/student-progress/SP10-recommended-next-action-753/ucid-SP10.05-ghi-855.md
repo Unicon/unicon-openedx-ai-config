@@ -7,16 +7,18 @@ Cached: 2026-10-06
 As a learner, I want Open edX to know whether I can still submit to a subsection in order to get a recommended next action in my CBE course that I can actually act on, without having to figure this out myself or have someone tell me.
 
 ## Description
-This ticket adds a function to openedx-platform that is called by #754's endpoint. Given a learner and a subsection, it returns two things:
-- Whether the subsection's graded content accepts a submission from the learner now: yes, no, or unknown.
+This ticket adds a function to openedx-platform that is called by #754's endpoint. Given a learner and a subsection, it returns four answers, each yes, no, or unknown:
+- Whether the subsection's scored content accepts work from the learner now: a new submission, or an ORA peer, self, or training step the learner still needs to do.
 - Whether the learner has submitted or attempted anything in the subsection.
+- Whether the learner has done all of their own work in the subsection, so it is just waiting on someone else to grade it.
+- Whether all of the subsection's scored content has been graded.
 
-#754 uses these to tell retries, not-started subsections, and dead ends apart.
+When the learner can't see the subsection, or it has no scored content, it returns nothing. #754 uses these answers to tell the difference between subsections the learner can continue, retry, those that the learner hasn't started, and those that the learner can't do anything with right now.
 
-How each kind of graded content is checked:
-- ORA: accepts a submission only if the learner has no active submission (never submitted, or staff reset their state) and the submission window is open. ORA doesn't accept a new submission once graded, so a graded ORA can only be retried after a staff reset.
+How each kind of scored content is checked:
+- ORA: accepts work if the learner has no active submission (never submitted, or staff reset their state) and the submission window is open, if the learner still needs to do their own peer, self, or training step and that step is open, or if the ORA lets learners reset their own response and the learner still can. ORA doesn't accept a new submission once graded, so a graded ORA can only be retried after a staff reset.
 - Problems: accepts a submission while attempts remain and the problem isn't past its due date plus any grace period, or past course end when it has no due date.
-- Timed or proctored exams: any existing attempt means no.
+- Timed or proctored exams: an exam the learner hasn't started, or is still taking within its time limit, is judged by its problems. A submitted exam or one whose time has run out doesn't accept any new submissions/work from the learner, except for a practice exam the learner can still reset themselves.
 - Graded content locked for the learner's enrollment track (for example audit): no.
 - Any other scored content (for example LTI): unknown.
 
