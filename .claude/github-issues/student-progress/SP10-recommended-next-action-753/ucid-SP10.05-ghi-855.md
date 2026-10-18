@@ -101,13 +101,13 @@ These items use the following terms:
   | It ended in an error. | No |
   | It ended in an error, and staff then marked it ready to resume. | Yes |
 
-- [ ] A practice exam whose attempt has ended accepts work when the learner can reset the attempt themselves and the reset leaves them something to submit. A learner can reset any ended practice attempt except a verified one. Resetting starts a new attempt. When the old attempt was submitted, the reset also wipes the learner's problem answers and attempt counts, so the learner starts the problems fresh. When the old attempt ended any other way, the reset keeps the problems' answers and attempt counts as they were, so the problems decide.
+- [ ] A practice exam whose attempt has ended accepts work when the learner can reset the attempt themselves and the reset leaves them something to submit. A learner can reset any ended practice attempt except a verified one. Resetting starts a new attempt. When the old attempt was submitted, the reset also wipes the learner's problem answers and attempt counts, so the learner starts the problems fresh. When the old attempt ended any other way, the reset keeps the problems' answers and attempt counts as they were, so the problems decide. In every case, the learner has not reset the attempt. The check answers from what a reset would allow and never performs one.
 
-  | The learner's newest practice exam attempt | What a reset does to the exam's problems | Accepts work? |
+  | The learner's newest practice exam attempt | If the learner reset it | Accepts work? |
   | --- | --- | --- |
-  | It was submitted, and the learner has used every attempt on the problems. | The reset wipes the problems, so every attempt is available again. | Yes |
-  | It ended in an error, and the problems have attempts left. | The reset keeps the problems as they are, and attempts remain. | Yes |
-  | It ended in an error, and the learner has used every attempt on the problems. | The reset keeps the problems as they are, so no attempts remain. | No |
+  | It was submitted, and the learner has used every attempt on the problems. | The reset would wipe the problems, so every attempt would be available again. | Yes |
+  | It ended in an error, and the problems have attempts left. | The reset would keep the problems as they are, and attempts would remain. | Yes |
+  | It ended in an error, and the learner has used every attempt on the problems. | The reset would keep the problems as they are, so no attempts would remain. | No |
   | It was verified, and the problems have attempts left. | The learner can't reset a verified attempt, so the attempts left on the problems can't be used. | No |
 
 - [ ] A timed or proctored exam in a course whose exams run on the edx-exams service reports unknown until the learner has attempted a counting component, and does not accept work afterward. The edx-exams service keeps the learner's exam attempt in a separate system the check can't read, so the check can't tell an exam in progress from a submitted one. Once the learner has answered anything, the check assumes the exam was submitted, because an exam stays in progress only for its time limit. In every case, the exam's problems have attempts left under their own attempt limits.
@@ -303,8 +303,6 @@ The check builds the learner's own view of the subsection with `get_course_block
 5. Combine the component answers into the four fields:
    - `accepts_learner_work` and `attempted` each ask whether any component qualifies. Each is true when any component is yes, unknown when no component is yes but at least one is unknown, and false when every component is no.
    - `all_learner_work_done` and `all_scored` each ask whether every component qualifies. Each is false when any component is no, unknown when no component is no but at least one is unknown, and true when every component is yes.
-
-   For example, in a subsection with an unanswered problem and an ORA whose check failed, `attempted` is unknown (the problem is no, the ORA unknown), and `all_learner_work_done` is false (the problem alone settles it). When the failed component is the only counting component, all four fields are unknown.
 
 6. Keep the check read-only. `StudentModule`, `Submission`, `Score`, `AssessmentWorkflow`, and `ProctoredExamStudentAttempt` are read directly through their models rather than through their packages' APIs, because those APIs write on read. Never bind a block as the learner (no `get_block_for_descriptor` and no `FieldDataCache`). Don't call any of these, because each one writes:
    - `submissions.api.get_submissions`, which creates a `StudentItem`
