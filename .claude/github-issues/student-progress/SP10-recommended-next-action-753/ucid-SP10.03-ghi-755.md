@@ -145,13 +145,6 @@ Scenario Outline: A button to resume the course appears when there is no recomme
     | each subsection the learner still has a competency to demonstrate on is past the learner's due date                                                |
     | the only subsection the learner could retake is one whose result is hidden from the learner                                                         |
 
-Scenario: Nothing appears when there is neither a recommendation nor a place to resume
-  Given a course with competency criteria
-  And the server returns no recommendation and no place to resume the course for the learner
-  When the learner opens the course's Progress tab
-  Then the notice doesn't appear
-  And the rest of the right-hand CBE progress panel appears as usual
-
 Scenario: Nothing from the notice appears while the recommendation is loading
   Given a course with competency criteria
   And the learner's recommendation is still loading
@@ -250,7 +243,7 @@ This is a suggested approach, not the source of truth. The User Story, Descripti
 
 **Approach**
 
-1. **Request.** Add `getRecommendedNextAction(courseId, targetUserId)` to `src/data/api.js`. It calls #754's route, `api/cbe_learner/v1/next-action/{course_key}`, through `getAuthenticatedHttpClient()`. The optional learner id is a path segment, `/{student_id}`, only when `targetUserId` is set. The final path follows the app name that #754 settles on. Add `useRecommendedNextAction()` to `src/data/apiHooks.js`. It reads `{ courseId, targetUserId }` from `useProgressRouteParams()`, uses the query key `['recommendedNextAction', courseId, targetUserId ?? null]`, and passes #734's plugin query client as `useQuery`'s second argument, so that client's `QueryCache.onError` logs a failed request and a 4xx isn't retried. Leave `placeholderData` unset, so staff switching learners see nothing until the new learner's response arrives.
+1. **Request.** Add `getRecommendedNextAction(courseId, targetUserId)` to `src/data/api.js`. It calls #754's route, `api/cbe_learner/v1/next-action/{course_key}`, through `getAuthenticatedHttpClient()`. The optional learner id is a path segment, `/{student_id}`, only when `targetUserId` is set. Add `useRecommendedNextAction()` to `src/data/apiHooks.js`. It reads `{ courseId, targetUserId }` from `useProgressRouteParams()`, uses the query key `['recommendedNextAction', courseId, targetUserId ?? null]`, and passes #734's plugin query client as `useQuery`'s second argument, so that client's `QueryCache.onError` logs a failed request and a 4xx isn't retried. Leave `placeholderData` unset, so staff switching learners see nothing until the new learner's response arrives.
 2. **Freshness.** Set `gcTime: 0` on this query, so its cache entry is removed as soon as the notice unmounts. The notice's buttons are plain links, so following one is a full page navigation away from the Progress tab, so on return the plugin and its query client usually start fresh. `gcTime: 0` covers in-app remounts, for example staff switching learners or a remount inside the app, which trigger a new request and show nothing until it lands, rather than the previous recommendation followed by a swap. Also call `queryClient.resetQueries` for this key on a `pageshow` event whose `persisted` is true, because the browser's Back button can restore the Progress tab from the back-forward cache without remounting anything. The `pageshow` listener lives in a `useEffect` inside the inner component from step 7 and is removed on unmount.
 3. **What renders.** #743 mounts the right-hand panel only in a course with competency criteria, so this component adds no criteria check of its own. It renders:
    - the sentence and its button, when `reason` is `continue_available`, `retry_available`, or `not_started` and `next_action` is present;
@@ -258,11 +251,11 @@ This is a suggested approach, not the source of truth. The User Story, Descripti
    - otherwise, nothing: while loading, after a failed request, for `no_criteria_in_course` (which #743's panel normally prevents), or when `resume_url` is null.
 
    The component renders nothing when there is no data. The plugin client's `QueryCache.onError` logs a failed request, so the component doesn't branch on `isError`. If a background refetch fails while cached data exists, the cached data keeps rendering.
-4. **Threshold.** Add `combineThreshold(criteria)` to `src/ruleText.js`, reusing the recognition that #734's `formatRuleText` already does (rule type `Grade`, `op` of `gte`, `lte`, or `eq`, `scale` of `percent`), so the notice and the rule lines recognize the same rules. `rule_payload.value` is a fraction from 0.0 to 1.0, and `combineThreshold` receives every entry in `criteria[]`. It returns `{ op, value }` or null:
+4. **Threshold.** Add `combineThreshold(criteria)` to `src/ruleText.js`, reusing the recognition that #734's `formatRuleText` already does (rule type `Grade`, `op` of `gte`, `lte`, or `eq`, `scale` of `percent`), so the notice and the rule lines recognize the same rules. Each criterion's rule is at `criterion.rule.rule_type` and `criterion.rule.rule_payload`, and `rule_payload.value` is a fraction from 0.0 to 1.0. `combineThreshold` receives every entry in `criteria[]` and returns `{ op, value }` or null. Apply these in order and stop at the first that matches:
+   - when two criteria share a `competency_name` but differ in `op` or value, null, because the notice is naming that competency once and can't tell which group's score the learner needs;
    - when every criterion is `gte`, the highest value;
    - when every criterion is `lte`, the lowest value;
    - when every criterion is `eq` with the same value, that value;
-   - when two criteria share a `competency_name` but differ in `op` or value, null, because the notice is naming that competency once and can't tell which group's score the learner needs;
    - when the ops are mixed, the `eq` values differ, or any rule is unrecognized, null, which drops the "and score" clause. An unrecognized rule is logged once per response, as #734's transform does.
 
    Format the value with `intl.formatNumber(value, { style: 'percent', maximumFractionDigits: 2 })`, as #734 does.
@@ -306,7 +299,7 @@ Paths are relative to the root of the plugin repository from #810.
 
 **Additional context**
 
-- #743 must mount the right-hand panel only in a course with competency criteria, because every mount calls #754, an expensive endpoint, and its Course Progress card renders this notice.
+- #743's Course Progress card renders this notice, and #743 mounts the panel only in a course with competency criteria because every mount calls #754, an expensive endpoint.
 - #754 never recommends retaking a subsection whose score is hidden from the learner, so the notice renders #754's response without #739's score masking.
 - Group and competency statuses roll up asynchronously (openedx-core ADR 0004, `docs/openedx_learning/decisions/0004-competency-mastery-concurrency.rst`). Right after a learner demonstrates one subsection in an OR group, #754 can briefly still recommend an untouched sibling. #754 accepts this lag, and the notice shows whatever #754 returns.
 - In `@edx/frontend-platform`, `src/react/ErrorBoundary.jsx` shows the logging and fallback behavior that step 7 relies on.
