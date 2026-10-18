@@ -1,7 +1,7 @@
 # [FE] Delete a Competency Rule Box
 
 GitHub: https://github.com/openedx/openedx-core/issues/833 (#833, OPEN)
-Cached: 2026-09-25
+Cached: 2026-10-14
 
 ## User Story
 As a course author, I want to delete a whole Rule Box from a competency's rules in one action, in order to fix a mistake or remove rules I no longer want without removing each association one at a time.

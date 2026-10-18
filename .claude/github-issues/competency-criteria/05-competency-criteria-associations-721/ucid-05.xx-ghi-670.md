@@ -1,4 +1,4 @@
-# [FE] Build the competency-selection tree, Course Search, and gradeable-subsection browse UI for Competency Criteria Associations
+# [FE] Competency Management Course Search/View
 
 GitHub: https://github.com/openedx/openedx-core/issues/670 (#670, OPEN)
 Cached: 2026-09-21

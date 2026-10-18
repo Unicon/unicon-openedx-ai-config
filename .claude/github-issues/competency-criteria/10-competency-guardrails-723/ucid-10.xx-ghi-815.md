@@ -5,7 +5,7 @@ Cached: 2026-09-21
 
 ## User Story
 
-As a learner, I want a mastery requirement that has been retired to stop counting toward the competency it sat under, in order to not be held short of a competency by a requirement nobody is being measured on any more.
+As a learner, I want a mastery requirement that has been archived to stop counting toward the competency it sat under, in order to not be held short of a competency by a requirement nobody is being measured on any more.
 
 ## Acceptance Criteria
 

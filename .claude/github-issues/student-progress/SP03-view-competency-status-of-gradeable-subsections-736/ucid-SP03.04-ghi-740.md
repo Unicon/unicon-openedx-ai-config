@@ -1,3 +1,8 @@
+# [FE] Display Competency Statuses for Learner in Course
+
+GitHub: https://github.com/openedx/openedx-core/issues/740 (#740, OPEN)
+Cached: 2026-10-14
+
 ## User Story
 As a learner, I need to know my mastery status for each competency in my course in order to understand what I need to work on improving and how I can speak about my skills.
 

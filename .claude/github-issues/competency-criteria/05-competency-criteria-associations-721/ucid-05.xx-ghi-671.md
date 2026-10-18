@@ -61,6 +61,20 @@ Scenario: A placeholder rule box's score cannot duplicate one already in the sam
   Then the change is refused and the reason is shown
   And the existing rule box's score is unchanged
 
+Scenario: A new rule box whose default score is already used in its group says so
+  Given a bottom-tier group with a rule box that already uses the system default score
+  When I add a rule box to that group
+  Then the new rule box's score settings open with the score selected
+  And a message says another rule in this group already uses that score
+  And an unused score is offered that I can apply in one step
+  And the offered score is the nearest unused one, 5 points stricter at a time with the same comparison (for example, 75% or higher becomes 80% or higher, and 40% or lower becomes 35% or lower)
+
+Scenario: Content is not added to a new rule box until its score is unique in its group
+  Given a new rule box whose score another rule box in the same group already uses
+  When I select content to add to it
+  Then the content is not added
+  And the score settings reopen with the message shown as an error
+
 Scenario: A rule box I have not edited keeps following the system default
   Given a placeholder rule box showing the default score, which I have never changed
   When content is added to it
@@ -131,6 +145,7 @@ This section is background and a suggested approach, not the ticket's source of 
 - **Placeholder rule box rendering.** In `criteria-groups/RuleBoxList.tsx`, append one extra `RuleBox` after the derived boxes when `focus.ruleKey === null` and that list's group is the one in focus, or when the list belongs to the placeholder bottom-tier group. Pass it the system default rule to display, read from `useDefaultCompetencyRuleProfile()`; the provider already runs the same query, so this resolves from cache and the panel has already waited on it before rendering anything.  
 - **Editable placeholder fields.** Pass an `onChange` to the `LogicOperatorSelect` on the placeholder bottom-tier group's card, wired to `setPlaceholderLogicOperator`, and to the `ScoreThresholdField` on the placeholder rule box, wired to `setPlaceholderRulePayload`. Pass no `onChange` anywhere else; that is what keeps every persisted row read-only.  
 - **Duplicate score inside one group.** Supply `getInlineValidationMessage` to the placeholder rule box's `ScoreThresholdField`, returning a message when `ruleBoxesForGroup(groupId)` already contains a box whose key equals `ruleKeyOf` of the candidate rule. Both helpers are \#672's. Add the message to `messages.ts` if it is not already there; the sibling ticket that edits a persisted row's score writes the same check independently and may have added it first.  
+- **A new rule box whose default score is already taken.** Because most rule boxes use the system default, "+ Rule" often creates a box whose default score matches an existing one, and the inline check above only runs on a score the author types. Add `nextUnusedScore(rule, boxes)` to `utils.ts`: it steps 5 points stricter at a time and keeps the operator (`gte` goes up, `lte` goes down) until it finds a score no box in the group uses. When the placeholder's score is taken, open its score field with the score selected, show "Another rule in this group already uses {score}. Choose a different score.", and offer a "Use {score}" link that applies the suggestion. If the author selects content while the score is still taken, refuse it before any request is sent.  
 - **Create-request additions.** Extend `associateSubsection` in the provider, and the `createCompetencyCriterion` payload type in `data/types.ts`, with two cases beyond the two \#672 defines. When `focus.groupId` is a real group whose course matches the selected subsection and `focus.ruleKey` is `null`, send `group_id: focus.groupId`, and send `rule_type_override` and `rule_payload_override` from `placeholder.rulePayload` only when it is not `null`. When `focus.groupId` is `null` and `placeholder.parentRuleGroupId` is the course-level group of the selected subsection's course, omit `group_id`, send `logic_operator` carrying `placeholder.logicOperator` unconditionally, and send the rule fields from `placeholder.rulePayload` only when it is not `null`. When `focus.groupId` is `null` but the selected subsection belongs to a different course than the placeholder's, fall through to \#672's existing behavior of omitting `group_id` and every optional field, since the author's choices were made about a group in another course.  
 - **`logic_operator` is added to the API surface here.** Add the field to `createCompetencyCriterion`'s request payload type and to the request body it builds in `data/api.ts`. \#672 deliberately leaves it out, because nothing in that ticket can populate it.  
 - **Focus after a successful create needs no work here.** \#672 writes both parts of focus from the group id in the response and the rule key of whatever rule the request sent, falling back to the system default's key when it sent none. That rule already covers both of this ticket's cases, so the placeholder resolves into the real card it became without any additional handling.  
@@ -172,7 +187,8 @@ Files to create and modify Every path under `src/taxonomy/competency-management/
 | `src/taxonomy/competency-management/criteria-groups/RuleBoxList.test.tsx` | Placeholder rule box ordering, its editable score field, the fraction round trip, and the duplicate-score refusal. |
 | `src/taxonomy/competency-management/data/api.ts` | Add `logic_operator` to the body `createCompetencyCriterion` builds. |
 | `src/taxonomy/competency-management/data/types.ts` | Add `logic_operator` to the create-request payload type. |
-| `src/taxonomy/competency-management/messages.ts` | Add strings for the two add controls, their disabled tooltips, and the duplicate-score message if it is not already present. |
+| `src/taxonomy/competency-management/messages.ts` | Add strings for the two add controls, their disabled tooltips, the duplicate-score message if it is not already present, and the default-score-taken hint and "Use {score}" link. |
+| `src/taxonomy/competency-management/utils.ts` | Add `nextUnusedScore`. |
 
 - Context **\#672** builds everything this ticket extends: the provider and its focus pair, the per-course section, the bottom-tier group card, the rule box, the connector, the operator and score field components with their optional `onChange` and validation seams, the `ruleKeyOf` and `ruleBoxesForGroup` helpers this ticket's duplicate check uses, `canEditCourse` for permission gating, the default rule profile fetch, and the create-criterion request. This ticket adds no new files of its own.  
 - ADR `docs/openedx_learning/decisions/0002-competency-criteria-model.rst` in `openedx-core` is the source for three facts this ticket relies on: a persisted group is never empty, which is why no add action can call the backend on its own; a criterion carries either a shared rule profile reference or its own complete override, never both and never neither, which is why an unchanged placeholder score must not be sent; and a Grade rule payload is `{op, value, scale}` with `value` a fraction between 0.0 and 1.0.  

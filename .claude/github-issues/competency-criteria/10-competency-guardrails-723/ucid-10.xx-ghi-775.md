@@ -22,7 +22,7 @@ As a course author or platform administrator, I want to be warned before I chang
 
 ## Description
 
-Deleting or editing competency configuration on the Competency Management page happens immediately today, with no confirmation step at all. Underneath, a delete will soon either remove the record or retire it, depending on whether any learner has already been evaluated against it, and the author is deliberately not told which. One wording therefore has to be true in both cases.
+Deleting or editing competency configuration on the Competency Management page happens immediately today, with no confirmation step at all. Underneath, a delete will soon either remove the record or archive it, depending on whether any learner has already been evaluated against it, and the author is deliberately not told which. One wording therefore has to be true in both cases.
 
 \#785 implements the edit dialog. The delete dialog for CompetencyCriteria/CompetencyCriteriaGroup is implemented by \#709 and \#710, which need updating to add it. \#786 implements the ObjectTag association-delete dialog.
 

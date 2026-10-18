@@ -1,4 +1,4 @@
-# [BE] Build endpoint for removing a Competency Criterion
+# [BE] Delete Competency Criterion
 
 GitHub: https://github.com/openedx/openedx-core/issues/674 (#674, OPEN)
 Cached: 2026-09-21
@@ -9,13 +9,13 @@ Repo: `openedx-core`, single-repo. No `openedx-platform` changes — this ticket
 
 ## Use Case
 
-As a Platform Administrator, I want to remove a single Competency Criterion (a gradeable-subsection association) from a Competency Criteria Group, so that I can correct or retire a mastery rule without having to rebuild the whole group, while learner progress already recorded against that criterion remains intact and auditable.
+As a Platform Administrator, I want to remove a single Competency Criterion (a gradeable-subsection association) from a Competency Criteria Group, so that I can correct or archive a mastery rule without having to rebuild the whole group, while learner progress already recorded against that criterion remains intact and auditable.
 
 ## Description
 
 **Current state**
 
-No endpoint exists today to remove a `CompetencyCriterion`. Per ADR 0002 Decision 7, a `CompetencyCriterion` (table `CompetencyCriteria`) may be hard-deleted only while no `StudentCompetencyCriteriaStatus` row references it; once one exists, the criterion must be retired by archiving rather than deleting, and existing learner statuses are retained unchanged. The same delete protection applies one level up: `CompetencyCriteriaGroup` cannot be hard-deleted while a `StudentCompetencyCriteriaGroupStatus` row references it, or while it still holds any row (active or archived) underneath it. Per ADR 0003 Decision 4, if the criterion is already in use by learner status, the authoring UI must warn before the change is applied — this ticket's endpoint is the mechanism that enforces the actual archive-vs-delete branch; the UI-side warning and confirmation step is out of scope here (a frontend concern).
+No endpoint exists today to remove a `CompetencyCriterion`. Per ADR 0002 Decision 7, a `CompetencyCriterion` (table `CompetencyCriteria`) may be hard-deleted only while no `StudentCompetencyCriteriaStatus` row references it; once one exists, the criterion must be archived rather than deleting, and existing learner statuses are retained unchanged. The same delete protection applies one level up: `CompetencyCriteriaGroup` cannot be hard-deleted while a `StudentCompetencyCriteriaGroupStatus` row references it, or while it still holds any row (active or archived) underneath it. Per ADR 0003 Decision 4, if the criterion is already in use by learner status, the authoring UI must warn before the change is applied — this ticket's endpoint is the mechanism that enforces the actual archive-vs-delete branch; the UI-side warning and confirmation step is out of scope here (a frontend concern).
 
 **Requested change**
 
@@ -30,7 +30,7 @@ A new endpoint, nested under the existing criterion's group, that removes a `Com
   - **Assumption:** removing the last criterion referencing an `ObjectTag` removes the `ObjectTag` itself, un-tagging the content, rather than leaving it in place with no criterion behind it for the author to clean up separately in the tagging UI.  
   - This only removes the `ObjectTag`. The underlying `Tag` (the competency definition itself) is never deleted; it continues to exist in the taxonomy regardless.  
 - On the archive path, the `ObjectTag` is never touched. This isn't optional: ADR 0002 Decision 7 extends the same learner-status delete protection to `oel_tagging_objecttag`, so deleting it while an archived criterion still references it would violate the ADR (and risks cascading away the row being preserved, or orphaning its reference, depending on the FK's `on_delete`).  
-  - Practical effect: a retired criterion's tag can still appear associated with the content wherever the tagging system surfaces object tags, effectively demoting it from a competency tag to a regular tag. Whether that specifically surfaces on the Course Outline page depends on a separate open question outside the scope of this Github Issue about whether competency tags should display on the Course Outline page at all (that page is out of MVP scope); either way, the tag stays visible in the tagging system's own views.  
+  - Practical effect: an archived criterion's tag can still appear associated with the content wherever the tagging system surfaces object tags, effectively demoting it from a competency tag to a regular tag. Whether that specifically surfaces on the Course Outline page depends on a separate open question outside the scope of this Github Issue about whether competency tags should display on the Course Outline page at all (that page is out of MVP scope); either way, the tag stays visible in the tagging system's own views.  
   - Accepted for MVP: hard-delete, the higher-frequency path during authoring, already removes the association cleanly. Revisit only if not removing the `ObjectTag` association on the archive path causes real author confusion post-launch.  
 - Removing a criterion can leave its parent group, and potentially several ancestor groups above it, with no remaining active content. This endpoint walks the ancestor chain and resolves each level, so no empty group is ever left persisted, per ADR 0002 Decision 2 ("backend validation must reject" persisted empty groups):  
   - Starting from the removed/archived criterion's immediate group, and continuing upward through `parent_id` for as long as a level changes state:  

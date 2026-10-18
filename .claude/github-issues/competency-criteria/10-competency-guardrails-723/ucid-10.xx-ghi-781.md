@@ -5,7 +5,7 @@ Cached: 2026-09-21
 
 ## User Story
 
-As a course author, I want search and content listings to stop showing a retired competency framework's tags so I don't see or filter by competencies that are no longer in use.
+As a course author, I want search and content listings to stop showing an archived competency framework's tags so I don't see or filter by competencies that are no longer in use.
 
 ## Acceptance Criteria
 

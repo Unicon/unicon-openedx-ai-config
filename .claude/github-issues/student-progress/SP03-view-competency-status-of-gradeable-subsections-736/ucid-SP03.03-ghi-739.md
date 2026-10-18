@@ -1,7 +1,7 @@
 # [FE] Display Subsection Competency Statuses for Learner in Course
 
 GitHub: https://github.com/openedx/openedx-core/issues/739 (#739, OPEN)
-Cached: 2026-09-21
+Cached: 2026-10-14
 
 ## User Story
 As a learner, I need to know my competency mastery status for each subsection assignment in my course in order to understand what I need to work on improving.
@@ -24,10 +24,11 @@ If the course hides the subsection's score from the learner, or the subsection i
 
 ## UX Design
 
-@illiphilli, please add the UX design screenshot(s) and the Figma link for this ticket.
+- [Figma Link](https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=983-3817&t=2Jkl6fnaAmO6aSi1-1)
+- Screenshot:
 
-- Figma: TBD
-- Screenshots: TBD
+<img width="799" height="892" alt="Image" src="https://github.com/user-attachments/assets/307c2369-5205-4215-ad58-17a0f48f86c3" />
+
 
 ## Acceptance Criteria
 

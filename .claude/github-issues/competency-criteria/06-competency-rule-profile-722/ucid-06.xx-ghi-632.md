@@ -15,7 +15,7 @@ As a Platform Administrator, I want to update a Competency Rule Profile's rule (
 
 **Current state**
 
-No `CompetencyRuleProfile` API exists. Per the merged ADR: a profile's scope fields are **immutable after creation** — only `rule_type`/`rule_payload` may be edited. Retirement is **archive-only, never a hard delete**, even pre-use (a carve-out from the general delete-protection rule) via the `archived` column; archived profiles remain queryable so existing criteria and learner history stay resolvable. The **system-default** profile is **not edited through this API at all** (6.7, Django admin only) — this ticket covers **taxonomy-scoped** profiles exclusively.
+No `CompetencyRuleProfile` API exists. Per the merged ADR: a profile's scope fields are **immutable after creation** — only `rule_type`/`rule_payload` may be edited. Archiving is **archive-only, never a hard delete**, even pre-use (a carve-out from the general delete-protection rule) via the `archived` column; archived profiles remain queryable so existing criteria and learner history stay resolvable. The **system-default** profile is **not edited through this API at all** (6.7, Django admin only) — this ticket covers **taxonomy-scoped** profiles exclusively.
 
 **Requested change**
 

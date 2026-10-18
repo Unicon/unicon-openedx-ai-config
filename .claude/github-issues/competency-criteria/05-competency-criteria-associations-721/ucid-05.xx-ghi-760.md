@@ -1,4 +1,4 @@
-# [BE] Build Update endpoint to handle a user removing a Competency Criteria Group.
+# [BE] Update/Edit Competency Criteria Group
 
 GitHub: https://github.com/openedx/openedx-core/issues/760 (#760, OPEN)
 Cached: 2026-09-21
@@ -99,7 +99,7 @@ Scenario: Reject an update from a user without permission
 
 ## Description
 
-A Competency Criteria Group can be created (\#664) and retired together with everything beneath it (\#675), but not changed once it exists. Correcting a group that combines its children the wrong way therefore means removing the whole branch and rebuilding every group and criterion under it. Where learners already have progress in that branch, \#675 retires the branch rather than deleting it, so the rebuild leaves their recorded progress attached to retired rows.
+A Competency Criteria Group can be created (\#664) and archived together with everything beneath it (\#675), but not changed once it exists. Correcting a group that combines its children the wrong way therefore means removing the whole branch and rebuilding every group and criterion under it. Where learners already have progress in that branch, \#675 archives the branch rather than deleting it, so the rebuild leaves their recorded progress attached to archived rows.
 
 This ticket makes exactly one thing editable in place: how the group combines the criteria and groups beneath it. The rule an individual criterion is evaluated by is edited on that criterion (\#759), not here.
 

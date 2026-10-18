@@ -33,7 +33,7 @@ Register `CompetencyRuleProfile` in the CBE applet's Django Admin so a platform 
 
 - Editing the system default through the authoring UI (\#646) — this admin surface is the platform-admin path instead.  
 - The REST endpoints (\#631/\#632/\#633).  
-- Creating or deleting the system-level default (seeded via migration; retirement is archive-only per ADR 0002 Decision 7).  
+- Creating or deleting the system-level default (seeded via migration; archiving is archive-only per ADR 0002 Decision 7).  
 - Organization- and course-level rule profiles (deferred).  
 - Any in-use edit warning/confirmation flow — Django Admin does not carry the authoring warning; whether admin should surface one is an Open Question, not built here by default.
 

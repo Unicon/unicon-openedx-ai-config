@@ -1,4 +1,4 @@
-# [BE] Build Update endpoint to handle a user de-selecting a Competency Criteria association.
+# [BE] Update/Edit Competency Criteria
 
 GitHub: https://github.com/openedx/openedx-core/issues/759 (#759, OPEN)
 Cached: 2026-09-21

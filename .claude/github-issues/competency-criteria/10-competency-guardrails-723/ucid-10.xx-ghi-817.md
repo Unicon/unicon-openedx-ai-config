@@ -75,7 +75,7 @@ Scenario: Deleting a rule no learner has been measured against still removes the
 
 ## Description
 
-A mastery rule a learner has already been measured against is archived rather than deleted, and today archiving it leaves the assignment still showing as tagged with a competency nothing is measuring any more. This ticket makes the archive path tell the tagging layer, the same way the delete path already does, once no active rule anywhere still uses the association; the tagging layer retires it rather than deleting it, so mastery a learner already earned still traces back to the assignment and competency that produced it. Tagging the same assignment with the same competency again brings that association back instead of adding a second one, so an author just tags the content and creates a new rule as usual.
+A mastery rule a learner has already been measured against is archived rather than deleted, and today archiving it leaves the assignment still showing as tagged with a competency nothing is measuring any more. This ticket makes the archive path tell the tagging layer, the same way the delete path already does, once no active rule anywhere still uses the association; the tagging layer archives it rather than deleting it, so mastery a learner already earned still traces back to the assignment and competency that produced it. Tagging the same assignment with the same competency again brings that association back instead of adding a second one, so an author just tags the content and creates a new rule as usual.
 
 <details>
 <summary>Technical Details</summary>
