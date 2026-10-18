@@ -10,17 +10,18 @@ As a learner, I want to know what my recommended next action is in my CBE course
 This ticket implements the Recommended Next Action notice inside the right hand CBE progress panel from #743, which goes in the ProgressTabRelatedLinksSlot.
 
 This implementation will call the endpoint built in #754. If the `reason` listed in that endpoint's response is:
-- `retry_available`, then the first word in the sentence should be "Retake"
-- `not_started`, then the first word in the sentence should be "Take"
-- Anything else, then show a link to resume the course instead of the sentence, using the `resume_url` that #754 returns.
+- `continue_available`, then the first word in the sentence should be "Continue", and the button should say "Continue assignment"
+- `retry_available`, then the first word should be "Retake", and the button should say "Retake assignment"
+- `not_started`, then the first word should be "Take", and the button should say "Take assignment"
+- Anything else, then show a "Resume course" button instead of the sentence, using the `resume_url` that #754 returns.
 
-Next in the sentence should be the name of the subsection, which links out to it (the `url` that #754 returns).
+Next in the sentence should be the name of the subsection, in bold. The button below the sentence opens the subsection (the `url` that #754 returns).
 
 Then the sentence should say "and score <threshold>", where the threshold reads the same way as the rule lines on the competency cards: "80% or better", "40% or lower", or "exactly 100%". If the subsection's criteria have different thresholds that can't be combined into one, this part is left out.
 
-The sentence ends with "to demonstrate <competency>", listing every competency in the response's criteria (for example "Writing Poetry and Analysis").
+The sentence ends with "to demonstrate <competency>", listing each competency in the response's criteria once (for example "Writing Poetry and Analysis").
 
-Therefore, the sentence displayed in the "RECOMMENDED NEXT ACTION" notice will say: "Take/Retake <Subsection Name/Link> and score <threshold> to demonstrate <competency>."
+Therefore, the sentence displayed in the "Recommended Next Action" notice will say: "Continue/Take/Retake <Subsection Name> and score <threshold> to demonstrate <competency>."
 
 ## Context
 - Corresponding architecture spike: #757
@@ -61,7 +62,6 @@ Scenario: The button opens the recommended subsection
   Given the learner's recommendation is to retake "Poetry Assignment 1"
   When the learner selects the notice's "Retake assignment" button
   Then "Poetry Assignment 1" opens in the courseware, in the same browser tab
-  And no part of the notice's sentence is a link
 
 Scenario Outline: The score uses the same wording as the competency cards' rule lines
   Given the learner's recommendation is to take "Quiz 3", to demonstrate "Analysis", whose criterion on it requires a score <comparison> <threshold>%
