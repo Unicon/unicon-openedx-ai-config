@@ -1,6 +1,7 @@
 # [FE] Let the operator choose to replace Course Grade Slot with CBE Progress
 
 GitHub: https://github.com/openedx/openedx-core/issues/839 (#839, OPEN)
+Cached: 2026-10-18
 
 ## User Story
 As a site operator, I want to be able to have the Grades card replaced with CBE Progress for courses that have competency criteria while courses without competency criteria still show the Grades card, so that neither students of CBE courses nor students of traditional courses get confused about their overall progress.
@@ -25,7 +26,9 @@ Blocked by #733, #734, and #828.
 
 ## UX Design
 
-This ticket needs no new design. In the "Replacement" layout, #734's competency criteria panel takes the Grades card's place, as #734's happy path Figma already shows: https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=983-3817&t=eJLFBvoAFbCnde7b-4
+This ticket needs no new design. In the "Replacement" layout, #734's competency criteria panel takes the Grades card's place, as #734's happy path [Figma already shows](https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=983-3817&t=eJLFBvoAFbCnde7b-4): 
+
+<img width="3790" height="5248" alt="Image" src="https://github.com/user-attachments/assets/71b69a7c-0f63-4cbf-a414-314b6fdb3ac9" />
 
 ## Acceptance Criteria
 
@@ -39,12 +42,17 @@ The scenarios below use these terms:
 - #734 specifies what the panel contains, including in staff view.
 
 ```gherkin
-Scenario: A course with competency criteria shows the panel in place of the Grades card
-  Given the site uses the "Replacement" layout
+Scenario Outline: A course with competency criteria shows the panel in place of the Grades card, which is the default layout
+  Given <layout>
   And a course has competency criteria
   When the learner opens the course's Progress tab
   Then the learner sees the competency criteria panel in the Grades card's place
   And the Grades card does not appear anywhere on the page
+
+  Examples:
+    | layout                                                                                               |
+    | the site uses the "Replacement" layout                                                               |
+    | the operator has enabled the plugin without choosing a layout and has rebuilt the Learning MFE image |
 
 Scenario: A course without competency criteria shows the Grades card as usual
   Given the site uses the "Replacement" layout
@@ -59,7 +67,7 @@ Scenario: The Grades card does not appear and then disappear while the page load
   When the learner opens the course's Progress tab
   Then the Grades card's place stays empty until both #733's answer and the learner's course outline have arrived
   And the Grade summary and Detailed grades sections appear without waiting for either one
-  And the Grades card is not shown at any point, before or after they arrive
+  And the Grades card is not shown at any point while they load
 
 Scenario Outline: The Grades card is shown when the course's criteria can't be loaded
   Given the site uses the "Replacement" layout
@@ -76,19 +84,14 @@ Scenario Outline: The Grades card is shown when the course's criteria can't be l
     | #733's endpoint refuses the request for this learner                                         |
     | the request to #733's endpoint fails because of a network error                              |
 
-Scenario Outline: A course with competency criteria never shows the Grades card when the panel can't be shown
+Scenario: A course with competency criteria never shows the Grades card when the panel can't be shown
   Given the site uses the "Replacement" layout
   And #733 returns criteria for the course
-  And <failure>
+  And the request for the learner's course outline fails
   When the learner opens the course's Progress tab
   Then neither the competency criteria panel nor the Grades card is shown
   And the error is reported to the site's logging service
   And the Grade summary and Detailed grades sections are shown as usual
-
-  Examples:
-    | failure                                               |
-    | the request for the learner's course outline fails    |
-    | the competency criteria panel throws while rendering  |
 
 Scenario Outline: Course staff get the same layout as the learner they are viewing
   Given the site uses the "Replacement" layout
@@ -101,21 +104,6 @@ Scenario Outline: Course staff get the same layout as the learner they are viewi
     | a member of course staff viewing a specific learner's progress  | a course has competency criteria    | the competency criteria panel |
     | a member of course staff viewing a specific learner's progress  | a course has no competency criteria | that learner's Grades card    |
     | a member of course staff masquerading as a specific learner     | a course has competency criteria    | the competency criteria panel |
-
-Scenario: A failure in the plugin's own code leaves the Grades card and the rest of the page in place
-  Given the site uses the "Replacement" layout
-  And the plugin code that chooses between the panel and the Grades card throws an error while rendering
-  When a learner opens the Progress tab of any course, with or without competency criteria
-  Then the learner sees the Grades card
-  And the rest of the Progress tab renders as usual
-  And the page does not go blank or replace the tab with an error message
-
-Scenario: "Replacement" is the default layout
-  Given the operator has enabled the plugin without choosing a layout and has rebuilt the Learning MFE image
-  And a course has competency criteria
-  When a learner opens the course's Progress tab
-  Then the learner sees the competency criteria panel in the Grades card's place
-  And the Grades card does not appear
 
 Scenario: The "Above" layout keeps the Grades card in every course
   Given the site uses the "Above" layout
@@ -141,8 +129,6 @@ The setting and its documentation are confirmed at code review and on a Tutor en
 
 - [ ] An operator chooses between the "Above" and "Replacement" layouts with a single setting in #828's Tutor plugin, set with Tutor's normal configuration commands, without editing any file in the plugin.
 - [ ] On a Tutor environment, changing the setting to "Above" and rebuilding the Learning MFE image switches the Progress tab to the "Above" layout, and changing it back and rebuilding again restores the "Replacement" layout.
-- [ ] `example.env.config.jsx` registers the "Replacement" layout, and a local Learning MFE checkout that uses it as its `env.config.jsx` shows that layout.
-- [ ] With the setting at its default, the slot configuration the Tutor plugin writes for the Learning MFE matches `example.env.config.jsx`.
 - [ ] The README documents the setting: its name, its two values and what a learner sees with each, its default, and that a change takes effect only after the MFE image is rebuilt.
 - [ ] The README tells an operator who configures the Learning MFE without Tutor which entry in `example.env.config.jsx` to change to get the "Above" layout.
 - [ ] The README states what learners in courses with competency criteria stop seeing in the "Replacement" layout: the Grades card, including the learner's current grade against the passing grade, the letter-grade ranges, credit eligibility, and the upgrade prompt shown to audit learners, and explains that these are hidden because they don't accurately describe a learner's progress in a course with competency criteria. It also states that the Grade summary and Detailed grades sections still appear, and that courses without competency criteria are unchanged.
@@ -176,6 +162,14 @@ This is a suggested approach, not the source of truth. The User Story, Descripti
    - Keep the `Wrap` entry's JSX as one Python constant, identical to the entry in `example.env.config.jsx`.
 6. In courses without criteria, the Grades card now waits for #733 in "Replacement" mode, so a failed #733 request must fail fast. #734's plugin-owned query client does not retry 4xx responses, so a missing #733 route shows the Grades card after one request. Keep that rule if the client changes.
 
+**Tests**
+
+These cases need an injected fault or a comparison of config files, so they are covered by tests and code review rather than by the Acceptance Criteria:
+
+- In the "Replacement" layout, when the wrapper throws while rendering, the Grades card is shown, the rest of the Progress tab renders as usual, and the error is logged. Cover a course with competency criteria and one without.
+- In the "Replacement" layout, in a course with competency criteria, when the competency criteria panel throws while rendering, neither the panel nor the Grades card is shown, the error is logged, and the Grade summary and Detailed grades sections are still shown.
+- `example.env.config.jsx` registers the "Replacement" layout, and with the setting at its default, the slot configuration the Tutor plugin writes for the Learning MFE matches `example.env.config.jsx`.
+
 Out of scope: choosing the placement per course, and the move to frontend-base's slot API in frontend-app-learning#1905.
 
 **Files to create and modify**
@@ -202,3 +196,4 @@ Out of scope: choosing the placement per course, and the move to frontend-base's
 ## Open Questions
 
 - (implementer) The setting's name and value spellings, and what an unknown value does. The recommendation is that any value other than "Above" behaves as the default, "Replacement".
+
