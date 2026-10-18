@@ -28,7 +28,7 @@ How each kind of graded content is checked:
 
 These scenarios use the following terms:
 
-- The check is the function this ticket adds. Its caller, #754's code, gives it a learner and a subsection. It reports two things: whether the subsection accepts a submission from that learner now, and whether the learner has attempted anything in the subsection. The first answer is one of three: the subsection accepts a submission, it does not accept one, or it is unknown.
+- The check is the function this ticket adds. Its caller, #754's code, gives it a learner and a subsection. It reports four things: whether the subsection accepts a submission from that learner now, whether the learner has attempted anything in the subsection, whether the learner has submitted every counting component, and whether every counting component has a score for the learner. The first answer is one of three: the subsection accepts a submission, it does not accept one, or it is unknown.
 - A counting component is a component in the subsection that is scored, is worth more than zero points, and is visible to the learner. Components in ungraded subsections count too. HTML and video components are never counting components.
 - The learner's due date is the subsection's due date as it applies to that learner. It can differ from the course-wide date, for example because of an individual extension or a self-paced schedule.
 - A subsection is past due for the learner once the learner's due date, and any grace period the course has after it, have both passed. A subsection with no due date is not past due.
@@ -102,11 +102,17 @@ Scenario: An exam the learner has no attempt record for is judged by its problem
   When the check runs for the learner and the subsection
   Then the check reports that the subsection accepts a submission
 
-Scenario: An exam in a course that uses the edx-exams service reports unknown
+Scenario Outline: An exam in a course that uses the edx-exams service reports unknown until the learner has attempted a counting component, and does not accept a submission afterward
   Given the subsection is a timed or proctored exam in a course whose exams run on the edx-exams service
   And the problems in the exam have attempts left
+  And <learner activity>
   When the check runs for the learner and the subsection
-  Then the check reports that it is unknown whether the subsection accepts a submission
+  Then the check reports that <result>
+
+  Examples:
+    | learner activity | result |
+    | the learner has not submitted an answer to any problem in the exam | it is unknown whether the subsection accepts a submission |
+    | the learner submitted an answer to one problem in the exam | the subsection does not accept a submission |
 
 Scenario Outline: Graded content locked for the learner's enrollment track does not accept a submission, whatever its type
   Given the course locks graded content for audit learners
@@ -242,6 +248,22 @@ Scenario Outline: The learner counts as having attempted the subsection once the
     | the learner launched an LTI component that has not sent a score | not having attempted the subsection |
     | the learner has never opened the subsection | not having attempted the subsection |
 
+Scenario Outline: The check reports whether the learner has submitted every graded part, and whether every one has been graded
+  Given the subsection has a problem and an ORA, both counting components
+  And <learner activity>
+  When the check runs for the learner and the subsection
+  Then the check reports the learner as <submitted>
+  And it reports the learner as <graded>
+
+  Examples:
+    | learner activity | submitted | graded |
+    | the learner answered the problem and has not touched the ORA | not having submitted every part | not having had every part graded |
+    | the learner answered the problem, and the ORA response is awaiting grading | having submitted every part | not having had every part graded |
+    | the learner answered the problem, and the ORA response has been graded | having submitted every part | having had every part graded |
+    | the learner answered the problem, and the ORA is waiting for the learner to complete their own peer or self assessment step | having submitted every part | not having had every part graded |
+    | the learner answered the problem, and checking the ORA fails with an unexpected error | having submitted every part | not having had every part graded |
+    | the learner answered the problem, the ORA response had been graded, staff then reset the learner's state, and the learner has not resubmitted | not having submitted every part | not having had every part graded |
+
 Scenario Outline: The check answers for the learner it is given, not for the user making the request
   Given the current request belongs to a staff member viewing the learner's progress, directly or while masquerading as the learner
   And <learner state>
@@ -288,17 +310,19 @@ The check builds the learner's own view of the subsection with `get_course_block
    class SubsectionSubmissionState:
        accepts: Literal["yes", "no", "unknown"]
        attempted: bool
+       all_submitted: bool
+       all_scored: bool
 
    def get_subsection_submission_state(user: User, subsection_key: UsageKey) -> SubsectionSubmissionState:
    ```
 
    `user` is the target learner, which #754 resolves with `_get_student_user`. The function never reads the request, `crum`, or the requesting user. The one exception is outside the function's own code: `get_course_blocks` runs the content-gating partition, which reads `crum`'s current request only to word its denial message. Gating itself is evaluated for `user`.
 
-2. Build the learner's view with `get_course_blocks(user, subsection_key)` and its default transformers. That view already leaves out blocks the learner can't see (unreleased, staff-only, hidden by cohort, not picked from randomized library content), and each block's `due` is the learner's own date from edx-when. Blocks locked by audit content gating stay in the view with `authorization_denial_reason` set, evaluated for `user`; the content gating partition is the only partition that sets that field. A counting component is a block in this view with `has_score` true, `weight` not 0, and a `max_score` (collected by `GradesTransformer`) that is not 0. When the subsection itself is absent from the learner's block structure, or there are no counting components, return `SubsectionSubmissionState(accepts="no", attempted=False)`. The block structure doesn't collect the grace period (the subsection's inherited `graceperiod`) or problems' `max_attempts`. Read both from the modulestore without binding to a user, for example with `modulestore().get_item(subsection_key, depth=None)`.
+2. Build the learner's view with `get_course_blocks(user, subsection_key)` and its default transformers. That view already leaves out blocks the learner can't see (unreleased, staff-only, hidden by cohort, not picked from randomized library content), and each block's `due` is the learner's own date from edx-when. Blocks locked by audit content gating stay in the view with `authorization_denial_reason` set, evaluated for `user`; the content gating partition is the only partition that sets that field. A counting component is a block in this view with `has_score` true, `weight` not 0, and a `max_score` (collected by `GradesTransformer`) that is not 0. When the subsection itself is absent from the learner's block structure, or there are no counting components, return `SubsectionSubmissionState(accepts="no", attempted=False, all_submitted=False, all_scored=False)`. The block structure doesn't collect the grace period (the subsection's inherited `graceperiod`) or problems' `max_attempts`. Read both from the modulestore without binding to a user, for example with `modulestore().get_item(subsection_key, depth=None)`.
 
 3. Give each counting component the result of the first rule that applies:
    1. `authorization_denial_reason` is set: "no".
-   2. The subsection is an exam (`MilestonesAndSpecialExamsTransformer.is_special_exam`) and `exams_ida_enabled(course_key)` is on: "unknown". The edx-exams service keeps no local attempt records.
+   2. The subsection is an exam (`MilestonesAndSpecialExamsTransformer.is_special_exam`) and `exams_ida_enabled(course_key)` is on: "no" when any counting component in the subsection counts as attempted under step 4, otherwise "unknown". The edx-exams service keeps no local attempt records, so the answer rests on the components' own state. This matches the edx-proctoring rule in the next item, where any existing attempt means "no".
    3. The subsection is an exam and the learner has any edx-proctoring attempt record for it, whatever its status: "no". Query `ProctoredExamStudentAttempt.objects.filter(user=user, proctored_exam__course_id=..., proctored_exam__content_id=...).exists()` directly (step 6 explains why). Staff "remove attempt" hard-deletes the row, so a removed attempt no longer blocks.
    4. Problem: mirror `ProblemBlock.closed()`. The result is "no" when `max_attempts` is set and the learner's `attempts` (from their `StudentModule.state` JSON) has reached it, or when the subsection has no due date and `CourseOverview.end` plus the grace period has passed. Otherwise it is "yes". The due-date branch of `closed()` is the past-due rule in step 5.
    5. ORA: "no" when the learner has an active submission; otherwise "yes" only inside the submission window. To check for a submission, query `Submission.objects.filter(student_item__student_id__in=<ids>, student_item__course_id=str(course_key), student_item__item_id=str(usage_key)).exists()`, where `<ids>` are the `anonymous_user_id` values of the learner's existing `AnonymousUserId` rows for the course (model in `common/djangoapps/student/models`), read with a plain query such as `AnonymousUserId.objects.filter(user=user, course_id=course_key).values_list("anonymous_user_id", flat=True)`. No rows means no submissions. `Submission.objects` already excludes submissions that a staff reset soft-deleted, and a submission that staff removed from grading still exists, so it still blocks a new one. The window depends on `date_config_type`, which `OpenAssessmentDateTransformer` collects along with the ORA's own dates: `subsection` is open until the learner's due date, with no grace period, because ORA's `is_closed` never applies one. The window check compares only against the learner's due date. The start is enforced by step 2, because `get_course_blocks` leaves an unreleased subsection out of the learner's view (`StartDateTransformer`); `course_end` runs from the course's start to its end; `manual` runs from `submission_start` to `submission_due`, parsed the way `get_ora_as_assignments` parses them.
@@ -307,6 +331,12 @@ The check builds the learner's own view of the subsection with `get_course_block
    If evaluating a component raises an exception, that component reports "unknown" and counts as attempted. The check logs the exception with the course key and the component's usage key, then continues.
 
 4. Read `attempted` for every counting component, whichever rule decided its result. A problem counts when `attempts > 0`, an ORA counts when it has a submission, and any other type counts when the learner's `StudentModule.grade` is set. On an exam subsection, any edx-proctoring attempt record also counts.
+
+   The dataclass's other two fields come from the same per-component reads:
+   - `all_submitted` is true when every counting component counts as attempted under the per-component rule above (a problem with `attempts > 0`, an ORA with an active submission, any other type with `StudentModule.grade` set). A component whose check raised an error counts as submitted, the same way it counts as attempted. An exam attempt record makes the subsection attempted but does not make any component submitted.
+   - `all_scored` is true when every counting component has a score for the learner. A problem counts as scored once it is submitted, because it is scored on submission. An ORA counts as scored when its active submission has a `submissions.models.Score` row, read directly through the model the same way the check already reads `Submission`. Any other type counts as scored when `StudentModule.grade` is set. A component whose check raised an error counts as not scored.
+   - Both fields are false in the early return of step 2, which covers a subsection missing from the learner's view and a subsection with no counting components.
+   - `all_scored` implies `all_submitted`, which implies `attempted`.
 
 5. Combine the component results. If the subsection's learner `due` plus the grace period has passed, `accepts` is "no". Otherwise `accepts` is "yes" if any component reported "yes", else "unknown" if any reported "unknown", else "no".
 
