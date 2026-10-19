@@ -41,7 +41,7 @@ These scenarios use the following terms:
 
 - The notice is the "Recommended Next Action" notice in the right-hand CBE progress panel from #743. Its card styling, heading icon, and button follow the UX design.
 - The recommendation is what #754 returns for the learner whose progress is shown. It names a subsection to continue, take, or retake, and the competencies on that subsection the learner still has to demonstrate, each with the score its criterion requires.
-- A recommendation to continue is for a subsection the learner has started but hasn't finished their own part of. A recommendation to retake is for a subsection the learner has attempted without demonstrating its competency and can submit to again. A recommendation to take is for a subsection the learner hasn't started.
+- A recommendation to continue is for a subsection the learner has started but hasn't finished their own part of. A recommendation to retake is for a subsection the learner has been scored on, or had reset by staff, without demonstrating its competency, and can submit to again. A recommendation to take is for a subsection the learner hasn't started.
 - Subsection and competency names appear as they are stored in the course and aren't translated.
 
 ```gherkin
@@ -63,7 +63,7 @@ Scenario: The button opens the recommended subsection
   When the learner selects the notice's "Retake assignment" button
   Then "Poetry Assignment 1" opens in the courseware, in the same browser tab
 
-Scenario Outline: The score uses the same wording as the competency cards' rule lines
+Scenario Outline: The score uses the same thresholds as the competency cards' rule lines
   Given the learner's recommendation is to take "Quiz 3", to demonstrate "Analysis", whose criterion on it requires a score <comparison> <threshold>%
   When the learner opens the course's Progress tab
   Then the notice reads "Take Quiz 3 and score <score> to demonstrate Analysis."
@@ -243,7 +243,7 @@ This is a suggested approach, not the source of truth. The User Story, Descripti
 
 **Approach**
 
-1. **Request.** Add `getRecommendedNextAction(courseId, targetUserId)` to `src/data/api.js`. It calls #754's route, `api/cbe_learner/v1/next-action/{course_key}`, through `getAuthenticatedHttpClient()`. The optional learner id is a path segment, `/{student_id}`, only when `targetUserId` is set. Add `useRecommendedNextAction()` to `src/data/apiHooks.js`. It reads `{ courseId, targetUserId }` from `useProgressRouteParams()`, uses the query key `['recommendedNextAction', courseId, targetUserId ?? null]`, and passes #734's plugin query client as `useQuery`'s second argument, so that client's `QueryCache.onError` logs a failed request and a 4xx isn't retried. Leave `placeholderData` unset, so staff switching learners see nothing until the new learner's response arrives.
+1. **Request.** Add `getRecommendedNextAction(courseId, targetUserId)` to `src/data/api.js`. It calls #754's route, `{LMS_BASE_URL}/api/cbe_learner/v1/next-action/{course_key}`, through `getAuthenticatedHttpClient()`. The optional learner id is a path segment, `/{student_id}`, only when `targetUserId` is set. Add `useRecommendedNextAction()` to `src/data/apiHooks.js`. It reads `{ courseId, targetUserId }` from `useProgressRouteParams()`, uses the query key `['recommendedNextAction', courseId, targetUserId ?? null]`, and passes the query client from `src/data/queryClient.js` (#734) as `useQuery`'s second argument, so that client's `QueryCache.onError` logs a failed request and a 4xx isn't retried. Leave `placeholderData` unset, so staff switching learners see nothing until the new learner's response arrives.
 2. **Freshness.** Set `gcTime: 0` on this query, so its cache entry is removed as soon as the notice unmounts. The notice's buttons are plain links, so following one is a full page navigation away from the Progress tab, so on return the plugin and its query client usually start fresh. `gcTime: 0` covers in-app remounts, for example staff switching learners or a remount inside the app, which trigger a new request and show nothing until it lands, rather than the previous recommendation followed by a swap. Also call `queryClient.resetQueries` for this key on a `pageshow` event whose `persisted` is true, because the browser's Back button can restore the Progress tab from the back-forward cache without remounting anything. The `pageshow` listener lives in a `useEffect` inside the inner component from step 7 and is removed on unmount.
 3. **What renders.** #743 mounts the right-hand panel only in a course with competency criteria, so this component adds no criteria check of its own. It renders:
    - the sentence and its button, when `reason` is `continue_available`, `retry_available`, or `not_started` and `next_action` is present;
@@ -299,7 +299,7 @@ Paths are relative to the root of the plugin repository from #810.
 
 **Additional context**
 
-- #743's Course Progress card renders this notice, and #743 mounts the panel only in a course with competency criteria because every mount calls #754, an expensive endpoint.
+- #743's Course Progress card renders this notice. #743 limits the panel to courses with competency criteria because every mount calls #754, an expensive endpoint.
 - #754 never recommends retaking a subsection whose score is hidden from the learner, so the notice renders #754's response without #739's score masking.
 - Group and competency statuses roll up asynchronously (openedx-core ADR 0004, `docs/openedx_learning/decisions/0004-competency-mastery-concurrency.rst`). Right after a learner demonstrates one subsection in an OR group, #754 can briefly still recommend an untouched sibling. #754 accepts this lag, and the notice shows whatever #754 returns.
 - In `@edx/frontend-platform`, `src/react/ErrorBoundary.jsx` shows the logging and fallback behavior that step 7 relies on.
