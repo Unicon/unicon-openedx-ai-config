@@ -18,7 +18,6 @@ The deliverable is a change to tutor-mfe's image build and default slot configur
 - [ ] Building the Learning MFE image with tutor-mfe's default configuration installs the frontend package from #810 and registers the slot configuration the package exports, which places the competency criteria panel at the top of the Progress tab's main column.
 - [ ] tutor-mfe pins a specific version of the package rather than tracking a moving branch, so rebuilding the image without changing the tutor-mfe version produces the same package build.
 - [ ] On a course that has competency criteria, the competency criteria panel appears at the top of the Progress tab's main column after a standard image build and launch.
-- [ ] On a course that has no competency criteria, the Progress tab renders exactly as it does on a site built from the previous tutor-mfe release.
 - [ ] At least one other micro-frontend on the same site, for example the Authoring MFE, builds and behaves unchanged.
 - [ ] tutor-mfe's changelog entry states that the Learning MFE now includes the CBE competency criteria panel on the Progress tab, and names the setting that controls where it goes.
 - [ ] tutor-mfe has a site-wide setting that decides where the competency criteria panel goes. In both layouts, the panel appears only in courses that have competency criteria, and courses without criteria show the Progress tab unchanged.
@@ -26,7 +25,7 @@ The deliverable is a change to tutor-mfe's image build and default slot configur
   - "Replacement", the default: the panel appears in place of both cards.
   - tutor-mfe passes the setting's value to the slot configuration function the package exports (#829), so changing the setting and rebuilding the Learning MFE image changes the value that function receives.
   - tutor-mfe's README lists the setting, its two values, and its default.
-  - What the package does with each value is #839's scope. Until #839 ships, both values place the panel above the cards.
+  - What the package does with each value is #839's scope. Before #839's placement logic exists, both values place the panel above the cards.
 
 ## Context
 
