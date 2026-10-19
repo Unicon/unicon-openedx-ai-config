@@ -1,0 +1,73 @@
+{
+  "repo": "openedx/openedx-core",
+  "pr": 847,
+  "title": "Alezconsultant/665 criterion endpoint on 846",
+  "author": "alezconsultant",
+  "cutoff": "2026-10-14T04:44:39Z",
+  "cutoff_rule": "earliest non-author review with inline comments",
+  "reviews": [
+    {
+      "user": "mgwozdz-unicon",
+      "state": "APPROVED",
+      "submitted_at": "2026-10-12T19:46:02Z",
+      "commit": "2ca89b767e4706056ea678d7c589f2b8db318106"
+    },
+    {
+      "user": "ormsbee",
+      "state": "CHANGES_REQUESTED",
+      "submitted_at": "2026-10-14T04:44:39Z",
+      "commit": "dd837cad83dd577ef48366be222e749538d83b37"
+    },
+    {
+      "user": "alezconsultant",
+      "state": "COMMENTED",
+      "submitted_at": "2026-10-14T20:26:17Z",
+      "commit": "2ca89b767e4706056ea678d7c589f2b8db318106"
+    },
+    {
+      "user": "alezconsultant",
+      "state": "COMMENTED",
+      "submitted_at": "2026-10-14T20:35:52Z",
+      "commit": "2ca89b767e4706056ea678d7c589f2b8db318106"
+    },
+    {
+      "user": "ormsbee",
+      "state": "CHANGES_REQUESTED",
+      "submitted_at": "2026-10-15T16:46:49Z",
+      "commit": "dd5f40ef095642e4492f4b382acc5d752bc9df61"
+    },
+    {
+      "user": "ormsbee",
+      "state": "APPROVED",
+      "submitted_at": "2026-10-16T15:27:07Z",
+      "commit": "c91b6faeb22e4fe9394c6566ce171946a5c1a199"
+    }
+  ],
+  "head_sha": "2ca89b767e4706056ea678d7c589f2b8db318106",
+  "head_sha_candidates": {
+    "2ca89b767e4706056ea678d7c589f2b8db318106": 17
+  },
+  "head_parents": [
+    "6162f215fc0a64f0f2400e9cf8feab4543f484c0"
+  ],
+  "head_authored": "2026-10-09T19:17:05Z",
+  "default_branch": "main",
+  "main_sha_at_cutoff": "fd4300e99b69d83328190ca8c131791a28846320",
+  "merge_base": "b6a58bf88874ccfc7f71eca1154e8b779c0c1ce5",
+  "ci_on_head_before_cutoff": {
+    "success": 5
+  },
+  "merge_commit_sha": "8831d82e42769ae19d4c3ec122c632a9c710cba1",
+  "later_head_shas": [
+    "c91b6faeb22e4fe9394c6566ce171946a5c1a199",
+    "dd5f40ef095642e4492f4b382acc5d752bc9df61"
+  ],
+  "ticket": 665,
+  "related_issues": [],
+  "edits_used": {
+    "pr_body": "2026-10-02T15:03:13Z",
+    "issue_665": "2026-09-15T14:29:52Z"
+  },
+  "ticket_comments_kept": 11,
+  "ticket_comments_total": 15
+}
