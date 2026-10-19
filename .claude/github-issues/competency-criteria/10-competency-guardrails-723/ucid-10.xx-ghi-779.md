@@ -9,7 +9,7 @@ As a course author, I want to keep the mastery already recorded against it when 
 
 ## Acceptance Criteria
 
-This ticket modifies an existing endpoint (see Description), so testability differs by category below.
+Tag associations are removed through several existing code paths: editing an object's tags, deleting the content object itself, re-importing an object's tags, and copying tags between objects. Every one of them must follow the same rule, so testability differs by category below.
 
 ### Ordinary path — testable now via Postman or the existing Studio tagging UI
 
@@ -56,6 +56,12 @@ Scenario: Replacing an object's tags archives only the depended-upon ones
   When the object's tags are replaced with a list containing neither
   Then the depended-upon association is archived
     And the other association no longer exists
+
+Scenario: Deleting a content object archives the associations learner mastery depends on
+  Given a content object with two tags, one depended upon by learner mastery and one not
+  When the content object itself is deleted in Studio
+  Then the depended-upon association still exists but is archived
+    And the other association no longer exists
 ```
 
 ### Internal distinction — unit-test only, never observable via the API or UI
@@ -67,13 +73,34 @@ Scenario: The caller cannot tell which of the two happened
   Given two content objects, one whose association is depended upon and one whose is not
   When the same tag is removed from each
   Then both requests report success in the same way
+
+Scenario: Re-importing an object's tags keeps the associations learner mastery depends on
+  Given a content object with a depended-upon association
+  When that object's tags are cleared and set again from an import that still includes that tag
+  Then the association is the same one as before and is not archived
+    And the learner's existing mastery status is still attached to it
+
+Scenario: Syncing from a library archives a depended-upon tag the library no longer has
+  Given a course block linked to a library block, with a depended-upon tag copied from that library block
+  When the course block syncs from a library block whose tags no longer include that tag
+  Then the course block's association still exists but is archived
+
+Scenario: Syncing from a library keeps a depended-upon tag the library still has
+  Given a course block linked to a library block, with a depended-upon tag copied from that library block
+  When the course block syncs from a library block whose tags still include that tag
+  Then the association is the same one as before and is not archived
+
+Scenario: A delete that bypasses the tagging API still archives instead of deleting
+  Given a depended-upon association
+  When code deletes it directly, either as a single record or as part of a bulk delete, without going through any tagging API function
+  Then the association still exists but is archived
 ```
 
 ## Description
 
-Removing a tag from a content object today deletes the association row outright. Once competency mastery is recorded against that association, deleting it would leave the learner's status pointing at nothing. `ObjectTag` gains an `archived` field in \#776 and a `deletion_locked` field that \#782 sets, and this ticket makes the removal path use them.
+Removing a tag from a content object today deletes the association row outright. Once competency mastery is recorded against that association, deleting it would leave the learner's status pointing at nothing. `ObjectTag` gains an `archived` field in \#776 and a `deletion_locked` field that \#782 sets, and this ticket makes every removal path use them.
 
-**Exactly one existing endpoint is touched, and no new one is added.** `ObjectTagView`'s `PUT` action (there is no POST, PATCH, or DELETE for `ObjectTag`) is a full replace of an object's tag set: a caller sends the complete list of tags an object should now have, and the view's `tag_object()` function reconciles what to add, keep, and remove. Adding, removing, and re-applying a tag all go through this same one action. This ticket only changes what happens inside `tag_object()`'s removal step; it adds no route and no new function.
+Tag associations are deleted from several places today: when an author edits an object's tags, when the content object itself is deleted, when an object's tags are re-imported, and when tags are copied between objects. Every one of those paths, and any added later, must archive an association that learner mastery depends on instead of deleting it.
 
 <details>
 <summary>Technical Details</summary>
@@ -82,9 +109,11 @@ This section is background and a suggested approach, not the ticket's source of 
 
 ### In short
 
-**Where the branch goes, and why there is no DELETE endpoint to use.** Tag associations are not removed one at a time. A caller sends the complete list of tags an object should now have, and `tag_object()` reconciles: it keeps what is still listed, adds what is new, and removes what is missing. The removal step inside that reconciliation is the only place an association is ever deleted, so it is the only place the branch can go.
+**Why the branch goes in the model layer rather than in one API function.** `ObjectTag` rows are deleted from several places in `src/openedx_tagging/api.py` today. `tag_object()` deletes the associations missing from a submitted tag list. `delete_object_tags()` deletes every association on an object, and openedx-platform calls it both when Studio deletes a block, course, or library and when an import clears an object's tags before setting them again. `copy_tags()` deletes a destination object's copied associations before copying new ones. A check placed in only one of these functions leaves the others, and any delete path added later, free to hard-delete a locked association. Putting the branch on `ObjectTag` itself makes every delete path follow it.
 
-**What the branch decides.** For each association that reconciliation would remove, if it is locked against deletion it is archived instead, and if it is not, it is deleted exactly as today. The rule is deliberately narrow: without a lock, nothing about today's behavior changes.
+**What the branch decides.** For each association being deleted, if it is locked against deletion it is archived instead, and if it is not, it is deleted exactly as today. The rule is deliberately narrow: without a lock, nothing about today's behavior changes. A locked delete archives rather than raising an error, because the callers in openedx-platform, such as the handler that runs when a block is deleted, expect the delete to succeed.
+
+**Deleting a `Tag` or `Taxonomy` does not delete associations.** `ObjectTag.tag` and `ObjectTag.taxonomy` use `on_delete=SET_NULL`, so deleting either parent leaves the association row in place with a null foreign key. \#780 covers that case: it archives a locked `Tag` or `Taxonomy` instead of deleting it, so a depended-upon association never loses its foreign key.
 
 **Why re-applying un-archives in place rather than creating a new row.** An archived association still occupies its slot in the unique constraint on the object, taxonomy, and tag together. Creating a second row for the same three values would either violate that constraint or force it to be widened to include the archived flag, and widening it would let duplicate live associations exist. Un-archiving the existing row also keeps any competency criterion's foreign key pointing at a stable row rather than orphaning it against a superseded one.
 
@@ -94,29 +123,33 @@ This section is background and a suggested approach, not the ticket's source of 
 
 ### Implementation specifics
 
-- **The branch goes in `tag_object()`** in `src/openedx_tagging/api.py`, in the step that removes associations no longer present in the submitted tag list. Do not add a new public function and do not add a DELETE endpoint.  
-- **Read the lock through the query function \#777 adds**, not by reading `deletion_locked` directly, so the two delete branches in this ticket and \#780 ask the same question the same way.  
-- **Resolve the removal set in bulk, then split it in two.** One `.update(archived=True)` over the locked ids and one delete over the rest, rather than a per-association branch inside a loop. `tag_object()` already handles a whole object's tags at once, and a per-row query here would be an N+1 on every content-tagging save.  
+- **Cover both ways Django deletes a row.** Calling `.delete()` on a queryset deletes the matching rows in bulk without ever calling each model instance's `delete()` method. So overriding `ObjectTag.delete()` alone misses `delete_object_tags()` and `copy_tags()`, which both delete through a queryset. Override the instance `delete()` and the `ObjectTag` queryset's `delete()`, and route both through one shared function that does the split. Coordinate with \#778, which adds a manager or queryset to `ObjectTag` for its archived filter, so the two tickets extend the same class.  
+- **Read the lock through the query function \#777 adds**, not by reading `deletion_locked` directly, so the delete branches in this ticket and \#780 ask the same question the same way.  
+- **Resolve the removal set in bulk, then split it in two.** One `.update(archived=True)` over the locked ids and one real delete over the rest, rather than a per-association branch inside a loop. `tag_object()` currently calls `old_tag.delete()` once per removed association; with a lock check on the instance `delete()`, that loop would add a query per association, an N+1 on every content-tagging save. Switch that loop to a single queryset delete over the removal set.  
+- **No new endpoint and no new public API function.** The existing callers keep calling what they call today.  
 - **The un-archive step needs to see archived rows**, which \#778 filters out of the normal read paths. Use the documented opt-out that \#778 provides rather than adding a second one.  
 - **Un-archive in place with `.update(archived=False)` on the existing row.** Do not delete and recreate, and do not touch the unique constraint on `(object_id, taxonomy, tag)`.  
 - **Leave the lock alone when un-archiving.** A re-applied association is still depended upon by the same learner statuses, so clearing `deletion_locked` would make the next removal destroy them.  
 - **The response shape does not change.** A caller must not be able to tell archiving from deletion, per the approved approach, so do not add a field reporting which happened.  
-- **Check the interaction with `resync_object_tags` and `copy_tags`** in the same module. Both create or move associations and neither should resurrect an archived row unintentionally or copy the archived flag to a new object. State what each does in the PR description even if neither needs changing.  
-- **Tests** in the existing `openedx_tagging` API tests, one per scenario, plus: a query-count assertion showing the branch adds a constant number of queries rather than one per association; a test that the unique constraint is unchanged; a test that a competency criterion's foreign key still points at the same row after a remove-then-re-apply cycle.  
+- **Paths that delete and then re-create must find the archived row.** `copy_tags()` deletes a destination's copied associations and then calls `update_or_create()` for each source tag, and openedx-platform's import path calls `delete_object_tags()` and then sets the tags again. Once the delete archives a locked row, the re-create step must un-archive that same row, not insert a second one, or it hits the unique constraint on `(object_id, taxonomy, tag)`. That means those re-create steps need \#778's opt-out to see archived rows. Also confirm that `copy_tags()` never copies the archived flag onto a new object.  
+- **Check `resync_object_tags`** in the same module, which updates associations to match changes made to their taxonomies and tags. It should not resurrect an archived row unintentionally. State what it does in the PR description even if it needs no change.  
+- **Tests** in the existing `openedx_tagging` API and model tests, one per scenario, plus: a query-count assertion showing the branch adds a constant number of queries rather than one per association; a test that the unique constraint is unchanged; a test that a competency criterion's foreign key still points at the same row after a remove-then-re-apply cycle.  
 - **Out of scope:** setting the lock (\#782), tag and taxonomy deletes (\#780), the archive event fan-out (\#781), and the confirmation dialog (\#786).
 
 ## Files to modify
 
 | File | Nature of modification |
 | :---- | :---- |
-| src/openedx\_tagging/api.py | branch the removal step of `tag_object()` between archive and delete; un-archive an existing row when a tag is re-applied |
-| tests/openedx\_tagging/ | one test per scenario, a query-count assertion, and a foreign-key stability test |
+| src/openedx\_tagging/models/base.py | modified: `ObjectTag.delete()` and the `ObjectTag` queryset's `delete()` branch between archive and real delete |
+| src/openedx\_tagging/api.py | modified: `tag_object()` removes associations with one queryset delete and un-archives on re-apply; `copy_tags()` un-archives instead of re-creating |
+| tests/openedx\_tagging/ | modified: one test per scenario, a query-count assertion, and a foreign-key stability test |
 
 ### Context 
 
 - The approved implementation approach on \#655: archive only when a learner status row exists, un-archive in place on re-apply, and why the caller is not told which happened.  
-- `src/openedx_tagging/api.py`, `tag_object()`, for the existing reconciliation this branch sits inside, and `resync_object_tags` and `copy_tags` for the neighbouring paths.  
-- `src/openedx_tagging/models/base.py` for the unique constraint on `ObjectTag`.  
+- `src/openedx_tagging/api.py`: `tag_object()`, `delete_object_tags()`, and `copy_tags()` are today's association delete paths, and `resync_object_tags()` is a neighbouring path.  
+- `src/openedx_tagging/models/base.py` for `ObjectTag`, its unique constraint, and its `SET_NULL` foreign keys.  
+- openedx-platform's `openedx/core/djangoapps/content_tagging/handlers.py` (deleting tags when content is deleted) and `content_tagging/api.py`, `set_exported_object_tags()` (clearing and re-setting tags on import), the two callers of `delete_object_tags()`.  
 - Depends on \#776 for both fields, \#777 for the lock query, and \#778 for the documented opt-out that lets this path see archived rows. The lock itself is set by \#782.
 
 </details>
