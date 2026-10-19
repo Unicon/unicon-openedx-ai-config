@@ -13,13 +13,15 @@ This is the algorithm that will be used to calculate the Recommended Next Action
 1. Given a course and a learner.
 2. Find every subsection in the course that carries a competency criterion.
 3. Remove from that set:
-   - Any subsection the learner can't currently open or act on right now: unreleased, prerequisite-gated, past its due date, graded content locked for the learner's enrollment track, or otherwise unavailable.
-   - Any criterion whose ancestor group (at any level), or whose competency, already reports "Demonstrated" for this learner, even when that specific criterion has no status row of its own. This is what keeps an already-satisfied OR group (for example, the duplicate-subsection workaround, once one duplicate is demonstrated) from still recommending its untouched siblings. A competency demonstrated in another course counts.
-4. Split what's left into two groups:
-   - **Retry candidates:** the learner's status on this subsection's criterion isn't "Demonstrated," the subsection's re-attempt state is retryable, and no resubmission is already awaiting grading. A subsection whose re-attempt state is unknown or not retryable is not a retry candidate, but it doesn't fall into "not-started" either, since it does have a status row; it simply isn't recommended.
-   - **Not-started candidates:** the learner has no status row on this subsection's criterion, and no submission or attempt has been recorded against it yet. This keeps a subsection whose submission is still awaiting grading from being mistaken for one the learner hasn't touched at all.
-5. If any retry candidates exist, recommend the one that comes chronologically first in the course outline (section order, then subsection order). Otherwise, if any not-started candidates exist, recommend the one that comes chronologically first in the course outline. Otherwise, there's no recommendation.
-6. Return, for the selected subsection: its display name, a ready-to-use navigation URL, and, for each of its criteria that is not "Demonstrated" and not removed in step 3, the criterion id, competency tag id, competency name, status (null when the learner has no status row), and rule.
+   - Any subsection the learner can't currently open or act on right now: ungraded, unreleased, prerequisite-gated, past its due date for the learner plus any grace period the course allows, graded content locked for the learner's enrollment track, every graded part already submitted with one still awaiting grading, or otherwise unavailable.
+   - Any criterion whose ancestor group (at any level), whose competency, or any ancestor of its competency in the taxonomy already reports "Demonstrated" for this learner, even when that specific criterion has no status row of its own. This is what keeps an already-satisfied OR group from still recommending its untouched siblings. A competency demonstrated in another course counts.
+4. Split what's left into three groups, based on what the learner has submitted in each subsection:
+   - **Continue candidates:** the learner has started the subsection's graded work but hasn't finished their part of it (for example, an unanswered problem or an ORA peer assessment they still need to do), and the subsection still accepts work from the learner.
+   - **Retry candidates (retakes):** the learner has submitted every graded part, every one has been graded, a criterion there is still not "Demonstrated," the learner can see the score of their earlier attempt, and the subsection accepts a resubmission from the learner. A subsection whose graded work staff reset for the learner, so the learner has submitted nothing there since, is still a retry candidate when the learner has a status on a remaining criterion there.
+   - **Not-started candidates (new attempts):** the learner hasn't submitted any of the subsection's graded parts and has no status on any of its remaining criteria.
+5. Recommend the candidate, from any of the three groups, with the soonest due date for the learner. Subsections with no due date come after all dated ones. When several candidates share the soonest due date, or none of them has a due date, prefer a continue candidate, then a retry candidate, then a not-started candidate, and among candidates of the same group, the one that comes first in the course outline (section order, then subsection order). Otherwise, there's no recommendation.
+6. Return, for the selected subsection: its display name, a ready-to-use navigation URL, and, for each of its criteria that is not "Demonstrated" and not removed in step 3, the criterion id, competency tag id, competency name, status (null when the learner has no status row), and rule. Also return the reason for the recommendation: `continue_available`, `retry_available`, or `not_started`.
+7. When there's no recommendation, return the reason there is none and, when the course has competency criteria, a link that resumes the course.
 
 The response payload will be something to the effect of this:
 ```json
@@ -44,74 +46,161 @@ The response payload will be something to the effect of this:
       }
     ]
   },
-  "reason": "retry_available"
+  "reason": "retry_available",
+  "resume_url": null
 }
 ```
 
 ## Context
 - Corresponding architecture spike: #757
 - Frontend counterpart: #755
-- Blocked by: UCID10.05 #TBD
+- Blocked by: #855
 
 ## Acceptance Criteria
 
 Every scenario below shares this setup, unless the scenario says otherwise:
 
 - A learner has an active enrollment in course run X, and every subsection named carries a competency criterion.
-- A criterion is remaining for a learner when the learner hasn't demonstrated it and no group or competency above it reports Demonstrated for that learner.
-- Every subsection named is released, open to the learner, before the learner's due date for it, shows results to learners, and accepts a submission from the learner now.
+- A criterion is remaining for a learner when the learner hasn't demonstrated it, and neither its own competency, an ancestor of that competency in the taxonomy, nor any group above it reports Demonstrated for that learner.
+- Every subsection named is graded, released, open to the learner, not past due for the learner, shows results to learners, and accepts work from the learner now.
 - Every scenario is observed through the recommended next action endpoint.
+- The learner's due date for a subsection is its due date as it applies to that learner, including an individual extension or a self-paced schedule. The subsection stays actionable until that date plus any grace period the course allows, and after that it is past due for the learner.
+- Unless a scenario gives due dates, no subsection named has a due date, so candidates are ordered by kind and then by course outline order.
+- A subsection is categorized as one to continue when the learner has submitted to or been scored on some of its graded parts but not all of them, has submitted an open response assessment there and still needs to do their own peer, self, or training step on it, or has started a timed or proctored exam there without answering anything.
+- A subsection is categorized as a retake when the learner has submitted every graded part, every one of them has been graded, and a criterion on it is still remaining. It is also a retake when staff reset the learner's work on it after it was graded, so the learner has submitted nothing there since, but the learner still has a status on a remaining criterion there.
+- A subsection is categorized as a new attempt when the learner hasn't submitted to or been scored on any of its graded parts and has no status on any of its remaining criteria.
+- The result's reason for a recommendation is `continue_available` for a subsection to continue, `retry_available` for a retake, and `not_started` for a new attempt.
+
+The scenarios use this example taxonomy, where "Literary Skills" is the parent competency of "Writing Poetry" and "Analysis":
+
+```
+Literary Skills
+├── Writing Poetry
+└── Analysis
+Research
+```
+
+In course run X, the criteria for "Writing Poetry" form this group tree:
+
+```
+"Writing Poetry" course-level group for course run X (OR)
+├── bottom-tier group A (OR)
+│   ├── criterion on subsection D1
+│   └── criterion on subsection D2
+└── bottom-tier group B
+    └── criterion on subsection D3
+```
 
 Group and competency statuses roll up asynchronously (openedx-core ADR 0004). For a short time after a learner demonstrates one subsection in an OR group, an untouched sibling in that group can still be recommended. The scenarios assume the roll-up has finished.
 
 **Choosing what to recommend**
 
 ```gherkin
-Scenario: A retake is recommended ahead of an earlier subsection the learner hasn't started, listing only what is left to demonstrate there
-  Given subsection "Poetry Assignment 1", in section 1, is one the learner hasn't started
-  And subsection "Poetry Assignment 2", in section 2, carries criteria for "Writing Poetry" (a grade of at least 80 percent), "Analysis" (at least 60 percent), and "Research" (at least 90 percent)
-  And the learner scored 70 percent on "Poetry Assignment 2", demonstrating "Analysis" there but not "Writing Poetry" or "Research"
+Scenario: A retake lists only what is left to demonstrate there
+  Given subsection "Poetry Assignment 2" carries criteria for "Writing Poetry" (a grade of at least 80 percent), "Analysis" (at least 60 percent), and "Research" (at least 90 percent)
+  And the learner submitted every graded part of "Poetry Assignment 2" and scored 70 percent, demonstrating "Analysis" there but not "Writing Poetry" or "Research"
   And the learner demonstrated the "Research" competency in course run Y
+  And no other subsection in course run X is a candidate of any kind
   When the learner requests their recommended next action in course run X
-  Then "Poetry Assignment 2" is recommended as a retake
+  Then "Poetry Assignment 2" is recommended as a retake, with the reason `retry_available`
   And the result names "Poetry Assignment 2" and links to it in the courseware
   And the recommendation lists only "Writing Poetry", with its competency name, the learner's status of attempted but not demonstrated, and the rule of a grade of at least 80 percent
 
-Scenario Outline: The candidate earliest in the course outline is recommended, whatever the due dates
-  Given course run X has three <candidates>: the second subsection of section 1, the third subsection of section 1, and the first subsection of section 2
-  And the first subsection of section 2 has the earliest due date of the three, and the third subsection of section 1 has the latest
+Scenario Outline: Among candidates due on the same date, a subsection to continue comes before a retake, and a retake before a new attempt
+  Given subsection P is <P's kind>, and subsection R is <R's kind>
+  And R comes before P in the course outline, and <due dates>
   And no other subsection in course run X is a candidate of any kind
   When the learner requests their recommended next action in course run X
-  Then the second subsection of section 1 is recommended as <recommendation>
+  Then P is recommended as <recommendation>
 
   Examples:
-    | candidates                                                               | recommendation |
-    | subsections the learner attempted without demonstrating their competency | a retake       |
-    | subsections the learner hasn't started                                   | a new attempt  |
+    | P's kind | R's kind | due dates | recommendation |
+    | one to continue | a retake | R and P have the same due date for the learner | a subsection to continue |
+    | one to continue | a new attempt | R and P have the same due date for the learner | a subsection to continue |
+    | a retake | a new attempt | R and P have the same due date for the learner | a retake |
+    | a retake whose graded work staff reset for the learner, so the learner has submitted nothing there since | a new attempt | R and P have the same due date for the learner | a retake |
+    | one to continue | a retake | neither R nor P has a due date | a subsection to continue |
+    | a retake | a new attempt | neither R nor P has a due date | a retake |
 
-Scenario: A new attempt lists every criterion on the subsection, none with a status
+Scenario Outline: The candidate due soonest for the learner is recommended, whatever its kind
+  Given course run X has three <candidates>: P, Q, and R, in that course outline order
+  And <due dates>
+  And no other subsection in course run X is a candidate of any kind
+  When the learner requests their recommended next action in course run X
+  Then <recommended> is recommended
+
+  Examples:
+    | candidates                       | due dates                                                                                      | recommended |
+    | subsections the learner hasn't started | R is due soonest and Q is due last                                                       | R           |
+    | retakes                          | R is due soonest and Q is due last                                                             | R           |
+    | subsections to continue          | R is due soonest and Q is due last                                                             | R           |
+    | candidates where P is one to continue, Q is a retake, and R is a new attempt | R is due soonest and P is due last                               | R           |
+    | candidates where P is one to continue, Q is a retake, and R is a new attempt | only R has a due date                                            | R           |
+    | subsections the learner hasn't started | only Q has a due date                                                                    | Q           |
+    | subsections the learner hasn't started | none of them has a due date                                                              | P           |
+    | subsections the learner hasn't started | P and R share the soonest due date, and Q is due later                                   | P           |
+    | subsections the learner hasn't started | P's course-wide due date is soonest, the learner has an extension on P to a date after R's, and Q is due after both | R |
+    | subsections the learner hasn't started | P is past its due date for the learner but still within the course's grace period, and Q and R are due later | P |
+
+Scenario: A subsection to continue lists its remaining criteria
+  Given the learner submitted subsection M's open response assessment, which is awaiting grading
+  And M also holds a problem the learner hasn't answered, which still accepts answers from the learner
+  And M carries criteria for "Writing Poetry" and "Analysis"
+  And no other subsection in course run X is a candidate of any kind
+  When the learner requests their recommended next action in course run X
+  Then M is recommended as a subsection to continue, with the reason `continue_available`
+  And the recommendation lists "Writing Poetry" and "Analysis", each with its competency name, rule, and the learner's status, or no status where the learner has none
+
+Scenario: A new attempt lists the subsection's remaining criteria, none with a status
   Given the learner hasn't attempted anything in course run X
   And subsection "Poetry Assignment 1" comes first in course run X's outline and carries criteria for "Writing Poetry" and "Analysis"
   When the learner requests their recommended next action in course run X
-  Then "Poetry Assignment 1" is recommended as a new attempt
+  Then "Poetry Assignment 1" is recommended as a new attempt, with the reason `not_started`
   And the recommendation lists "Writing Poetry" and "Analysis", each with its competency name and rule, and neither with a status for the learner
+
+Scenario Outline: A subsection to continue or a new attempt lists only its remaining criteria
+  Given subsection M carries criteria for "Writing Poetry" and "Research", and is <kind>
+  And the learner demonstrated the "Writing Poetry" competency in course run Y
+  And no other subsection in course run X is a candidate of any kind
+  When the learner requests their recommended next action in course run X
+  Then M is recommended as <kind>
+  And the recommendation lists only "Research"
+
+  Examples:
+    | kind |
+    | a subsection to continue |
+    | a new attempt |
+
+Scenario: A reset subsection whose only status is on an already-demonstrated criterion is a new attempt
+  Given subsection M carries criteria for "Analysis" and "Writing Poetry"
+  And the learner demonstrated "Analysis" on M, and the criterion for "Writing Poetry" was added to M after the learner's work there was graded, so the learner has no status on it
+  And staff then reset the learner's graded work on M, and the learner has submitted nothing there since
+  And no other subsection in course run X is a candidate of any kind
+  When the learner requests their recommended next action in course run X
+  Then M is recommended as a new attempt
+  And the recommendation lists only "Writing Poetry", with no status for the learner
 ```
 
 **Criteria already satisfied through a group or competency**
 
 ```gherkin
 Scenario Outline: A subsection whose criteria are already satisfied higher up is not recommended
-  Given subsection D1 comes first in course run X's outline, carries a criterion for "Writing Poetry", and is one the learner hasn't started
-  And subsection E, later in the outline, carries a criterion for "Analysis" and is one the learner hasn't started
+  Given subsection D1 comes first in course run X's outline, carries a criterion for "Writing Poetry", and is <D1's kind>
+  And D1's criterion shares OR group A with D2's criterion, and group A and group B, which holds D3's criterion, sit under "Writing Poetry"'s course-level OR group for course run X
+  And "Writing Poetry" is a child of the competency "Literary Skills" in the taxonomy, and "Research" is not
+  And subsection E, later in the outline, carries a criterion for "Research" and is one the learner hasn't started
   And <satisfied>
   When the learner requests their recommended next action in course run X
   Then E is recommended, and D1 is not
 
   Examples:
-    | satisfied                                                                                                                       |
-    | D1's criterion shares an OR group with subsection D2's criterion, and the learner demonstrated D2                               |
-    | "Writing Poetry"'s course-level group for course run X is an OR group, and the learner demonstrated its other bottom-tier group |
-    | the learner demonstrated the "Writing Poetry" competency in course run Y                                                        |
+    | D1's kind | satisfied |
+    | one the learner hasn't started | the learner demonstrated D2, so bottom-tier group A is demonstrated |
+    | one the learner hasn't started | the learner demonstrated D3, so bottom-tier group B and the course-level group are demonstrated |
+    | one the learner hasn't started | the learner demonstrated the "Writing Poetry" competency in course run Y |
+    | one the learner hasn't started | the learner demonstrated the parent competency "Literary Skills" |
+    | one to continue | the learner demonstrated D2, so bottom-tier group A is demonstrated |
+    | a retake | the learner demonstrated the parent competency "Literary Skills" |
 ```
 
 **Subsections the learner can't act on now**
@@ -139,20 +228,27 @@ Scenario Outline: A subsection that won't take a submission from the learner now
 
   Examples:
     | state                                                                                                                                                                              |
-    | the learner hasn't started U, and the learner's due date for U has passed                                                                                                          |
+    | the learner hasn't started U, and U is past due for the learner                                                                                                          |
     | the learner hasn't started U, the learner is in the audit track, and U's graded content is locked for audit learners                                                               |
-    | the learner hasn't started U, U's graded content is an external tool whose submission rules can't be checked, and the learner's due date for U has passed                         |
+    | the learner hasn't started U, U's graded content is an external tool whose submission rules can't be checked, and U is past due for the learner                         |
     | the learner hasn't started U, and U holds no scored content worth points that the learner can see                                                                                  |
     | the learner has no status on U, and checking whether U's graded content accepts a submission from the learner fails                                                                |
     | the learner submitted U and the submission is awaiting grading, so the learner has no status on U yet                                                                              |
-    | the learner submitted U, an open response assessment, and U is waiting on the learner's own peer assessment step, so the learner has no status on U yet                           |
-    | the learner attempted U without demonstrating its competency and has used all of U's attempts                                                                                      |
-    | the learner attempted U without demonstrating its competency, U is an open response assessment staff reset for the learner, and the learner's new submission is awaiting grading |
-    | the learner attempted U without demonstrating its competency, and U's graded content is an external tool whose retake rules can't be checked                                     |
+    | the learner submitted U, an open response assessment, and still needs to do their own peer assessment step, whose due date has passed                                                   |
+    | the learner hasn't started U, and U isn't graded                                                                                                                                   |
+    | the learner submitted every graded part of U, one of them is still awaiting grading, and another is a problem the learner answered and may answer again                                          |
+    | the learner started U's timed exam and answered nothing, and its time limit has run out |
+    | the learner submitted U's practice exam with a problem left unanswered |
+    | U is one to continue, and U is past due for the learner                                                                                                                  |
+    | U is a retake, and the learner has used all of U's attempts                                                                                                                        |
+    | U is a retake, staff reset U's open response assessment for the learner, and the learner's new submission is awaiting grading                                                     |
+    | U is a retake, and U's graded content is an external tool whose retake rules can't be checked                                                                                      |
+    | U is a retake whose graded work staff reset for the learner, and U's graded content is an external tool whose retake rules can't be checked |
+    | U is a retake whose graded work staff reset for the learner, and U is set never to show results to learners |
 
 Scenario Outline: A subsection the learner hasn't started is recommended even when its graded content can't be checked
   Given subsection L comes first in course run X's outline, and its graded content is <content>
-  And the learner hasn't started L, and the learner's due date for L hasn't passed
+  And the learner hasn't started L, and L isn't past due for the learner
   When the learner requests their recommended next action in course run X
   Then L is recommended as a new attempt
 
@@ -161,28 +257,43 @@ Scenario Outline: A subsection the learner hasn't started is recommended even wh
     | an external tool whose submission rules can't be checked |
     | a timed exam run by the separate exams service           |
 
-Scenario: A retake is recommended when one part of the subsection is awaiting grading and another still accepts a submission
-  Given the learner attempted subsection M without demonstrating its competency
-  And M holds an open response assessment whose submission from the learner is awaiting grading, and a problem that still accepts answers from the learner
+Scenario: A subsection to continue is recommended even when the part the learner hasn't submitted can't be checked
+  Given subsection L comes first in course run X's outline
+  And the learner answered L's problem, and hasn't yet sent a score from L's external tool, whose submission rules can't be checked
+  And L isn't past due for the learner
   When the learner requests their recommended next action in course run X
-  Then M is recommended as a retake
+  Then L is recommended as a subsection to continue
+
+Scenario Outline: A subsection where the learner still has their own work to finish is recommended as one to continue
+  Given subsection L comes first in course run X's outline, and <state>
+  And L isn't past due for the learner
+  When the learner requests their recommended next action in course run X
+  Then L is recommended as a subsection to continue
+
+  Examples:
+    | state                                                                                                             |
+    | the learner submitted L's open response assessment and still needs to do their own peer assessment step, which is open  |
+    | the learner started L's timed exam, which runs on edx-proctoring, has neither answered anything nor submitted it, and its time limit hasn't run out |
 ```
 
 **Scores hidden from the learner**
 
 ```gherkin
 Scenario Outline: A retake whose score is hidden from the learner is skipped
-  Given subsection H comes first in course run X's outline, and the learner attempted it without demonstrating its competency
-  And H is set never to show results to learners
+  Given subsection H is a retake, and the learner's due date for H is sooner than for any other subsection in course run X
+  And H <hiding>
   And <rest of the course>
   When the learner requests their recommended next action in course run X
   Then H is not recommended, and <outcome>
 
   Examples:
-    | rest of the course                                                                                          | outcome                                                                                                  |
-    | a later subsection K is one the learner attempted without demonstrating its competency, and K shows results | K is recommended as a retake                                                                             |
-    | a later subsection N is one the learner hasn't started, and no other subsection is a retake candidate       | N is recommended as a new attempt                                                                        |
-    | H holds the learner's only remaining criterion                                                              | no subsection is recommended, and the result gives the reason that nothing remaining can be acted on now |
+    | hiding | rest of the course | outcome |
+    | is set never to show results to learners | a later-due subsection K is a retake, and K shows results | K is recommended as a retake |
+    | is set to show results only after its due date, which hasn't passed | a later-due subsection K is a retake, and K shows results | K is recommended as a retake |
+    | is set never to show individual results, though its score still counts toward the learner's course grade | a later-due subsection K is a retake, and K shows results | K is recommended as a retake |
+    | is set never to show results to learners | a later-due subsection K is one to continue, and K is also set never to show results to learners | K is recommended as a subsection to continue |
+    | is set never to show results to learners | a later-due subsection N is one the learner hasn't started, and no other subsection is a retake candidate | N is recommended as a new attempt |
+    | is set never to show results to learners | H holds the learner's only remaining criterion | no subsection is recommended, and the result gives the reason that nothing remaining can be acted on now |
 ```
 
 **When there is nothing to recommend**
@@ -199,11 +310,13 @@ Scenario Outline: With nothing to recommend, the result says why and offers a li
   Examples:
     | situation                                                                                                                                                  | reason                                         |
     | every criterion is demonstrated by the learner or satisfied by a group or competency the learner demonstrated, including one demonstrated in course run Y | everything in the course has been demonstrated |
-    | every remaining criterion is on a subsection that hasn't been released yet                                                                                 | nothing remaining can be opened yet            |
+    | every remaining criterion is on a subsection that hasn't been released yet                                                                                 | nothing remaining can be opened                |
     | every remaining criterion is on a subsection whose submission from the learner is awaiting grading                                                        | nothing remaining can be acted on now          |
-    | every remaining criterion is on a subsection the learner hasn't started and whose due date for the learner has passed                                     | nothing remaining can be acted on now          |
+    | every remaining criterion is on a subsection the learner hasn't started, which is past due for the learner and still shown to learners after its due date | nothing remaining can be acted on now          |
+    | every remaining criterion is on a subsection the learner hasn't started, which is past due for the learner and hidden from learners after its due date | nothing remaining can be opened |
     | every remaining criterion is on a subsection the learner hasn't started, whose graded content is locked for the audit track the learner is enrolled in | nothing remaining can be acted on now          |
     | one remaining criterion is on a subsection that hasn't been released yet, and the other is on a subsection whose submission is awaiting grading            | nothing remaining can be acted on now          |
+    | every remaining criterion is on a subsection that isn't graded                                                                                             | nothing remaining can be acted on now          |
 
 Scenario: The resume link starts a learner with no progress at the beginning of the course
   Given every criterion in course run X is on a subsection that hasn't been released yet
@@ -244,26 +357,26 @@ Scenario Outline: Each permitted caller gets the recommendation for the right le
     | S, while masquerading as L                                   | without naming a learner | L    |
     | S, while masquerading as the learner role or a content group | without naming a learner | S    |
     | S, while masquerading as L after L has unenrolled            | without naming a learner | S    |
+    | S                                                            | naming L, after L has unenrolled | L |
+    | S, who has no enrollment in course run X                     | without naming a learner | S    |
+    | C, a CCX coach for course run X who isn't on its staff       | naming L                 | L    |
 
 Scenario Outline: A caller who isn't permitted is refused and learns nothing
+  Given learners L and M both have active enrollments in course run X
   When <caller> requests a recommended next action in course run X <naming>
   Then <response>
   And the response contains no recommendation, reason, or resume link
+  And the response doesn't say whether the named user exists
 
   Examples:
-    | caller                                                                             | naming                          | response                                                                                      |
-    | a caller who isn't signed in                                                       | without naming a learner        | the caller is asked to sign in                                                                |
-    | a signed-in user with no active enrollment in course run X and no staff role there | without naming a learner        | the response is the same as the one given for a request naming a user who doesn't exist       |
-    | a user who enrolled in course run X and later unenrolled                           | without naming a learner        | the response is the same as the one given for a request naming a user who doesn't exist       |
-    | a member of course run X's staff                                                   | naming a user who doesn't exist | the response is the one given to any signed-in caller who isn't permitted                     |
-
-Scenario: A learner who names another learner can't tell whether that learner exists
-  Given learners L and M both have active enrollments in course run X
-  When M requests L's recommended next action in course run X
-  And M requests the recommended next action of a user who doesn't exist
-  Then both requests receive the same response as a signed-in caller gets for a user who doesn't exist
-  And neither response says whether the named user exists
-  And neither response contains any part of L's recommendation
+    | caller                                                                             | naming                          | response                                                       |
+    | a caller who isn't signed in                                                       | without naming a learner        | the caller is asked to sign in                                 |
+    | a signed-in user with no active enrollment in course run X and no staff role there | without naming a learner        | the request is refused as not enrolled (401)                   |
+    | a user who enrolled in course run X and later unenrolled                           | without naming a learner        | the request is refused as not enrolled (401)                   |
+    | M                                                                                  | naming L                        | the request is refused as not found (404)                      |
+    | M                                                                                  | naming a user who doesn't exist | the request is refused as not found (404)                      |
+    | a signed-in user with no active enrollment in course run X and no staff role there | naming L                        | the request is refused as not found (404)                      |
+    | a member of course run X's staff                                                   | naming a user who doesn't exist | the request is refused as not found (404)                      |
 
 Scenario Outline: A staff member viewing a learner sees the recommendation as it applies to that learner
   Given S is a member of course run X's staff who has never attempted anything in course run X
@@ -277,8 +390,8 @@ Scenario Outline: A staff member viewing a learner sees the recommendation as it
     | difference                                                                                         | recommended |
     | U hasn't been released yet, though S can open unreleased content                                   | V           |
     | L is in the audit track, and U's graded content is locked for audit learners                       | V           |
-    | L attempted U without demonstrating its competency and has used all of U's attempts                | V           |
-    | L attempted U without demonstrating its competency, and U is set never to show results to learners | V           |
+    | U is a retake for L, and L has used all of U's attempts                                            | V           |
+    | U is a retake for L, and U is set never to show results to learners                                | V           |
     | U's original due date has passed, and L has an extension on U to a date that hasn't passed         | U           |
 
 Scenario: A staff member viewing a learner gets the learner's resume link
@@ -293,8 +406,8 @@ Scenario: A staff member viewing a learner gets the learner's resume link
 ```gherkin
 Scenario: A malformed course run key is rejected
   Given a signed-in learner
-  When the learner requests a recommended next action for a value that isn't a well-formed course run key
-  Then the request is rejected with a message saying the course run key is malformed
+  When the learner requests a recommended next action for a value that fits the course run key part of the URL but doesn't parse as a course run key
+  Then the request is rejected as a bad request (400) with a message saying the course run key is malformed
 ```
 
 <details>
@@ -304,39 +417,51 @@ This is a suggested approach, not the source of truth. The User Story, Descripti
 
 **Summary**
 
-openedx-core adds one Python API function that returns a learner's remaining criteria in a course run: the criteria the learner hasn't demonstrated and that no Demonstrated ancestor group or competency already satisfies. openedx-platform adds a new LMS djangoapp for CBE learner features. Its endpoint resolves the target learner with #738's shared resolver, orders the remaining criteria's subsections by that learner's course outline, and makes two passes, retry candidates first and then not-started candidates, asking #855 whether each openable subsection accepts a submission. When nothing qualifies, the reason is chosen from openability alone, and the response carries a resume link computed for the target learner.
+openedx-core adds one Python API function that returns a learner's remaining criteria in a course run: the criteria the learner hasn't demonstrated and that nothing above them already satisfies, meaning no Demonstrated ancestor group, competency, or ancestor competency in the taxonomy. openedx-platform adds a new LMS djangoapp for CBE learner features. Its endpoint accepts and refuses callers the way ProgressTabView does, takes the openable subsections that carry remaining criteria, drops those that are ungraded or past the learner's due date plus the course's grace period, sorts the rest by the learner's due dates, and asks #855 about each one in that order. The first due date that has any candidate wins. Among candidates sharing that due date, a subsection to continue beats a retake, which beats a new attempt. When nothing qualifies, the response carries a resume link computed for the target learner.
 
 **Approach**
 
 openedx-core, in `openedx_learning`:
 
 1. `get_remaining_course_criteria(course_key, user_id)` in `applets/cbe/api.py` goes in `__all__`, because openedx-platform imports it from `openedx_learning.api`. The function is additive, but it becomes a supported contract, so it returns frozen dataclasses instead of model instances: `RemainingCourseCriteria(has_criteria, criteria)`, where each `RemainingCriterion` carries `criterion_id`, `tag_id`, `competency_name` (the tag's value), `object_id` (the subsection usage key), `status` (the status string, or `None` when there is no row), `rule_type`, and `rule_payload`.
-2. The function reuses #733's `get_course_competency_criteria(course_key)` walk, so #733's archived and disabled exclusions apply, and it returns `has_criteria=False` when the walk finds no criteria. Otherwise it loads this learner's `StudentCompetencyCriteriaStatus` rows for the walked criteria and `StudentCompetencyStatus` rows for their competency tags, reusing #738's status queries. It also loads `StudentCompetencyCriteriaGroupStatus` rows for every walked group, root included, which #738 doesn't read.
-3. A criterion is dropped when its own status, the status of any ancestor group up to and including the root, or its competency tag's status is Demonstrated. The root group and `StudentCompetencyStatus` span course runs, so a competency demonstrated in another course run drops this run's criteria for it, including criteria with no status row of their own. A Demonstrated parent tag in the taxonomy drops nothing. The query count stays constant as the number of criteria grows.
+2. The function reuses #733's `get_course_competency_criteria(course_key)` walk, so #733's archived and disabled exclusions apply, and it returns `has_criteria=False` when the walk finds no criteria. Otherwise it makes three reads for this learner: `StudentCompetencyCriterionStatus` rows for the walked criteria, reusing #738's query; `StudentCompetencyCriteriaGroupStatus` rows for every walked group, root included, which #738 doesn't read; and the learner's Demonstrated `StudentCompetencyStatus` rows in the taxonomies of the walked criteria's competency tags, each with its tag's taxonomy and `lineage`.
+3. A criterion is dropped when any of these is Demonstrated: its own status, the status of any ancestor group up to and including the root, or the status of its competency tag or of any ancestor of that tag in the taxonomy. For example, a Demonstrated "Problem Solving" drops the criteria for its child "Root Cause Analysis". `Tag.lineage` lists the tag's values from the taxonomy root down, each followed by a tab, and a value is unique within its taxonomy. So a Demonstrated tag is the criterion's tag or one of its ancestors exactly when it is in the same taxonomy and the criterion tag's `lineage` starts with its `lineage`. `Tag.descendant_count` uses the same prefix match. The check runs in Python over step 2's rows, so the query count stays constant as the number of criteria and the depth of the taxonomy grow. The root group and `StudentCompetencyStatus` span course runs, so a competency demonstrated in another course run drops this run's criteria for that competency and for its descendants, including criteria with no status row of their own.
 
 openedx-platform, in a new `lms/djangoapps/cbe_learner/` app with no models:
 
-4. `lms/urls.py` mounts the app at `api/cbe_learner/`. The app's `urls.py` routes `v1/next-action/{COURSE_KEY_PATTERN}`, and the same path followed by `/(?P<student_id>[^/]+)`, to `NextActionView`, mirroring ProgressTabView's two routes and its authentication classes.
-5. `NextActionView` returns 400 with a message on `InvalidKeyError`. A value that doesn't match `COURSE_KEY_PATTERN` gets a routing 404 before it reaches the view, so the malformed-key test needs a value that matches the pattern but fails to parse. The view resolves the learner by calling #738's shared resolver (extracted from `ProgressTabView._get_student_user`) directly, and returns 404 when the named user doesn't exist, when a requester without staff access names another learner, or when no learner is named and the requester has no active enrollment and no staff access. Every later step uses the resolved learner, never `request.user`.
+4. `lms/urls.py` mounts the app at `api/cbe_learner/`. The app's `urls.py` routes `v1/next-action/{COURSE_KEY_PATTERN}`, and the same path followed by `/(?P<student_id>[^/]+)`, to `NextActionView`, mirroring ProgressTabView's two routes.
+5. `NextActionView` returns 400 with a message on `InvalidKeyError`. A value that doesn't match `COURSE_KEY_PATTERN` gets a routing 404 before it reaches the view, so the malformed-key test needs a value that matches the pattern but fails to parse. The view then refuses callers exactly as ProgressTabView does:
+   - It uses ProgressTabView's authentication classes and `IsAuthenticated`, so a caller who isn't signed in gets whatever that permission returns.
+   - It resolves the learner with `get_student_user()`, which #738 extracts from `ProgressTabView._get_student_user` into `lms/djangoapps/course_home_api/utils.py`, passing the requester's staff access from `has_access(request.user, "staff", course_key)`. That function raises 404 when a requester without staff access names anyone else, whether or not that user exists, and when staff name a user who doesn't exist. A CCX coach naming a learner also passes, as on the Progress tab.
+   - The same function applies masquerade. `setup_masquerade` silently drops a masquerade as a specific learner who no longer has an active enrollment (`lms/djangoapps/courseware/masquerade.py:230-240`), so that request resolves to the staff member.
+   - The view returns 401 with the body `"User not enrolled."` when the resolved learner has no active enrollment and the requester has no staff access, the same check ProgressTabView makes. Staff who name an existing learner with no active enrollment therefore get that learner's recommendation.
+
+   Every later step uses the resolved learner, never `request.user`.
 6. `get_next_action(course_key, learner)` in the app's `api.py` does the ranking:
    1. Call `get_remaining_course_criteria(course_key, learner.id)`. If the course run has no criteria, return `no_criteria_in_course` before any outline work, so a course run without CBE costs one query. An empty list of remaining criteria returns `all_demonstrated`.
-   2. Call `details = get_user_course_outline_details(course_key, learner, now)` for the learner, never the requester, because `can_see_all_content` skips every outline processor for staff. Order the remaining criteria's subsections by `details.outline.sections` and then each section's `sequences`, matching parsed `UsageKey`s. A subsection is openable only when it is in `details.outline.accessible_sequences`. A subsection missing from the outline (deleted, staff-only, or in another content group) is not openable. A past-due subsection set to hide after its due date leaves `accessible_sequences`, so it counts as not openable.
-   3. Retry pass, in outline order, over openable subsections where at least one remaining criterion has a status row: skip a subsection whose score is hidden (step 7), then call `get_subsection_submission_state(learner, subsection_key)` (#855). The first subsection whose result has `.accepts == "yes"` is recommended as `retry_available`. An `"unknown"` answer doesn't qualify.
-   4. Not-started pass, only when the retry pass finds nothing, over openable subsections where no remaining criterion has a status row: the first subsection where `get_subsection_submission_state(learner, subsection_key)` returns `.attempted == False` and `.accepts` of `"yes"` or `"unknown"` is recommended as `not_started`. #855 returns `.accepts == "no"` past the learner's due date, so #754 checks no dates itself.
-   5. Otherwise, the reason is `nothing_actionable` when any remaining subsection was openable, and `nothing_openable` when none was. The outline alone decides this, so it costs no #855 calls.
-7. A retry candidate's score is hidden when #739's masking rule holds for the learner: its `show_correctness` is `never_but_include_grade`, or `ShowCorrectness.correctness_available(show_correctness, due, learner_has_staff_access)` is false. `show_correctness` comes from the collected block structure (the grades transformer collects it). `due` comes from the outline schedule, which carries the learner's own dates. `learner_has_staff_access` comes from `has_access(learner, "staff", course_key)`, as in ProgressTabView.
+   2. Call `details = get_user_course_outline_details(course_key, learner, now)` for the learner, never the requester, because `can_see_all_content` skips every outline processor for staff. A subsection is openable only when it is in `details.outline.accessible_sequences`. A subsection missing from the outline (deleted, staff-only, or in another content group) is not openable, and the outline's schedule and milestones processors also leave out unreleased and prerequisite-gated subsections. A past-due subsection set to hide after its due date leaves `accessible_sequences`, so it counts as not openable.
+   3. Drop the openable subsections that are ungraded (`graded` is false in the collected block structure, which `GradesTransformer` collects) or past due for the learner (the learner's due date below plus the course's grace period has passed). The grace period is the inherited `graceperiod` field, which neither the outline nor `CourseOverview` carries, so read it once per request from `modulestore().get_course(course_key, depth=0)`. Both drops happen before #855 is called, and neither changes which subsections count as openable in step 6.5. Sort the remaining subsections that carry remaining criteria by the learner's due date, soonest first. Subsections with no due date go after every dated one. Ties, including among subsections with no due date, go in outline order: by `details.outline.sections`, then each section's `sequences`, matching parsed `UsageKey`s. The learner's due date is `details.schedule.sequences[usage_key].due`. The outline's schedule processor reads it from edx-when's `get_dates_for_course(course_key, user)` for this learner, so it includes individual extensions and self-paced schedules, and it is the same edx-when date #855 reads through `get_course_blocks`. A subsection inside its grace period already has a due date in the past, so it sorts ahead of the rest.
+   4. Walk the sorted list once. Call `get_subsection_submission_state(learner, subsection_key)` (#855) for each subsection. `None` means the subsection has nothing for the learner to evaluate, so it is not a candidate. Otherwise classify the answer, comparing each field with `is True` or `is False`, because #855 uses `None` for unknown:
+      - Continue (`continue_available`): `attempted` is true, `all_learner_work_done` is false, and `accepts_learner_work` is not false. This covers an ORA on which the learner still needs to do their own peer, self, or training step, because opening the subsection takes the learner to that step.
+      - Retake (`retry_available`): `accepts_learner_work` is true, the score isn't hidden from the learner (step 7), and either `all_scored` is true or `attempted` is false while a remaining criterion on the subsection has a status row. The second case is a staff reset: the reset deletes the learner's submission or attempts, so #855 reports nothing attempted, but the criterion status from the earlier grade remains.
+      - New (`not_started`): `attempted` is false, no remaining criterion on the subsection has a status row, and `accepts_learner_work` is not false.
+      - Anything else is not a candidate. That includes a subsection where the learner has done all their own work and something still awaits grading (`all_learner_work_done` true, `all_scored` false), and a retake whose `accepts_learner_work` is unknown. An unknown `attempted`, `all_learner_work_done`, or `all_scored` fails every rule that needs it. #855 reports those fields as unknown only when checking a component failed, and the learner may already have submitted that component, so recommending the subsection could send them to work they have finished.
+
+      The walk stops once it has classified every subsection that shares the due date of the first candidate it finds, treating "no due date" as one shared date. Among those candidates, recommend the first continue, else the first retake, else the first new attempt, in the step 3 order. An unknown `accepts_learner_work` qualifies a continue for the same reason it qualifies a new attempt: the content the learner hasn't submitted to yet is usually the content #855 can't check, such as an external tool.
+   5. When the walk finds nothing, the reason is `nothing_actionable` if any remaining subsection was openable, and `nothing_openable` if none was. The outline alone decides which of the two applies.
+7. The hidden-score skip applies only to retake candidates. A continue candidate is recommended even when its subsection never shows results, because it asks the learner to submit the parts they haven't submitted yet, not to redo a scored attempt. A retake's score is hidden when #739's masking rule holds for the learner: its `show_correctness` is `never_but_include_grade`, or `ShowCorrectness.correctness_available(show_correctness, due, learner_has_staff_access)` is false. `show_correctness` comes from the collected block structure (the grades transformer collects it). `due` is the learner's due date from step 6.3. `learner_has_staff_access` comes from `has_access(learner, "staff", course_key)`, as in ProgressTabView.
 8. `resume_url` is set for every null `next_action` except `no_criteria_in_course`. When `get_key_to_last_completed_block(learner, course_key)` succeeds, `resume_url` is the absolute `jump_to` URL for that block, as on the course home. On `UnavailableCompletionData`, it is `make_learning_mfe_courseware_url(course_key, sequence)` for the first sequence in outline order that is in `accessible_sequences`, or for the course alone when no sequence is. Don't reuse the course home's code path, because it builds this fallback from the requester's outline.
-9. The response follows the Description's sample, plus a top-level `resume_url` that is null whenever step 8 doesn't set it, so all three top-level keys are always present. `subsection.display_name` is the outline's sequence title, and `url` is `make_learning_mfe_courseware_url(course_key, subsection)`. `reason` is one of `retry_available`, `not_started`, `no_criteria_in_course`, `all_demonstrated`, `nothing_openable`, or `nothing_actionable`. `criteria` lists the recommended subsection's remaining criteria in criterion id order, and `rule_payload` is returned as stored, so a Grade threshold is a fraction from 0.0 to 1.0.
+9. The response follows the Description's sample. `resume_url` is null whenever step 8 doesn't set it, so all three top-level keys are always present. `subsection.display_name` is the outline's sequence title, and `url` is `make_learning_mfe_courseware_url(course_key, subsection)`. `reason` is one of `continue_available`, `retry_available`, `not_started`, `no_criteria_in_course`, `all_demonstrated`, `nothing_openable`, or `nothing_actionable`. `criteria` lists the recommended subsection's remaining criteria in criterion id order, and `rule_payload` is returned as stored, so a Grade threshold is a fraction from 0.0 to 1.0.
 
 Tests the Acceptance Criteria don't cover:
 
-- openedx-core: a Demonstrated bottom-tier group, course-level group, root group, or competency status each drops its criteria, including a sibling criterion with no status row. A group status other than Demonstrated, another learner's rows, and a Demonstrated parent tag drop nothing. `status` is `None` when there is no row. #733's exclusions give `has_criteria=False`. The query count is constant.
-- openedx-platform: #855 is never called for an unopenable subsection or on the `no_criteria_in_course` and `all_demonstrated` paths. #855 answers whether a subsection's graded content accepts a submission from a learner now and whether the learner has attempted it. Each AC example is a product state that produces one of #855's answers; ranking tests drive those answers through a mock, because #855's own tests cover the product states behind each answer.
+- openedx-core: a Demonstrated bottom-tier group, course-level group, root group, competency status, or ancestor competency at any depth each drops its criteria, including a sibling criterion with no status row. These drop nothing: a group status other than Demonstrated, another learner's rows, a Demonstrated descendant competency, a Demonstrated tag with the same value in another taxonomy, and a Demonstrated sibling whose value is a prefix of the criterion tag's value ("Writing" beside "Writing Poetry"). `status` is `None` when there is no row. #733's exclusions give `has_criteria=False`. The query count is the same for one criterion as for many, and for a two-level taxonomy as for a deeper one.
+- openedx-platform: #855 is never called for an unopenable, ungraded, or past-due subsection or on the `no_criteria_in_course` and `all_demonstrated` paths, and it is not called for a subsection due after the first due date that has a candidate. A candidate with an earlier due date beats one of any kind due later, and on the same due date a continue beats a retake, which beats a new attempt. #855 answers, each as true, false, or unknown, whether a subsection accepts work from the learner now, whether the learner has attempted it, whether the learner has done all their own work on it, and whether every counting component is scored, and it returns `None` when there is nothing to evaluate. An unknown `attempted`, `all_learner_work_done`, or `all_scored` disqualifies the subsection from every kind, while an unknown `accepts_learner_work` still qualifies a continue or a new attempt. Each AC example is a product state that produces one of #855's answers; ranking tests drive those answers through a mock, because #855's own tests cover the product states behind each answer.
 - The openedx-core read is covered by the unit tests in the openedx-core bullet above, not by AC scenarios.
 
 Out of scope:
 
-- The re-attempt check itself (#855).
+- The submission-state check itself, including its `all_learner_work_done` and `all_scored` answers (#855).
 - The frontend (#755).
 - Response caching.
 
@@ -356,23 +481,15 @@ Out of scope:
 **Additional context**
 
 - #733: the criteria walk and its exclusions, the `api/cbe/` mount, and the learner-facing API pattern for CBE.
-- #738: the learner status reads, the shared learner resolver, and the caller rules this endpoint matches.
+- #738: the learner status reads and the extracted `get_student_user()`.
 - #642 adds the learner status tables. #699, #643, and #701 are needed to see real statuses end to end; none of them blocks building this ticket.
 - The openedx-platform PR can merge only after an openedx-core release that contains `get_remaining_course_criteria` is pinned in openedx-platform's requirements.
 - `docs/openedx_learning/decisions/0002-competency-criteria-model.rst`: the group tree and the three learner status tables.
-- `lms/djangoapps/course_home_api/progress/views.py`: ProgressTabView, the reference for authentication, masquerade, and the `never_but_include_grade` filter.
+- `lms/djangoapps/course_home_api/progress/views.py`: ProgressTabView, the reference for authentication, refusals, masquerade, and the `never_but_include_grade` filter.
 - `lms/djangoapps/grades/subsection_grade.py`: `show_grades`, the masking rule #739 relies on.
 
 </details>
 
 ## Open Questions
 
-- (architect, final review) Should #754 stay one ticket with two PRs, or should the openedx-core read become its own ticket? The estimate is 3 to 3.5 developer-days against the 1-2 day bar, and the openedx-platform PR can't merge until an openedx-core release carrying the new function is pinned, so the two PRs already ship on separate schedules. Options: A) keep one ticket, as #733 and #738 do; B) split the openedx-core read (about 1 day) into a companion ticket that #754 depends on, leaving #754 at about 2 to 2.5 days; C) do B and also drop the resume link, bringing #754 to about 2 days. Recommended: B.
-- (architect, final review) Who enforces the learner's due date when #855 can't evaluate a not-started subsection's content, for example an LTI tool? #754 and #855 must agree, or a past-due external-tool subsection is either recommended or checked twice under different rules. Options: A) #855 reports "does not accept" for any subsection past the learner's due date plus grace period, before it checks content type, and #754 checks no dates; B) #855 reports "unknown", and #754 checks the learner's due date from the outline schedule. Recommended: A, which is how both tickets state it.
-- (architect, final review) Is the resume link firmly in scope? It adds about 0.25 day, and it is the only way #755 can show a fallback link for the target learner, because the course home computes its link from the requester's outline. Options: A) keep it, as the Approach states; B) drop it, and #755 hides the notice when there is no recommendation. Recommended: A.
-- (architect, final review) Is it enough that every AC scenario is verified through the LMS endpoint? Under this default, the openedx-core PR is verified only by the unit tests listed in Technical Details, and the ranking tests drive #855's answers through a mock. Options: A) yes; B) add AC scenarios marked for the openedx-core PR, as #733 does; C) also require real product states in #754's endpoint tests (about a day more, duplicating #855's tests). Recommended: A.
-- (architect, final review) Does a Demonstrated parent competency in the taxonomy, for example "Problem Solving" above "Root Cause Analysis", suppress the child competency's criteria? #643 rolls statuses up through parent tags, but a Demonstrated parent doesn't show that each child was demonstrated. Options: A) no, only the criterion's own competency and its ancestor groups suppress, as the Approach states; B) yes. Recommended: A.
-- (architect, final review) What are the new djangoapp's name and URL? #755 calls this URL, and later CBE learner features will live in the same app. Options: A) `lms/djangoapps/cbe_learner`, serving `api/cbe_learner/v1/next-action/<course_key>`; B) another name. Recommended: A.
-- (architect, final review) Should every signed-in refusal be a 404, including a learner requesting their own result with no active enrollment? #738's caller rules refuse anyone else with a 404, but ProgressTabView returns 401 for that case and #733 returns 403. Options: A) 404 for every signed-in refusal, as the Approach states; B) match ProgressTabView. Recommended: A.
-- (architect, final review) What does course staff get when they name a learner who exists but has no active enrollment in the course run? ProgressTabView returns that learner's progress to staff whatever the learner's enrollment, and #738 doesn't address the case. Options: A) match ProgressTabView and return the learner's recommendation; B) refuse it the same way as naming a user who doesn't exist. Recommended: A, for parity with ProgressTabView. Add an AC scenario for whichever answer is chosen.
-- (implementer) In what order should #754 call #855, and should anything be cached? In the worst case, when nothing is actionable, #855 is called once for every openable subsection with remaining criteria. Recommended: call #855 one candidate at a time during the two outline-order passes, stopping at the first hit in each, and build the learner's course block structure once per request and pass it to #855 if profiling shows #855 rebuilding it on each call.
+- (implementer) In what order should #754 call #855, and should anything be cached? A subsection's kind depends on #855's answer, so the walk calls #855 for each openable subsection with remaining criteria, in due-date order, until it has found a candidate and classified every subsection sharing that candidate's due date. In the worst case, when nothing is actionable, that is one #855 call per openable subsection. Recommended: walk the candidates once in due-date order, calling #855 one subsection at a time, and stop as described in the Approach. Build the learner's collected block structure once per request and pass it to #855 through the optional `collected_block_structure` argument #855 proposes. Profile a course with about 50 subsections carrying criteria; if it is too slow, add a batch form of #855 that takes many subsection keys as a follow-up.
