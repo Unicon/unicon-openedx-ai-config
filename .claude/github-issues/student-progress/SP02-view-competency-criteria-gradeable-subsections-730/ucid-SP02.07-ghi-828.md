@@ -11,16 +11,6 @@ As a site operator, I want the CBE Student Progress widgets to come with tutor-m
 
 The CBE Student Progress widgets live in the frontend package that #810 creates, and they only appear on a site's Progress tab when something installs that package into the Learning MFE image and registers its widgets into the Progress tab plugin slots. This ticket adds the package to tutor-mfe itself, so every Tutor site that runs the Learning MFE gets the widgets by default, with no separate Tutor plugin for the operator to find and install.
 
-<details>
-<summary>Context</summary>
-
-- #810 creates the repository and the npm package that this ticket adds to tutor-mfe.
-- `overhangio/tutor-mfe`: its `README.rst` documents every `mfe-*` patch hook, and `tutormfe/templates/mfe/build/mfe/env.config.jsx` shows where a registered slot configuration is rendered in the generated file and what wraps it.
-- #829 replaces #810's generic placeholder component with the two starter CBE widgets and adds `example.env.config.jsx` for local development. This ticket installs the package after #829 and #734 have landed.
-- A way for operators to leave the widgets out of the Learning MFE build is a nice-to-have, not a requirement, since the goal is to build CBE into the core rather than bolt it on. Add it only if it takes little effort.
-
-</details>
-
 ## Acceptance Criteria
 
 The deliverable is a change to tutor-mfe's image build and default slot configuration rather than new runtime behavior, so this ticket uses a checklist. Every item is verified on a Tutor environment that has no Tutor plugins enabled beyond tutor-mfe's own dependencies.
@@ -37,6 +27,13 @@ The deliverable is a change to tutor-mfe's image build and default slot configur
   - tutor-mfe passes the setting's value to the slot configuration function the package exports (#829), so changing the setting and rebuilding the Learning MFE image changes the value that function receives.
   - tutor-mfe's README lists the setting, its two values, and its default.
   - What the package does with each value is #839's scope. Until #839 ships, both values place the panel above the cards.
+
+## Context
+
+- #810 creates the repository and the npm package that this ticket adds to tutor-mfe.
+- `overhangio/tutor-mfe`: its `README.rst` documents every `mfe-*` patch hook, and `tutormfe/templates/mfe/build/mfe/env.config.jsx` shows where a registered slot configuration is rendered in the generated file and what wraps it.
+- #829 replaces #810's generic placeholder component with the two starter CBE widgets and adds `example.env.config.jsx` for local development. This ticket installs the package after #829 and #734 have landed.
+- A way for operators to leave the widgets out of the Learning MFE build is a nice-to-have, not a requirement, since the goal is to build CBE into the core rather than bolt it on. Add it only if it takes little effort.
 
 ## Open Questions
 
