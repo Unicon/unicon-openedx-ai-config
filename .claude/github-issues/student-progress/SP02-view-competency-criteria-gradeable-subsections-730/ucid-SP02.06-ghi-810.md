@@ -9,13 +9,13 @@ As the developer of the CBE Student Progress plugin, I want a repository to serv
 
 ## Description
 
-This ticket builds the repository that will hold a frontend plugin that adds competency progress information to the learner Progress tab in the Learning micro-frontend. It creates the repository, the package skeleton, and the build, including one generic placeholder component with no CBE-specific content, used later to prove the plugin install path before any real widget exists. It registers nothing into any plugin slot itself. The real CBE widgets and the Tutor plugin that installs them onto a site are separate tickets.
+This ticket builds the repository that will hold a frontend plugin that adds competency progress information to the learner Progress tab in the Learning micro-frontend. It creates the repository, the package skeleton, and the build, including one generic placeholder component with no CBE-specific content, used later to prove the plugin install path before any real widget exists. It registers nothing into any plugin slot itself. The real CBE widgets are a separate ticket, #829, and #828 adds the package to tutor-mfe.
 
 ## Acceptance Criteria
 
 - [ ] The repository exists, and the Open Question below about where it lives and who maintains it is answered, with the answer recorded as a comment on this issue.
 - [ ] It carries the standard Open edX repository files: `LICENSE` (AGPL-3.0), `README.rst`, `CHANGELOG.rst`, `CODE_OF_CONDUCT.md`, `openedx.yaml`, and the standard issue templates.
-- [ ] An npm package sits at the repository root, with a subdirectory reserved for the Tutor plugin added by the Tutor packaging ticket.
+- [ ] An npm package sits at the repository root.
 - [ ] `npm install` run against a git reference to the repository, on a machine that has never built it before, produces a package whose build output is populated rather than empty.
 - [ ] The package declares React and its companion libraries as peer dependencies, so a consuming micro-frontend resolves them to its own copies rather than to nested duplicates.
 - [ ] The package exports at least one component, and a test covering that component passes.
@@ -33,13 +33,13 @@ This section is background and a suggested approach, not the ticket's source of 
 
 **What to copy from.** `openedx/sample-plugin` is a worked example of every major Open edX plugin interface, and its `frontend-plugin-sample/` directory is the closest prior art for this package. That directory is five files: a package manifest, a re-export barrel, one component, and the two npm configuration files. Copying its manifest and configuration files, rather than deriving them, is the fastest correct route.
 
-**Where the npm package sits, and why it sits at the repository root.** The repository will eventually hold two packages: this npm package, and a Tutor plugin, which is a Python package. Both are installed from a git reference rather than from a package registry. Pip can install a Python package from a subdirectory of a git repository, using a `#subdirectory=` fragment on the URL. Npm has no equivalent: it installs whatever package sits at the repository root. So the package npm has to reach is the one that must be at the root, and the Tutor plugin takes a subdirectory. This is the one place where the layout is forced rather than chosen, and it is the opposite of how `openedx/sample-plugin` arranges itself, because that repository publishes to registries and so never needs a git install to work.
+**Where the npm package sits, and why it sits at the repository root.** The package is installed from a git reference rather than from a package registry, and npm installs whatever package sits at the repository root, so the package has to be at the root. This is the one place where the layout is forced rather than chosen, and it is the opposite of how `openedx/sample-plugin` arranges itself, because that repository publishes to registries and so never needs a git install to work.
 
 **Why the package manifest needs a `prepare` script and not only a `build` script.** What a consumer actually uses is compiled JavaScript in `dist/`, which is built rather than committed. When npm installs a dependency from a git URL it clones the repository, installs that package's development dependencies, runs its `prepare` script, and only then packs the result. A package with a `build` script but no `prepare` script therefore installs with an empty `dist/`, and any import of it resolves to nothing, with no error that points at the cause. This is why the checklist tests an install against a git reference rather than only testing that `npm run build` works locally.
 
 **Why React and its companions must be peer dependencies rather than regular ones.** React libraries hand data down through a context, which is a JavaScript object with its own identity. If this package listed React, Paragon, `@edx/frontend-platform`, or `react-router-dom` as regular dependencies, npm would install second copies nested underneath it. Those copies would carry their own separate and empty contexts, and any hook reading a context would come back with nothing, with no error of any kind. Declaring each as a peer dependency at `"*"` is what makes npm resolve to the single copy the host micro-frontend already has.
 
-**Why the package entry point must do no work when it is imported.** A micro-frontend loads plugin packages through a JavaScript configuration file that is shared across every micro-frontend on a site, so this package's entry point will be imported into builds that never render anything from it. Keep the entry point a re-export barrel with no side effects, and have it import only packages that every micro-frontend already has.
+**Why the package entry point must do no work when it is imported.** The Learning micro-frontend's configuration imports this package when the micro-frontend starts, before any Progress tab renders. Keep the entry point a re-export barrel with no side effects.
 
 ### Implementation specifics
 
@@ -47,11 +47,11 @@ This section is background and a suggested approach, not the ticket's source of 
 - **Package manifest.** `main` pointing at `dist/index.js`, `files` limited to `["dist"]`, a `build` script running `fedx-scripts babel src --out-dir dist --source-maps --ignore **/*.test.jsx,**/*.test.js` as `openedx/sample-plugin` does, and a `prepare` script running `npm run build`.
 - **Dependencies.** `@edx/frontend-platform`, `@openedx/paragon`, `react`, and `react-router-dom` as peer dependencies, every one at `"*"`. No regular dependencies. `@openedx/frontend-build` as the only development dependency, since npm installs development dependencies every time it builds a git dependency, so anything added here is paid for on every install.
 - **Entry point.** `src/index.jsx` re-exports named components and performs no work at import time.
-- **The component this ticket ships.** Name it `PlaceholderWidget` and make it a Paragon `Card` with static text, accepting no required props. One trivial component is enough to give the build and the test something real to act on, and it also doubles as what the Tutor packaging ticket installs into the real Progress tab plugin slots, so the whole install-and-render path is proven before any CBE-specific widget exists. Because a plugin slot passes no props, `PlaceholderWidget` must not require any either.
-- **Continuous integration.** A workflow that runs lint, Jest through `@openedx/frontend-build`, and the build on pull requests. The Tutor packaging ticket adds a Python job to this same workflow.
+- **The component this ticket ships.** Name it `PlaceholderWidget` and make it a Paragon `Card` with static text, accepting no required props. One trivial component is enough to give the build and the test something real to act on, and #829 replaces it with the starter CBE widgets. Because a plugin slot passes no props, `PlaceholderWidget` must not require any either.
+- **Continuous integration.** A workflow that runs lint, Jest through `@openedx/frontend-build`, and the build on pull requests.
 - **Publishing is out of scope.** Nothing is published to the npm registry. Consumers install from a git reference, which is an established pattern in the Open edX organization: `openedx/frontend-plugin-aspects` is configured for publishing and has tagged releases, but has never been published, and is consumed from git. Give the package an unscoped name for now; adding a scope, if it is ever published, is a rename rather than a redesign.
 - **Out of scope, in the widgets ticket.** Plugin slot registration, the example configuration file, the local development loop against a `frontend-app-learning` checkout, and every competency-specific component. This ticket names no plugin slot.
-- **Out of scope, in the Tutor packaging ticket.** The `tutor-contrib-` Python package in the reserved subdirectory, the Tutor patches, and the operator install documentation.
+- **Out of scope.** Adding the package to tutor-mfe, which #828 does.
 
 </details>
 
@@ -68,7 +68,7 @@ This ticket creates a new repository and modifies no file in any existing reposi
 | `.npmrc` | Copied unchanged from `openedx/sample-plugin`; it sets the registry cooling-off period. |
 | `.nvmrc` | Pins the Node version used to build the package. |
 | `src/index.jsx` | The side-effect-free barrel, re-exporting the package's components as named exports. |
-| `src/PlaceholderWidget.jsx` and its test | The generic placeholder component, later installed by the Tutor packaging ticket and eventually replaced by the CBE widgets ticket. |
+| `src/PlaceholderWidget.jsx` and its test | The generic placeholder component, replaced by #829's starter CBE widgets. |
 | `README.rst` | What the package is for, and how to build and test it locally. |
 | `LICENSE` | AGPL-3.0, matching Open edX frontend repositories. |
 | `CHANGELOG.rst` | Version history. |
@@ -82,10 +82,10 @@ This ticket creates a new repository and modifies no file in any existing reposi
 <details>
 <summary>Context</summary>
 
-- `openedx/sample-plugin` is the reference implementation to copy from: its `frontend-plugin-sample/` directory is the shape of the manifest, the barrel, and the build script, and its `tutor-contrib-sample/` directory is what the reserved subdirectory will eventually hold.
+- `openedx/sample-plugin` is the reference implementation to copy from: its `frontend-plugin-sample/` directory is the shape of the manifest, the barrel, and the build script.
 - `openedx/frontend-plugin-aspects` is prior art for an Open edX plugin package consumed from a git reference rather than from the npm registry.
 - The widgets ticket adds the plugin widgets and the slot configuration to this package.
-- The Tutor packaging ticket adds the Tutor plugin that installs this package onto an operator's site, registering `PlaceholderWidget` into both Progress tab plugin slots to prove the install path before any CBE-specific widget exists.
+- #828 adds this package to tutor-mfe after #829 and #734 have landed.
 - This ticket belongs to epic #730.
 
 </details>

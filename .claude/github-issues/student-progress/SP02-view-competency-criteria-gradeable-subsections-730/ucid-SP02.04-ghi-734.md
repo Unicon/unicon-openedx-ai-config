@@ -8,7 +8,7 @@ As a learner, when I view the Progress tab of my course, I want to see cards of 
 
 ## Description
 
-This ticket builds the foundation of the CBE course progress page, which goes in the `ProgressTabCourseGradeSlot` above the default Course Grades view.
+This ticket builds the foundation of the CBE course progress page, which goes in the `ProgressTabCourseCompletionSlot` above the default Course completion and Grades cards.
 
 A course can have its content associated with more than one level of the competency taxonomy hierarchy (#666 only blocks a tag and its own ancestor or descendant in the same course; sibling branches of the competency taxonomy hierarchy can be applied in this course at different levels).
 
@@ -57,7 +57,7 @@ If this course has no CompetencyCriteria (if an empty array comes back from #733
 - Displaying grades in the cards
 - Displaying competency statuses in the cards
 - Expanding a subsection row to show attempts and score feedback
-- Rendering the panel in place of the Grades card (#839)
+- Rendering the panel in place of the Course completion and Grades cards (#839)
 
 ## Context
 - This is the frontend counterpart to #733. 
@@ -85,12 +85,12 @@ These scenarios use the following terms:
 - A placeholder row stands in for the subsections under one rule that are hidden from the viewer. It reads "1 more subsection that isn't visible to you", or "N more subsections that aren't visible to you" when there is more than one, and it comes after that rule's named subsections.
 
 ```gherkin
-Scenario: The panel appears above the Grades card in a course with competency criteria
+Scenario: The panel appears above the Course completion and Grades cards in a course with competency criteria
   Given a course with competency criteria on subsections the learner can see
   When the learner opens the course's Progress tab
-  Then the competency criteria panel appears in the main column, above the Grades card
+  Then the competency criteria panel appears at the top of the main column, above the Course completion and Grades cards
   And the panel has no title of its own above its first card or taxonomy heading
-  And the Grades card, the grade summary, and the detailed grades table still appear, unchanged
+  And the Course completion card, the Grades card, the grade summary, and the detailed grades table still appear, unchanged
 
 Scenario: A top-level tag with criteria is its own card
   Given the course's only competency criteria are on "Communication", a tag at the top level of its taxonomy
@@ -234,14 +234,14 @@ Scenario: Nothing from the panel appears while it is loading
   And the criteria or the course's subsection names are still loading
   When the learner opens the course's Progress tab
   Then no card, loading indicator, or placeholder from the panel appears
-  And the Grades card and the rest of the Progress tab appear without waiting for the panel
+  And the Course completion and Grades cards and the rest of the Progress tab appear without waiting for the panel
 
 Scenario: The panel stays hidden when the course's criteria can't be loaded
   Given the request for the course's competency criteria fails, for example because the site hasn't deployed that endpoint, the server returns an error, or the request is refused
   When the learner opens the course's Progress tab
   Then nothing from the panel appears, and no error message is shown to the learner
   And the failure is reported to the site's logging service
-  And the Grades card and the rest of the Progress tab appear as usual
+  And the Course completion and Grades cards and the rest of the Progress tab appear as usual
 
 Scenario: The panel stays hidden when the subsection names can't be loaded
   Given the course's competency criteria load
@@ -249,7 +249,7 @@ Scenario: The panel stays hidden when the subsection names can't be loaded
   When the learner opens the course's Progress tab
   Then nothing from the panel appears, including any criterion without its subsection's name
   And the failure is reported to the site's logging service
-  And the Grades card and the rest of the Progress tab appear as usual
+  And the Course completion and Grades cards and the rest of the Progress tab appear as usual
 
 Scenario: Subsections hidden from the learner appear as a placeholder row
   Given a group that requires all of its criteria, each requiring 80% or better, on "Quiz 1", which every learner can see, "Instructor Review", which only staff can see, "Group B Project", which is restricted to a content group the learner isn't in, and "Bonus Case Study", which the author has hidden from the course outline
@@ -344,7 +344,7 @@ The panel makes two requests through a react-query client the plugin owns: #733'
    - It honors masquerade.
 
    The Course Home Outline API can't be the source. For learners, its `StartDateTransformer` drops subsections that aren't released yet, and it appends "(N Questions)" to graded subsection names.
-3. **Query client.** `src/data/queryClient.js` creates one `QueryClient` lazily on first use, so the package entry point still does no work at import time. Configure it with a `QueryCache` whose `onError` calls `logError` from `@edx/frontend-platform/logging`, no retry on a 4xx response, and `refetchOnWindowFocus: false`. Set `staleTime` explicitly; its value is the implementer's choice. Every hook passes this client as `useQuery`'s second argument instead of reading one from React context, because of the host: frontend-app-learning's release/ulmo branch has no react-query and no `QueryClientProvider`, and master's provider logs every failed query itself. Reading the host's client would therefore break on release/ulmo and log every failure twice on master. Passing the client explicitly also lets #839's wrapper share the cache without putting a provider around the host's stock Grades card.
+3. **Query client.** `src/data/queryClient.js` creates one `QueryClient` lazily on first use, so the package entry point still does no work at import time. Configure it with a `QueryCache` whose `onError` calls `logError` from `@edx/frontend-platform/logging`, no retry on a 4xx response, and `refetchOnWindowFocus: false`. Set `staleTime` explicitly; its value is the implementer's choice. Every hook passes this client as `useQuery`'s second argument instead of reading one from React context, because frontend-app-learning's own query client logs every failed query itself, so reading the host's client would log every failure twice. Passing the client explicitly also lets #839's wrappers share the cache without putting a provider around the host's stock Course completion and Grades cards.
 4. **Hooks.** `src/data/apiHooks.js` exports four things:
    - `useCourseCompetencyCriteria(courseId)`.
    - `useCourseOutline(courseId, { enabled })`.
@@ -367,7 +367,7 @@ The panel makes two requests through a react-query client the plugin owns: #733'
    - The placeholder row's text is one ICU plural message, so translators control the singular and plural forms.
    - Write the strings in `src/messages.js` in sentence case, and uppercase them with Paragon's `text-uppercase` class, so translators don't receive all-caps source strings.
 7. **Components.** `CompetencyProgressPanel` keeps its name and takes no props. It reads `courseId` from `useProgressRouteParams` and calls `useCompetencyCards`. It returns null unless both queries have data and the criteria response is non-empty; that single check covers loading, either request failing, and an empty result. `CompetencyCard` and `CriteriaGroupList` take the transform's output as plain props. The transform needs no try/catch, because the slot's error boundary and #829's `SilentErrorFallback` already contain a render-time throw.
-8. **Packaging and wiring.** Add `@tanstack/react-query` to `package.json` as a peer dependency at `"*"`, like #810's other peers. The Learning MFE on master reuses its own v5 copy, and npm installs one where the MFE has none. The `competency_progress_panel` registration stays as it is. Remove the `competency_progress_summary` registration from `example.env.config.jsx` and from the Tutor plugin's slot mapping, keeping the two files identical, so learners don't see #829's sidebar placeholder before #743 replaces it.
+8. **Packaging and wiring.** Add `@tanstack/react-query` to `package.json` as a peer dependency at `"^5"`, because passing the client as `useQuery`'s second argument is v5 API. The Learning MFE on master already depends on v5, so the package reuses the host's copy. The `competency_progress_panel` registration stays as it is. Remove the `competency_progress_summary` registration from #829's `getPluginSlots`, which both `example.env.config.jsx` and tutor-mfe use, so learners don't see #829's sidebar placeholder before #743 replaces it.
 
 **Files to create and modify**
 
@@ -385,8 +385,7 @@ Paths are relative to the root of the plugin repository from #810.
 | `src/data/apiHooks.js` | new |
 | `src/data/buildCompetencyCards.js` | new |
 | `package.json` | modified: `@tanstack/react-query` peer dependency |
-| `example.env.config.jsx` | modified: sidebar registration removed |
-| `tutor-contrib-<repository-name>/<module-name>/plugin.py` | modified: sidebar registration removed |
+| `src/pluginSlots.js` | modified: sidebar registration removed |
 
 **Additional context**
 
