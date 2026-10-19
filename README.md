@@ -18,7 +18,9 @@ an upstream community repo: AI config, local dev setup notes, deployment notes, 
   - `agents/` — `business-analyst` and `software-architect`, expert sub-agents for ticket
     review/authoring and architecture design.
   - `skills/` — `ticket-writer` (interactive ticket drafting, dispatches both agents),
-    `code-review`, `spike-and-stabilize`.
+    `code-review`, `spike-and-stabilize`, and two QA skills: `qa-test-prep` (test cases,
+    Postman requests, and importable test data for a ticket) and `github-report-creation`
+    (a GitHub-ready test report from QA results).
   - `*-principles.md`, `architecture-overview.md`, `cbe-project-context.md`,
     `ticket-template.md` — reference docs the agents ground their judgment in.
   - `github-issues/` — local cache of GitHub issue descriptions from `openedx-core`,
@@ -138,5 +140,14 @@ the other various tasks.
   one combined clarify-and-plan approval, write a thin throwaway spike, then stabilize it
   (types, tests, checks, review). Skip it for trivial changes like renames or typo fixes.
 - **Reviewing a diff or PR:** the `frontend-code-review` or `backend-code-review` skill as appropriate.
+- **Preparing QA for a ticket:** the `qa-test-prep` skill. It reads the ticket and its
+  dependencies, checks whether the ticket is ready for QA, and publishes an Artifact with the
+  test cases and verification steps. When Postman is set up, it also builds the matching
+  requests in your Postman collection, and it builds Studio-importable test-data files. It
+  needs the GitHub MCP server. On first use it asks for your Postman workspace, collection,
+  and environment and for a test-data folder, and remembers the answers.
+- **Writing a test report:** the `github-report-creation` skill turns your QA results (a
+  CSV/XLSX export or notes in chat, or the results of a `qa-test-prep` session) into an
+  English, GitHub-ready report that you post to the issue yourself.
 - **Everything else** (`CLAUDE.md`, the principles docs) loads as background context
   automatically. You never invoke it directly, it's just informing every response.
