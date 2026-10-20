@@ -4,12 +4,13 @@ GitHub: https://github.com/openedx/openedx-core/issues/695 (#695, OPEN)
 Cached: 2026-10-20
 
 ## User Story
-As a course author, when I export a course, I want this export to include the competency criteria associations that exist for the content in this course so that they are available when I import this course somewhere else.
+As a course author, when I export a course, I want the export to include the competency mastery rules (competency criteria groups and competency criteria) attached to the course's content, in order to recreate them when the course is imported elsewhere without rebuilding each rule by hand.
 
 ## Description
-Today, when a course is exported in Open edX, the tags and tag associations are included, but competency criteria are not. We should update this export process to also include a JSON file that lays out the CompetencyCriteriaGroups and CompetencyCriteria for this course in such a way that it could be reconstructed on import.
+Today, when a course is exported in Open edX, its content tags are included (as `tags.csv`), but the competency criteria groups and competency criteria associated with those tags are not. We should update the export to also write a JSON file describing this course's criteria groups and criteria, identifying content and competencies the same way `tags.csv` does, so that course import (#696) can reconstruct them.
 
 ## Context
+- #696 is the corresponding ticket for import
 
 ## Notes for drafting
 
