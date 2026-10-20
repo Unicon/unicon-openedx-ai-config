@@ -23,13 +23,15 @@ sub-agents this skill names; a dispatched sub-agent never dispatches a further o
 sub-agent needs something it cannot fetch, it returns a "Needs research" item and the top-level
 session fulfills it.
 
-**Shape and timing.** The review runs in three phases: a short inline phase in which the
+**Shape and timing.** The review runs in four phases: a short inline phase in which the
 orchestrator pins the target, reads the ticket and the diff, and writes one shared brief; one
-dispatch wave in which five sub-agents work in parallel from that brief; and an inline phase in
-which the orchestrator verifies, sorts, and presents. Nothing in the wave waits on anything
+dispatch wave in which five sub-agents work in parallel from that brief; an inline phase in
+which the orchestrator verifies, sorts, and presents; and an explanation phase in which the
+orchestrator writes the findings out for the engineer who implemented the change, has a Sonnet
+sub-agent clean that text up, and gates it for accuracy. Nothing in the wave waits on anything
 else in the wave. A review of a 1,000-line change should finish in 15 to 20 minutes of wall
 clock: phase A in about 4 minutes, the wave bounded by its slowest agent (each has a tool-call
-budget of 35), phase C in about 6 minutes. A review that runs longer has usually broken one of
+budget of 35), phase C in about 6 minutes, phase D in about 5 minutes. A review that runs longer has usually broken one of
 three rules: the orchestrator read source files instead of the diff and the ticket in phase A,
 a sub-agent was dispatched after the wave instead of in it, or phase C wrote new probes instead
 of reading the cited lines.
@@ -110,6 +112,9 @@ missing:
 | B4 | Behavior in a temporary worktree: map tests to criteria and break-and-restore each load-bearing test, enumerate and probe error paths and bounded writes, rerun the pre-existing form of edited tests, the lean-test checks | `general-purpose`, Sonnet, high | 35 |
 | B5 | Architecture, ADR adherence, framework-boundary leaks, cross-repository placement, callers, the data-model invariants table | `software-architect`, Opus, xhigh | 35 |
 | C | Build the tables from B's results, verify every candidate at the head SHA, sort, present | the top-level session, inline | 12 tool calls |
+| D1 | Write the explanation of the findings for the engineer who implemented the change, from the C6 output | the top-level session, inline | 1 tool call |
+| D2 | Run `clean-up-text` steps 1 to 5 and 7 on that explanation | `general-purpose`, Sonnet, medium-high | 25 |
+| D3 | The accuracy gate, `clean-up-text` step 6, on the cleaned explanation | `doc-accuracy-reviewer`, Sonnet, high | 15 |
 
 Pass `model` explicitly on every dispatch, and dispatch all five B agents in one message with
 `run_in_background: false`, so the wave runs concurrently and the orchestrator waits for all of
@@ -408,12 +413,69 @@ catches; issues on lines the change did not modify, unless the change exposes th
 10. **Dropped.** One line per candidate whose evidence did not hold, with the fact that
     disproved it.
 11. **Open questions** for the developer.
+12. **Explanation for the implementer.** The cleaned Phase D text, in full, under a heading that
+    names its reader, with the accuracy gate's verdict in one line and the list of definitions
+    nobody has confirmed.
 
 Lead each finding with the point, then the mechanism, in one to three sentences. Keep the tone
 of one engineer to another: direct, specific, no praise padding and no "strengths" section. A
 `Bug` or a `Gap` means the verdict is not "yes". Keep the two axes separate: a clean convention
 pass does not soften a criterion `Gap`, and full criteria coverage does not excuse a layering
 violation. If nothing is wrong, say so plainly, with the tables that show it.
+
+## Phase D: explain (orchestrator inline, then two dispatches)
+
+The C6 output is written for a reviewer who has read the ticket, the diff, and this skill. It
+uses the severity vocabulary, `path:line` anchors, and names coined in the conversation that
+produced it, such as "the opt-out" or "the moved base". The engineer who implemented the
+change, and anyone else who did not sit in the review, cannot follow it without that context.
+Phase D produces the text they can follow. It is part of the deliverable, not an optional
+summary: a review without it is not finished.
+
+**D1. Draft (orchestrator, inline, one file in the scratchpad).** Write the findings out for one
+reader: the engineer who implemented the change, who knows the framework but not this
+codebase's history, the ticket thread, or the sibling tickets. The draft has these parts, in
+this order:
+
+1. A one-paragraph lead: the verdict and what the reader has to do.
+2. A prerequisites section, marked skippable, that defines every term and relationship the
+   findings lean on: the models and fields involved and what each is for, the mechanism the
+   change adds, every name the ticket or the PR coined (an "opt-out", an "escape hatch"), the
+   sibling tickets and what each one owns, the consuming repository and how it reaches this
+   code, and the method the review used to test the tests (break the line, run the suite).
+   Each definition comes from the code or the tickets, and the draft says where.
+3. The findings, grouped in this order: "Must fix before merge" (every `Bug` and `Gap`),
+   "Decisions to make or write down" (every `Question`), "Improvements worth doing" (every
+   `Suggestion`), and "Small things" (every `Nit`). Each finding says, in full sentences and in
+   this order: what is wrong, where (file and function, no line numbers), what the review
+   observed or ran to establish it, why it matters to a user or to a later ticket, and what to
+   do. A finding restates the context it needs rather than pointing at an earlier finding.
+4. "Things the review looked at and is leaving to other tickets": the Declined to judge items,
+   each with the ticket that owns it.
+5. "What passed": the checks and the test counts, in one paragraph.
+6. An action list, numbered, one line per action.
+
+Every finding in C6 appears in D1, and D1 adds nothing C6 did not establish. The severity words
+are not needed in the text; the grouping carries them.
+
+**D2. Clean up (`general-purpose`, Sonnet, medium-high, budget 25).** Dispatch one sub-agent to
+run the `clean-up-text` skill on the D1 file. Tell it: the path of that skill file, to read
+first; the source path; the intended reader; that it cannot dispatch, so it runs steps 1 to 5
+and 7 and returns step 6 as a "Needs verification" item carrying the source path, the rewrite
+path, its changelog, and the definitions it added; that the repository is read-only and it may
+grep to confirm that the names in the text exist; and that it writes the rewrite to a new file
+next to the source. The skill's own length check applies: the body of the rewrite does not grow
+past the source.
+
+**D3. Gate (`doc-accuracy-reviewer`, Sonnet, high, budget 15).** Dispatch the gate yourself, as
+`clean-up-text` step 6 describes, with the source path, the rewrite path, and D2's changelog.
+Nothing ships past a FAIL: correct the text and dispatch the gate again. On PASS WITH FIXES,
+apply the fixes. The gate flags the definitions the rewrite added and cannot confirm them, so
+that list travels with the delivery and the reader is told nobody has confirmed it.
+
+**Deliver.** The cleaned text is the twelfth part of the C6 output. Put it in the response in
+full, after the structured parts, under one heading that names its reader, with the gate's
+verdict in one line and the list of unconfirmed definitions.
 
 ## Red flags
 
@@ -437,3 +499,5 @@ violation. If nothing is wrong, say so plainly, with the tables that show it.
 | "This is a library change; the platform and the frontend are someone else's problem." | Trace the chain. A missing or unlinked companion change is a `Gap`. |
 | "The sub-agent found it, so it is a finding." | It is a hypothesis until you have read its citation at the head SHA. |
 | "That configuration is exotic." | If the product exposes it as a setting, it is supported input, and the failure is a `Bug`. |
+| "The structured review is clear enough; the explanation would only repeat it." | It is clear to someone who read the ticket and the diff. The implementer did not sit in this review. Phase D is part of the deliverable. |
+| "I will clean the explanation up myself instead of dispatching." | The cleanup and the gate are two more pairs of eyes on the text, by design of `clean-up-text`. The drafter cannot audit their own rewrite. |
