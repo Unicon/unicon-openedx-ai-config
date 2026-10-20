@@ -1,0 +1,665 @@
+diff --git a/.claude/skills/backend-code-review/SKILL.md b/.claude/skills/backend-code-review/SKILL.md
+index e74b872..eb2ea59 100644
+--- a/.claude/skills/backend-code-review/SKILL.md
++++ b/.claude/skills/backend-code-review/SKILL.md
+@@ -45,6 +45,12 @@ detailed questions about this Backend code review and raise any further concerns
+ 10. If a model field is added, which generic surfaces pick it up without any code naming it: an admin registration
+     without an explicit `fields` list, a serializer or form using `__all__`, import/export, `model_to_dict`? Enumerate
+     them and check each against what the ticket says may read or write the field.
++11. For each new row lock, locking read, or `select_for_update()`, state what it serializes against and whether an
++    outer lock or a database constraint already does that work. A lock whose work is already done is a
++    `Suggestion` to remove it; a rule that only a lock enforces, with no constraint behind it, is a `Question` for
++    the invariants table.
++12. For each value the change builds from other fields and stores in a bounded column (`max_length`), compare the
++    inputs' maximum lengths with the column's; the CI database may reject what the local one silently stores.
+ 
+ Additional Notes:
+ 
+diff --git a/.claude/skills/code-review-openedx/SKILL.md b/.claude/skills/code-review-openedx/SKILL.md
+index a8f6814..99c9809 100644
+--- a/.claude/skills/code-review-openedx/SKILL.md
++++ b/.claude/skills/code-review-openedx/SKILL.md
+@@ -1,204 +1,448 @@
+ ---
+ name: code-review-openedx
+-description: "Senior peer code review of a diff for a given code base. Use this skill mainly as inheritable Skill that provides baseline functionality extended by front-end or back-end Skills that will use this skill as a reference for common activity. Review-only: surface findings with file:line anchors and a severity marker; never fix, commit, or push. Post to GitHub only when explicitly asked and approved."
++description: "Senior peer review of a diff in an Open edX repository (openedx-core, edx-platform, frontend-app-authoring). Use when asked to review a pull request, branch, commit range, or working tree, and as the parent skill that backend-code-review and frontend-code-review extend; prefer one of those two when the change is clearly backend or frontend. Review-only: findings with file:line anchors and a severity marker; never fixes, commits, or pushes. Posts to GitHub only when explicitly asked and approved."
+ ---
+ 
+ # Code review
+ 
+-A senior peer review for an application within the Open edX ecosystem.
+-Surface what is wrong within the diff and why; let the developer decide
+-what to act on. Never apply fixes, commit, or push from this skill.
+-
+-This skill runs at the top-level session (directly, or as `spike-and-stabilize`'s final
+-step, which is explicitly run by "the strong main model, not the sub-agent"). Per the
+-Delegation rule in `CLAUDE.md`, whoever runs it dispatches the sub-agents below directly;
+-it never runs inside a dispatched sub-agent that would then need to dispatch further.
++A senior peer review of a change in the Open edX ecosystem. The review answers two separate
++questions and keeps their answers separate. Is this the right thing: every acceptance criterion
++of the ticket is implemented correctly and covered by a test that fails when the behavior
++breaks. Is it built right: the code follows the conventions, ADRs, and layering of the
++repository it lands in, the rules its data model relies on are enforced where the code says
++they are, and every claim the change makes about how its libraries behave is true. A change can
++pass one question and fail the other, and a pass on one never offsets a failure on the other.
++
++The review surfaces what is wrong and why, with evidence, and lets the developer decide what to
++act on. It never applies fixes, commits, or pushes. It posts to GitHub only when the developer
++asks and approves the wording.
++
++This skill runs in the top-level session, directly or as the final step of `spike-and-stabilize`.
++Per the Delegation rule in `CLAUDE.md`, that session is the only one that dispatches the
++sub-agents this skill names; a dispatched sub-agent never dispatches a further one. When a
++sub-agent needs something it cannot fetch, it returns a "Needs research" item and the top-level
++session fulfills it.
++
++## What the review must establish
++
++Every review ends with evidence for each of these points, or a finding where the evidence is
++missing:
++
++1. Every applicable acceptance criterion is implemented, and implemented correctly.
++2. Every applicable acceptance criterion is covered by at least one test that fails when the
++   behavior it describes breaks. One test may cover several criteria, and one criterion may
++   need several tests. A criterion with no test behind it is not acceptable.
++3. The new and changed tests are meaningful: each fails when the code it covers is broken, it
++   fails for the reason its name states, and it asserts what the code does, not how it is
++   written.
++4. Every factual claim the change makes in prose about how a framework, library, or database
++   behaves, in the PR body, the commit message, and the comments and docstrings it adds, is
++   true.
++5. Every rule the data model relies on has a stated enforcement, and that enforcement holds
++   across the lifecycle the design describes (archive, delete, replace, re-create).
++6. The code follows the documented conventions of the repository it lands in, and the ADRs and
++   OEPs that govern the area it touches.
++7. Each piece of the change lives in the right repository and layer, and any companion change
++   another repository needs either exists or is tracked.
++8. The change merges: no migration-graph or file conflict against the current `main`, and the
++   repository's mechanical checks pass on the merged tree.
++9. The change introduces no bug, security, data-integrity, or performance regression.
++10. The pull request meets the Open edX community's requirements for a PR.
+ 
+ ## Review-wide rules
+ 
+-These rules apply during discovery, analysis, verification, and presentation:
+-
+-- Review only issues introduced, worsened, or exposed by the change. Do not report
+-  pre-existing issues unless the change makes them newly relevant to the requested
+-  behavior, contract, or scope.
+-- Do not turn preferences into findings. Every finding must explain a concrete
+-  user-visible, contractual, security, accessibility, performance, data-integrity,
+-  or maintenance impact.
+-- If an issue cannot be tied to the change or its impact cannot be established,
+-  omit it or present it as a clearly labeled `Question`, not a `Bug`.
+-- Distinguish theoretical correctness from review-worthy defects. A `Bug` requires
+-  a concrete failure reachable through supported product inputs, supported API data,
+-  or a documented contract. A mathematically possible counterexample is not enough
+-  by itself.
+-- For edge cases involving precision, rounding, browser/runtime limits, or unusual
+-  data, establish whether the affected value can actually be produced or stored in
+-  supported usage and whether the difference is observable to users. If reachability
+-  or impact is unconfirmed, classify the item as a `Question` or `Suggestion`, or
+-  omit it.
+-- Thoroughness means investigating edge cases; it does not mean reporting every
+-  theoretical edge case as a defect.
+-- Live-source requirement: for external, mutable review inputs such as GitHub
+-  issues and pull requests, cached search results or indexed page snapshots are
+-  never authoritative. Fetch the current issue/PR metadata and body directly
+-  from GitHub, and record the issue `updated_at` timestamp plus the PR base/head
+-  SHAs used for the review.
+-- If cached content, the live GitHub API, and the live browser page disagree,
+-  discard the cached content and reconcile against the live source before
+-  reviewing.
+-- If the current GitHub issue or PR cannot be fetched, stop the review and
+-  report that it is blocked. Do not substitute cached content, an older
+-  snapshot, a branch name, or a PR description for the live source.
+-
+-## 1. Resolve the repository and review target.
+-
+-Identify the repository and 'review target' from the request: a pull request, branch,
+-commit range, or working tree. Read pull request metadata if needed to locate the
+-ticket, but do not inspect the diff yet.
+-
+-## 2. Read Pull Request metadata, if applicable, to locate the ticket.
+-
+-Before inspecting the diff, identify the ticket or issue that defines the requested
+-change. Accept any of:
+-
+-- ticket text already provided in the conversation;
+-- a ticket URL or issue number;
+-- a ticket linked in the PR description;
+-- a local ticket file, if explicitly provided.
+-
+-If no ticket is available, stop and ask:
+-
+-> Please provide the ticket or issue for this change, either with URL to the
+-> ticket or the ticket that's been linked in a pull request description. I
+-> need it to review scope and completeness. I won't begin the review until I have it.
+-
+-Do not infer the ticket from the branch name, PR title, commit message, or code.
+-Do not inspect or review the diff until the ticket is provided.
+-
+-## 3. Read repository AI Policy and instructions
+-
+-Before reading the diff or source files, read the target repository's root `AGENTS.md`,
+-if present. Also, read any nearer `AGENTS.md` files that govern changed paths.
+-
+-Treat those files as authoritative for repository-specific conventions, including:
+-
+-- language and framework versions;
+-- repository layout and module boundaries;
+-- testing, linting, and formatting commands;
+-- accessibility and UI conventions;
+-- approved architectural patterns and documented exceptions.
+-
+-Use this skill for the review workflow and output format, but do not replace
+-repository-specific instructions with generic assumptions from this skill. Any
+-directives in `AGENTS.md` take precedence over this skill's instructions.
+-
+-If an applicable `AGENTS.md` exists but cannot be read, stop and tell the user.
+-If no `AGENTS.md` exists, continue.
+-
+-### 4. Obtain and inspect the diff
+-
+-Before reviewing, obtain and inspect the complete diff for the requested target.
+-
+-- For a pull request, use its actual base and head revisions. Do not assume the checked-out branch or repository default
+-  branch matches the PR. Inspect the full patch and confirm which files it changes.
+-- For a branch review, compare the requested branch with the intended base. If the base is not clear, ask rather than
+-  guessing.
+-- For a working-tree review, inspect the repository status, staged diff, and unstaged diff. Include untracked files only
+-  when they are clearly part of the requested change.
+-- Read the relevant surrounding code at the target revision so each change can be understood in context.
+-- Confirm the diff is complete and was not truncated. If you cannot obtain it, or cannot determine the target or
+-  comparison base, stop and explain what is missing. Do not substitute the PR description or guess at the changes.
+-
+-## 4. Review
+-
+-Check the dimensions the diff actually touches; skip the rest and say which you skipped.
+-
+-- Correctness: logic, edge cases, error paths, off-by-one, None handling.
+-- Security: for instance, REST endpoints enforce auth and validate input; no secrets.
+-  breaking changes to stable (non-UNSTABLE) public APIs goes through DEPR; model
+-  identifiers follow `id`/`uuid`/`key`/`num`, database integrity, no exposed configs,
+-  and any other similar security concerns applicable to the code base and code changes.
+-- Tests: each behavior is covered; assertions can actually fail; no vacuous tests.
+-- Naming and documentation: clear names, appropriate commenting on public APIs if actually needed, consistent terms.
+-- Surgical scope: every changed line traces to the stated goal.
+-
+-Additionally, evaluate the following detailed questions and raise any concerns if prudent
+-
+-1. Does this pull request implement all of the acceptance criteria in the ticket?
+-2. Is the automated testing appropriate for the new additions, but still efficient and concise?
+-3. Do the added automated tests actually test what they claim to?
+-4. For any automated testing additions or changes, are they properly using constants for appropriate values and not
+-   depending on various hard coded values (such as dates, etc.) that might become invalid at a later time?
+-5. Is there any extraneous automated testing that is just testing the obvious and doesn't match the level of testing
+-   granularity seen elsewhere in this repo?
+-6. Does it adhere to Axim/Open edX preferences for new additions, as an example, consider the following pull request
+-   that went well https://github.com/openedx/frontend-app-authoring/pull/3218
+-7. Does the code account for all relevant edge cases, with regard to use cases it implements and the acceptance criteria
+-   of the ticket?
+-8. Does the pull request description include attribution to a specific AI agent or specify none if no AI was used? This
+-   is required by the Open edX community.
+-9. Does the pull request include manual testing steps? This is required by the Open edX community.
+-10. For each of the comments added in changed source files, are all of them necessary, or would this code be clear to a
+-    developer without it? Are they as clear and concise as they can be?
+-11. Do the new exported functions have clear names?
+-12. Any security issues, such as exposed configs, introduced vulnerabilities, introduced libraries, or other potential
+-    issues?
+-13. Run applicable targeted checks from the target repository’s AGENTS.md when feasible and report which checks were run
+-    or skipped.
+-14. Review any other changed behavior that has a concrete impact that may not be covered by the above, but is important
+-    to surface as a finding of this review.
+-
+-Note: Acceptance criteria define behavior and outcomes, not necessarily the implementation’s test structure. Do not
+-require one test per criterion or a test that directly inspects a migration when existing business-logic tests and
+-standard repository checks adequately verify the behavior.
+-
+-## 5. Verify before asserting
+-
+-A claim that sets a finding's severity needs a source: a `file:line` or command
+-output, not memory. Verify against the actual code at the diff's ref. Checking a
+-library's documented behavior is a web lookup, so run it in a sub-agent, never inline.
+-If you can't back a claim, downgrade it to a question. Don't pad findings with weak
+-citations.
+-
+-Before presenting a finding, confirm that:
+-
+-1. The finding is introduced, worsened, or exposed by the change.
+-2. The finding has an evidence source.
+-3. The finding explains a concrete impact.
+-4. The severity matches the evidence.
+-5. The finding is not merely a preference or pre-existing issue.
+-
+-Before assigning `Bug`, verify and state:
+-
+-1. A supported reproduction path or documented contract violation.
+-2. A concrete affected input or state.
+-3. A meaningful user-visible, data-integrity, security, accessibility, performance,
+-   or maintenance impact.
+-4. Whether the issue is practically reachable, rather than only constructible with
+-   synthetic or out-of-contract data.
+-
+-If the issue depends on data the product cannot normally create and there is no
+-evidence that such data exists in supported deployments, do not mark it as `Bug`.
+-Use `Suggestion` for defensive hardening or `Question` when reachability is unclear.
+-
+-When the implementation, PR discussion, or ticket context explicitly documents a
+-deliberate deviation caused by a framework or library limitation, do not report
+-the difference as a Bug solely because it differs from literal acceptance-criteria
+-wording. First verify whether the documented usage has a concrete supported failure.
+-If the tradeoff remains unresolved, report it as a `Question` rather than a `Bug`.
+-
+-## 6. Present
+-
+-Group findings by severity, each with a `file:line` anchor and a one-word marker:
+-
+-- `Bug.` A supported, reproducible failure or documented contract violation with
+-  meaningful impact.
+-- `Question.` A plausible concern whose reachability, contract, or impact cannot be
+-  confirmed.
+-- `Suggestion.` Optional hardening, broader test coverage, or theoretical completeness
+-  without demonstrated supported-user impact.
+-- `Nit.` Style or wording only.
+-
+-Lead with the point, then the mechanism. Keep the tone that of one engineer to another:
+-direct, specific, no praise padding. Open with a one-line verdict, then the findings.
+-If nothing is wrong, say so plainly. Post to GitHub only if the developer asks and
+-approves the wording.
++- Review only issues introduced, worsened, or exposed by the change. Report a pre-existing
++  issue only when the change makes it newly relevant to the requested behavior or contract.
++- Every finding carries one of three kinds of evidence: a quoted acceptance criterion; a cited
++  rule, as file plus rule, from an instruction file, ADR, or OEP; or a reproduction path with a
++  concrete affected input and a `file:line`. A preference with none of those is not a finding.
++- A `Bug` needs a failure reachable through supported product inputs, supported API data, or a
++  documented contract. Supported input includes every option the product exposes as a
++  first-class setting, however rarely it is used. A counterexample on data the product cannot
++  create is a `Question` or a `Suggestion`, or nothing.
++- Inference lowers confidence, not severity. When the last step of a failure cannot be executed
++  locally (a database the CI matrix runs and the workstation lacks), score the consequence,
++  name the step that was inferred, and keep the severity.
++- A defect whose evidence holds is never dropped. A precedent that does the same thing, or a
++  test run that showed no symptom, lowers its severity; it does not remove it. Drop only what is
++  wrong, what nothing available can verify, or what proposes no change.
++- A fact used to settle a disagreement is reported. When two sources conflict (a code comment
++  and the library's source, two sub-agents) and you resolve it by reading the code, every
++  passage in the change that stated the losing version is a finding.
++- Specification silence is not permission. For behavior the ticket does not mention, judge by
++  what a reasonable user of the software would expect, and grade the finding by its effect on
++  that user.
++- Live source: for GitHub issues and pull requests, cached search results and indexed snapshots
++  are never authoritative. Fetch the current issue and PR with `gh`, and record the issue's
++  `updated_at` and the PR's base and head SHAs in the review. If they cannot be fetched, stop
++  and report the review as blocked. Do not substitute a branch name, a PR description, or an
++  older snapshot.
++- A sub-agent's finding is a hypothesis. Read its citation against the actual code at the head
++  SHA before it becomes a finding of this review.
++- The review is read-only on the checkout under review. Anything that runs code or changes
++  files, such as running tests, merging with `main`, or breaking a code path to watch a test
++  fail, happens in a temporary git worktree that is removed afterwards.
++- Do not report what CI tooling already enforces: formatting, lint, type errors, import order.
++  Do run the targeted tests and checks the repository's instructions name, and report results.
++
++## Who does what
++
++| Work | Agent, model, effort |
++| --- | --- |
++| Locate instruction files, ADRs, and callers of changed code ("where is X") | `Explore`, Haiku, default |
++| Fetch and condense a long issue or PR thread; read git history and prior PR comments on the touched files | `Explore` or `general-purpose`, Sonnet, medium-high |
++| Mechanical verification in a temporary worktree: the premise-audit lookups, the merge with `main` and its checks, targeted tests and linters, break-and-restore on tests | `general-purpose`, Sonnet, high |
++| Architecture, ADR adherence, cross-repository placement, and the data-model invariants table | `software-architect`, Opus, xhigh |
++| Acceptance-criteria table, premise list, error-path enumeration, severity calls, final verdict | the top-level session, inline |
++
++Pass `model` explicitly on every dispatch. Give each sub-agent the context it needs in its
++brief (ticket text, SHAs, file lists, the relevant rules, the commits that landed on `main`
++since the branch point), never this session's history. Tell it in the brief that it cannot
++dispatch and must return a "Needs research" item for anything it cannot do itself.
++
++## 1. Pin the target and the ticket
++
++Identify the repository and the review target: a pull request, a branch, a commit range, or
++the working tree. Confirm the refs resolve (`git rev-parse`) and the diff is non-empty before
++anything else. For a pull request, use its actual base and head SHAs from `gh pr view`; do not
++assume the checked-out branch matches.
++
++Then identify the ticket that defines the requested change, before inspecting the diff. Accept
++ticket text already in the conversation, a ticket URL or issue number, a ticket linked in the
++PR description, or a local ticket file the developer names. If none is available, stop and ask:
++
++> Please provide the ticket or issue for this change, as a URL, an issue number, or the ticket
++> linked in the pull request description. I need it to review scope and completeness, and I
++> won't begin the review until I have it.
++
++Do not infer the ticket from the branch name, PR title, commit messages, or the code.
++
++When the ticket is a child of a larger ticket, follow the parent links to the ticket that
++states the acceptance criteria, then use the child to select the subset this change is on the
++hook for. Say which criteria you excluded and why. When ticket or PR discussion appears to have
++superseded a criterion, flag the conflict and ask; do not assume the criterion changed. Also
++fetch the tickets the PR body or the ticket names as siblings, consumers, or design sources;
++their expectations of this change's names, shapes, and functions are review input.
++
++Record for the review: repository, target, base and head SHAs, merge-base, ticket number and
++`updated_at`.
++
++## 2. Ground the review in the repository's rules
++
++Read the rules before reading the diff, so the diff is judged against them rather than against
++memory. The three repositories keep their rules in different places, and only one has an
++`AGENTS.md`.
++
++- **`openedx-core`**: `.claude/CLAUDE.md`, `.claude/architecture-overview.md`, `.importlinter`,
++  the identifier conventions in `README.rst`, and `docs/<app>/decisions/` per app. A published
++  Django library installed into `edx-platform`; the lower layer, it never imports from
++  `edx-platform`. Public APIs are contracts; breaking a non-`UNSTABLE` API goes through DEPR.
++- **`edx-platform`**: its own `docs/decisions/`, per-app `docs/decisions/`, and the OEPs in
++  `../openedx-proposals`. Consumes `openedx-core` through `content_libraries` and
++  `content_tagging`, and serves the CMS REST APIs the MFEs call.
++- **`frontend-app-authoring`**: `AGENTS.md` at the root is authoritative for TypeScript,
++  imports, data fetching, testing, and i18n; also
++  `.claude/frontend-app-authoring-architecture-overview.md` and the frontend section of
++  `.claude/CLAUDE.md`; decisions in `docs/decisions/` and `src/editors/decisions/`. Talks only
++  to `edx-platform`'s CMS REST API.
++
++Rules for using them: the nearest instruction file to a changed path wins; read an ADR's
++`Status:` line first, since a Proposed, Superseded, or Obsolete ADR is context, not a rule;
++`CLAUDE.md` and `AGENTS.md` are written for writing code, so cite the specific line you hold the
++change to. Dispatch `Explore` (Haiku) to list the instruction files and ADRs that govern the
++changed paths and the callers of changed public code in this and the consuming repositories.
++Read into your own context only the few files the judgment turns on.
++
++## 3. Obtain the complete diff, and what landed on main
++
++- Pull request: `gh pr diff` at the recorded base and head, and confirm which files it changes.
++- Branch: three-dot diff against the intended base (`git diff <base>...<head>`). Ask for the
++  base if it is not clear.
++- Working tree: repository status plus the staged and unstaged diffs. Include untracked files
++  only when they are clearly part of the change.
++- Read the surrounding code at the head SHA so each hunk is understood in context, and confirm
++  the diff was not truncated. If the diff cannot be obtained, stop and say what is missing.
++- List what landed on `main` after the branch point, in the apps the change touches and in any
++  app that depends on them: `git log --oneline <merge-base>..<main> -- <paths>`. The checked-out
++  tree does not contain those commits, so a reader of HEAD reasons from a stale picture: a new
++  field on a model this change constrains, a migration number this change reuses, a changed
++  foreign key, a new consumer. Name the relevant commits with their SHAs in every sub-agent
++  brief.
++
++## 4. Acceptance criteria: implemented and tested
++
++This table is required in every review and is built before any other finding is written. One
++row per applicable criterion, quoting the criterion:
++
++| Criterion (quoted) | In scope | Implemented at | Tested by | Verdict |
++| --- | --- | --- | --- | --- |
++| "..." | yes, or no and why | `file:line` | `test_file::test_name`, and the assertion that would fail | Covered / Implemented, untested / Not implemented / Implemented wrong |
++
++- "Implemented at" points at the code that makes the criterion true, read at the head SHA, not
++  at the PR description's claim that it does.
++- "Tested by" names a test that fails when the behavior the criterion describes is broken. A
++  test that exercises the code path without asserting the criterion's outcome does not count.
++- A criterion written as an artifact checklist item (a column exists, a migration is additive)
++  is confirmed by inspection at `file:line`, plus the repository's standard check for that
++  artifact, and counts as covered when a behavior test exercises the artifact. The migration
++  file itself needs no dedicated test.
++- Also look for the two things a criterion-by-criterion pass misses: behavior the change adds
++  that no criterion asked for (name it, and let the developer decide whether it belongs), and a
++  criterion that looks implemented but whose implementation is wrong on an input the criterion
++  covers. Compare the names and shapes the change exposes (fields, response keys, function
++  names) against what the criteria and the consumer tickets expect, and name each difference.
++
++Severity, using the markers in step 11: a criterion that is not implemented, implemented wrong,
++or has no test behind it is a `Gap`, or a `Bug` when the wrong implementation has a reachable
++failure. A deliberate, documented deviation caused by a framework or library limitation is a
++`Question` when the documented behavior has no concrete failure.
++
++## 5. Premise audit: every claim in prose is true
++
++List every factual claim about how a framework, library, database, precedent, or document
++behaves that appears in the PR body, the commit message, and the comments and docstrings the
++diff adds or changes: default settings, transaction isolation and locking, validation order,
++what a cited precedent does, what a cited ADR or ticket says, which constraints exist, which
++tests cover what. Send the numbered list to the Sonnet mechanical sub-agent with the
++instruction to verify each against the installed source (find the file with
++`python -c "import <pkg>; print(<pkg>.__file__)"` and read the line) or against this
++repository's own code and documents, never against memory, and to return a table: claim | where
++it appears (`path:line`, "commit message", or "PR body") | checked against (`file:line` or the
++command run) | TRUE, FALSE, or UNVERIFIABLE | consequence if false. Re-read the citation of
++every FALSE row yourself.
++
++Each FALSE row is a finding, whether or not the code behaves correctly despite the claim: the
++wrong rationale is what the next maintainer reads, and a correctness argument built on it is
++unsound. A false claim in committed text (a comment, a docstring, the commit message) is a
++`Gap`. A false claim in the PR body is a `Nit`, or a `Gap` when a reviewer would rely on it for
++the merge decision, such as a claim about test coverage or about which constraints exist. The
++table appears in the review output.
++
++## 6. Tests: meaningful, and failing for the right reason
++
++For each new or changed test, check by reading:
++
++- The assertion checks the behavior the test name claims, through the public interface, not
++  through an internal collaborator or a side channel.
++- Expected values come from an independent source (a known literal, a worked example, the
++  ticket), not recomputed the way the code computes them.
++- The test asserts what the code does, not how it is written. A test that asserts a mocked
++  collaborator was called, a call order, a query count, or that a lock or manager method was
++  invoked pins the implementation and passes against code that has quietly stopped doing the
++  work. Report it as a `Suggestion` to remove it or to replace it with a test that fails when
++  the behavior breaks. Never propose another test of the same kind in its place.
++- A fixture or setup step that changes global state (a settings value, a permission registry,
++  a module attribute) and does not restore it is a `Gap`, even when the suite passes in every
++  order tried.
++- An edit to a pre-existing test needs a behavior change in this diff that forces it. Have the
++  mechanical sub-agent run the pre-existing form of the test against the new code; if it still
++  passes, the edit was unnecessary. Report it as a `Nit` to revert, or a `Gap` when the edit's
++  comment asserts something false about the code.
++- The unhappy paths the changed behavior introduces (empty, error, permission, boundary) have a
++  negative test, and the assertions distinguish the error cases from one another.
++- Values that can go stale use constants or fixtures, and the test matches the granularity of
++  the surrounding module rather than testing the obvious.
++
++Then dispatch the Sonnet mechanical sub-agent, with the acceptance-criteria rows, the premise
++list from step 5, the commits from step 3, the test command, and the worktree instructions, to
++do the following in a temporary worktree and report each result as a claim with the command and
++its output:
++
++1. **Merge with `main`.** From a worktree at `main`, `git merge --no-commit --no-ff <head>`; list
++   the conflicting files; on the merged tree (or on `main` plus the change's migration files
++   when the merge conflicts) run the repository's migration graph check (in Django,
++   `makemigrations --check --dry-run` and `migrate --check`) and its import linter; abort the
++   merge. A migration-number collision, a conflicting leaf node, or a linter contract broken by
++   the merge is a `Bug`: the branch cannot merge as it stands.
++2. **Break-and-restore** on each load-bearing test: every test named in a "Tested by" cell and
++   any test guarding a security or data-integrity path. Break the code path the test covers, run
++   the test, confirm it fails on the asserted behavior rather than on an import error, restore.
++   A test that also passes against broken code is a `Gap` in the row it backs.
++3. **Targeted tests and checks** the repository's instructions name for this kind of change: in
++   `openedx-core`, pytest without coverage on the related tests and the linters named in
++   `CLAUDE.md`; in `frontend-app-authoring`, that repository's own tools from its `AGENTS.md`.
++4. **The premise lookups** from step 5.
++
++The worktree must run the worktree's code, not the main checkout's: in a Python repository set
++`PYTHONPATH` to the worktree's `src/` (the editable install points at the main checkout) and
++check the module's `__file__`; in a JavaScript repository symlink `node_modules`. Read the
++sub-agent's output as claims and spot check one. Report what ran and what was skipped and why. A
++skipped check is not a pass.
++
++## 7. Data-model invariants
++
++When the diff adds or changes a model, a constraint, an index, or a lock, the review carries an
++invariants table, built by the `software-architect` dispatch in step 8 and checked by you: one
++row per rule the data model relies on, stated in code or comments or implied by the tickets and
++ADRs, including the rules that existing constraints, `on_delete` behaviors, and signals already
++encode and that the change interacts with.
++
++| Invariant | Enforcement (database constraint, application check, lock, nothing) | When a row is archived or soft-deleted | When a row is deleted | When a replacement row is created | Gap |
++| --- | --- | --- | --- | --- | --- |
++
++Turn rows into findings by these rules:
++
++- A rule enforced only by application code or a lock, where a race, an out-of-band writer (the
++  ORM, a fixture, an admin, a future endpoint), or a second code path can violate it, is a
++  `Gap` when violation breaks a read path or corrupts data, otherwise a `Question` asking for a
++  constraint.
++- A constraint without a condition, in a design whose tickets or ADRs describe archiving or
++  soft deletion, leaves an archived row occupying the slot so that no replacement row can exist.
++  That is a `Gap` on this change, not on the ticket that owns archiving, because the constraint
++  is what makes the later ticket impossible without a schema change.
++- A lock or locking read whose work an outer lock or a database constraint already does is a
++  `Suggestion` to remove it, with the reason stated.
++- A lookup that will have to filter on a lifecycle field that already exists on `main` and does
++  not is a `Question` on this change: who adds the filter, and does the constraint leave room
++  for the result.
++
++## 8. Architecture, conventions, and cross-repository placement
++
++Dispatch `software-architect` (Opus, `xhigh`) once, with a narrow brief: the ticket, the diff
++or its path, the acceptance-criteria table, the commits that landed on `main`, and the
++instruction files and ADRs located in step 2. Ask it for findings, each with a `file:line` and
++the cited rule or ADR, on:
++
++- layering and contracts: `.importlinter` boundaries, public API stability and DEPR, which names
++  a module exports as supported API and whether each one upholds the module's invariants on its
++  own, `UNSTABLE` markers where the module's neighbors carry them, the identifier conventions
++  (`id`, `uuid`, `key`, `num`), and PII annotations on new models;
++- framework-boundary leaks: HTTP-layer types (`Http404`, `get_object_or_404`, a DRF exception)
++  raised from a module that is not a view or serializer are a `Gap`, because every non-HTTP
++  caller of a library API inherits HTTP semantics; the fix is a domain exception translated in
++  the view;
++- the ADRs that govern the touched area, whether the change follows them, whether the ticket
++  and an ADR disagree (name the conflict rather than following either), and whether a decision
++  the change makes should itself become a proposed ADR or an ADR amendment;
++- the invariants table of step 7, when it applies;
++- placement: whether each piece lives in the right repository and layer, what companion change
++  `edx-platform` or the MFE needs for the feature to reach its users, and whether that companion
++  exists or is linked;
++- callers: what in this repository, in `edx-platform`, or in community plugins the change can
++  break;
++- whether the test strategy fits the layer.
++
++It cannot dispatch. Fulfill its "Needs research" items with `Explore` or a Sonnet sub-agent and
++continue it with `SendMessage`. Verify each of its citations before adopting the finding.
++
++## 9. Correctness, security, and history
++
++Check the dimensions the diff touches, and say which you skipped:
++
++- Error paths, enumerated: for each new endpoint or public function, read the source of every
++  callee it invokes and list each exception the callee can raise; check that each one is either
++  handled or mapped to a client response. An exception reachable from client input that reaches
++  the client as an unhandled error is a `Bug`, whatever configuration it needs, when that
++  configuration is a first-class option of the product.
++- Bounded writes: every generated value stored in a column with a length limit (a name built
++  from other fields, a joined key, a formatted title) is checked against the maximum lengths of
++  its inputs. An overflow is a `Bug` on the database the CI matrix runs, even when the local
++  database silently accepts it; name the inferred step.
++- Order of checks: when a permission predicate receives raw client input, establish what the
++  production predicate (not the test stub) returns for malformed input. A 403 where the
++  contract says 400 is a `Bug`; the fix is to validate before authorizing.
++- Correctness: logic, edge cases, off-by-one, `None` and empty handling, concurrency, and
++  read-merge-write sequences that can delete or overwrite rows the change does not own.
++- Security: authentication and permission checks on new or changed endpoints, input validation,
++  object-level access, references to another tenant's rows by id, injection, secrets in code or
++  logs, new dependencies.
++- Data integrity and migrations: backward compatibility, table locks, data loss, and ordering
++  against merged migrations (step 6.1).
++- Performance: new queries (N+1 patterns, missing `select_related`, indexes the access pattern
++  needs), and locks held longer or on more rows than the invariant needs.
++- Naming, comments, and docstrings: public functions have clear names and RST docstrings that
++  state the contract; comments say why, not what; a comment the change made stale is a bug; the
++  same concept has one name across the function signatures, the serializer, and the ticket.
++- Surgical scope: every changed line traces to the ticket.
++- History: the git blame and log of the changed code, and prior PR review comments on the same
++  files. Delegate this to a Sonnet sub-agent when the diff is large.
++- Community requirements for the PR: the description states which AI agent was used, or that
++  none was; it gives manual testing steps, or states that the change has no manual QA path; its
++  description matches the diff (file names, counts, claims about tests).
++
++## 10. Verify before asserting, then sort
++
++Before a finding is written, confirm: it is introduced, worsened, or exposed by the change; it
++has an evidence source read at the head SHA, not from memory; it names a concrete impact; and
++its severity matches the evidence. For a `Bug`, also confirm the reproduction path, the
++affected input or state, and that the path is reachable in supported usage.
++
++Then sort every candidate by two questions: did the evidence hold when you checked it, and does
++it propose a change?
++
++- Evidence held and it proposes a change: a finding, at the severity the evidence supports. A
++  precedent that does the same, or a run that showed no symptom, lowers it to `Suggestion` or
++  `Nit`; it does not remove it.
++- Evidence did not hold, or nothing available can verify it, or it proposes no change: dropped,
++  with one line saying what disproved it, under "Dropped".
++- Reachability or contract unconfirmed: a `Question`.
++
++When another ticket explicitly owns the work a candidate asks for, write down what that ticket
++will have to do, then check whether it can do it without undoing something this change adds: a
++constraint, a field name, a response shape, a lookup. If it can, the candidate is a line under
++"Declined to judge" with that reasoning. If it cannot, it is a finding on this change, whatever
++the ticket says.
++
++Drop, rather than downgrade: pre-existing issues the change does not touch; anything CI tooling
++catches; nits a senior engineer would not raise on a PR; issues on lines the change did not
++modify, unless the change exposes them. Checking a library's documented behavior is a web
++lookup; run it in a sub-agent.
++
++## 11. Present
++
++The review output has these parts, in this order:
++
++1. **Verdict.** `Ready to merge: yes | with fixes | no`, and one sentence why.
++2. **Inputs.** Repository, target, base and head SHAs, merge-base, ticket number and
++   `updated_at`, the commits on `main` that changed the picture, and the repositories checked
++   for companion changes.
++3. **Acceptance criteria.** The table from step 4.
++4. **Premise audit.** The table from step 5; when every claim held, one line saying how many
++   were checked.
++5. **Invariants.** The table from step 7 when the diff touches a model, constraint, index, or
++   lock; otherwise one line saying it does not.
++6. **Findings**, grouped by severity, each with a `file:line` anchor and its evidence:
++   - `Bug.` A supported, reproducible failure or documented contract violation with meaningful
++     impact, including an unhandled error reachable from client input and a branch that cannot
++     merge.
++   - `Gap.` A required element is missing or a stated one is false: a criterion not implemented
++     or without a test that fails when it breaks, a companion change that does not exist, a PR
++     requirement not met, a false claim in committed text, an invariant with no enforcement
++     that a write can violate, a leaked framework boundary.
++   - `Question.` A plausible concern whose reachability, contract, or impact is unconfirmed, or
++     a decision the change should record now.
++   - `Suggestion.` Optional hardening, broader coverage, or a test or lock to remove, without
++     demonstrated user impact.
++   - `Nit.` Style or wording only.
++7. **Tests checked.** For each break-and-restore check: the test, how the code was broken,
++   whether the test failed, and whether it failed for the stated reason.
++8. **Checks run and skipped**, with the reason for each skip, including the merge with `main`.
++9. **Declined to judge.** One line per behavior considered and set aside as outside the ticket,
++   with what the owning ticket must do and why it can do so against this change.
++10. **Dropped.** One line per candidate whose evidence did not hold, with the fact that
++    disproved it.
++11. **Open questions** for the developer.
++
++Lead each finding with the point, then the mechanism. Keep the tone of one engineer to another:
++direct, specific, no praise padding and no "strengths" section. A `Bug` or a `Gap` means the
++verdict is not "yes". Keep the two axes separate: a clean convention pass does not soften a
++criterion `Gap`, and full criteria coverage does not excuse a layering violation. If nothing is
++wrong, say so plainly, with the tables that show it.
++
++## Red flags
++
++| Thought | Reality |
++| --- | --- |
++| "The migration check covers this criterion." | A migration check proves the schema applies. It proves nothing about the behavior the criterion describes. Name the test or report a `Gap`. |
++| "Existing tests cover this." | Name the test and the assertion that would fail. If you cannot, it is not covered. |
++| "The tests pass, so the behavior works." | A test that also passes against broken code proves nothing. Break the code and look. |
++| "The test mocks the lock call, so the lock is tested." | It tests that a method was called. Replace the call with one that does nothing and the test still passes. |
++| "The comment is wrong but the code works." | The comment is what the next maintainer reads, and the correctness argument built on it is unsound. A false claim is a finding. |
++| "I could not run it on the CI database, so it is a Question." | The consequence is the same whether you ran it or reasoned it. Keep the severity, name the inferred step. |
++| "The other ticket owns this." | Write down what that ticket must do. If it cannot do it against the constraint or name this change adds, the finding is on this change. |
++| "The neighboring tests do the same." | Precedent lowers severity. It does not make a defect absent. |
++| "There is no `AGENTS.md`, so there are no conventions to check." | `openedx-core` and `edx-platform` keep theirs in `CLAUDE.md`, ADRs, OEPs, and `.importlinter`. |
++| "The ticket does not mention it, so it is fine." | Specification silence is not permission. A reasonable user's expectation is a requirement. |
++| "This is a library change; the platform and the frontend are someone else's problem." | Trace the chain. A missing or unlinked companion change is a `Gap`. |
++| "The sub-agent found it, so it is a finding." | It is a hypothesis until you have read its citation at the head SHA. |
++| "That configuration is exotic." | If the product exposes it as a setting, it is supported input, and the failure is a `Bug`. |

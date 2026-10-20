@@ -63,11 +63,27 @@
     "dd5f40ef095642e4492f4b382acc5d752bc9df61"
   ],
   "ticket": 665,
-  "related_issues": [],
+  "related_issues": [
+    613,
+    666,
+    671,
+    672,
+    674,
+    675,
+    717
+  ],
   "edits_used": {
     "pr_body": "2026-10-02T15:03:13Z",
-    "issue_665": "2026-09-15T14:29:52Z"
+    "issue_665": "2026-09-15T14:29:52Z",
+    "issue_613": "2026-10-09T13:40:07Z",
+    "issue_666": "2026-09-30T15:51:12Z",
+    "issue_671": "2026-10-15T13:42:54Z",
+    "issue_672": "2026-09-21T19:34:32Z",
+    "issue_674": "2026-09-22T14:29:57Z",
+    "issue_675": "2026-09-22T14:44:18Z",
+    "issue_717": "2026-10-08T15:08:06Z"
   },
   "ticket_comments_kept": 11,
-  "ticket_comments_total": 15
+  "ticket_comments_total": 15,
+  "related_issues_note": "Frozen on 2026-10-16 from the GitHub state as of the review date, with each body at its last edit before the cutoff; files in frozen/ carry the as-of timestamp in their header. #613 is the data-model ticket; #666, #674, #675, #717 are follow-on backend tickets; #671 and #672 are the frontend consumers."
 }

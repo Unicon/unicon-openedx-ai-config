@@ -26,4 +26,10 @@ actionable fixes; severity calibration; signal-to-noise; honesty about inference
 
 Composite = 0.70 x coverage + 0.15 x precision + 0.15 x communication
 
+Pass or fail, reported beside the composite: PASS when every blocking item (weight 3) has credit 0.75 or
+higher; otherwise FAIL, naming each blocking item below that bar with its credit. Substantive items and nits do
+not affect the verdict. Also state the number of false positives filed at blocking severity; it does not change
+the verdict, but a review that demands a wrong blocking change is reported next to one that misses a right one.
+Pass/fail: <PASS | FAIL: GTn (credit), ...>. Blocking false positives: <n>.
+
 Cost: orchestrator tokens, sub-agents (type, model, count), wall clock, from the report's process log.

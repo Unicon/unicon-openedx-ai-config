@@ -3,6 +3,8 @@
 #
 # Usage:
 #   bash setup_checkout.sh <local-repo-path> <upstream-git-url> <head-sha> <main-sha> <out-dir> <variant> [<variant>...]
+# <local-repo-path> is any local clone used to seed objects (the developer checkout or a previous benchmark clone);
+# the head and main commits are fetched from <upstream-git-url> when the seed lacks them.
 # Environment:
 #   CLAUDE_DIR=/path/to/.claude   copy CLAUDE.md and architecture-overview.md into each worktree's .claude/
 #   BASE_SHA=<sha>                the commit the PR branched from; default is <head-sha>^ (right for a one-commit PR)
@@ -19,6 +21,10 @@ mkdir -p "$OUT"
 git clone --no-checkout --quiet "$SRC" "$OUT/repo"
 cd "$OUT/repo"
 git remote remove origin
+# The clone's HEAD points at the source's current branch. If that branch is main (for example when the source is a
+# previous benchmark clone), `git branch -f main` refuses to move the checked-out branch, so park HEAD on an unborn
+# branch until the three branches are in place.
+git symbolic-ref HEAD refs/heads/_benchmark_setup
 git fetch --quiet "$URL" "$HEAD_SHA" "$MAIN_SHA"
 git branch -f main "$MAIN_SHA"
 git branch -f pr-head "$HEAD_SHA"

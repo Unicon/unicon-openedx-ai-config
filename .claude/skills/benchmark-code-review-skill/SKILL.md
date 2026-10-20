@@ -30,12 +30,15 @@ cases with their ground truth and past results; start from one when it fits.
    substantive non-blocking requests, 1 for nits. Copy the credit tiers from
    `templates/scoring.md` into the file. Then check circularity: if a skill under test was
    written after this review and could have been informed by it, mark the affected items and
-   say so in the results. Prefer a held-out PR when the skill change is large.
+   say so in the results. Prefer a held-out PR when the skill change is large. Write a no-skill control's instruction before reading the
+   answer key, or keep it generic and say in the results that its author had read the key.
 3. **Build isolated checkouts.** `CLAUDE_DIR=<config>/.claude bash scripts/setup_checkout.sh
    <local-repo> <upstream-url> <head-sha> <main-sha> <scratch>/eval <variant>...`. The result has
    no remotes, no tags, unreachable objects pruned (a local clone otherwise still holds the
    merged fix), `main` at the cutoff, `pr-head`, `pr-base`, and one worktree per variant, so
-   break-and-restore edits cannot collide. `pr-base` defaults to the head's parent; for a PR
+   break-and-restore edits cannot collide. `<local-repo>` seeds the objects and can be the developer
+   checkout or a previous benchmark clone (the script parks HEAD on an unborn branch, so a seed with `main`
+   checked out works). `pr-base` defaults to the head's parent; for a PR
    with several commits pass `BASE_SHA`. Pass `CUTOFF` and `ABSENT_SHAS` (the merge commit and
    later review heads, all in `case.json`) so the script asserts nothing newer survived. For a
    stacked PR, `pr-base` is the stack's head and the PR's change is `git diff pr-base pr-head`;
@@ -51,6 +54,18 @@ cases with their ground truth and past results; start from one when it fits.
    `.claude/agents/` come from the current session for every variant; if the config change
    touched them, say so in the results, or inline the old definition into a `general-purpose`
    dispatch.
+   Two kinds of variant cannot be served as files. A **built-in skill** such as Claude Code's stock `code-review`
+   runs as a forked execution behind the Skill tool: the fork resolves its git target against the process's primary
+   working directory and does not see the calling conversation, so invoked from a dispatched agent it reviews the
+   developer checkout no matter what the brief says (on PR 847 two attempts both reviewed the wrong branch). Run it
+   as a separate process whose working directory is the frozen worktree: `bash scripts/run_builtin_skill.sh <wt>
+   <brief> <out-dir> [model] [claude-binary]`, with the brief's skill section in shape (b) of `templates/BRIEF.md`.
+   Pass the binary this session runs (the VS Code extension bundles its own under `resources/native-binary/`) and
+   record its version. Give the skill a range target (`pr-base..pr-head`); a branch target diffs against main's
+   merge-base and, on a stacked PR, pulls the parent PR's commits into the review. Nothing in the brief reaches the
+   fork, so the stock skill reviews code only, without the ticket; say so in the results. A **no-skill control**,
+   a few-line instruction to one agent (shape (c) in the template), belongs in every comparison, so that a skill's
+   score can be read against what the model finds unaided.
 5. **Verify nested dispatch.** Every review skill here dispatches sub-agents. Dispatch a cheap
    `general-purpose` agent whose only task is to dispatch an `Explore` agent and report the
    result. If it cannot, stop and tell the user; a run where one variant silently does its
@@ -61,14 +76,17 @@ cases with their ground truth and past results; start from one when it fits.
    The brief forbids `gh`, WebFetch, and WebSearch against the repository's PRs and issues
    (the skills fetch them otherwise), states there is no deadline and that the agent must wait
    for its sub-agents, and requires a `## Process log` section so a degraded run is visible.
-7. **Dispatch all variants in one message**, same `model` passed explicitly, in the background.
+7. **Dispatch all variants in one message**, same `model` passed explicitly, in the background. A built-in skill
+   variant starts in that same message as a background Bash call of `scripts/run_builtin_skill.sh`.
    Label variants neutrally (A, B) in briefs, directory names, and reports, and look up which is
    which only after scoring. If a rate limit kills them: every sub-agent died with its parent,
    so on resume tell each agent that pending results will not arrive and to re-dispatch; a
    child's report that arrives after its parent died is routed to you, so forward it verbatim
    to the parent.
 8. **Collect reports** with `python3 scripts/extract_handback.py <transcript.output> <out.md>`.
-   Never read a transcript into context. Audit each run with
+   The script reads both a sub-agent transcript and the stream-json transcript a separate process writes; for
+   the latter the audit also prints usage, cost, and permission denials. Never read a transcript into
+   context. Audit each run with
    `python3 scripts/extract_handback.py <transcript.output> --audit <answer-key-dir> <config-repo>`:
    it prints tool-use counts, every Agent dispatch with its model, Skill calls, and any tool
    input that names a forbidden path. A hit means contamination; rerun that variant. If an
@@ -77,10 +95,13 @@ cases with their ground truth and past results; start from one when it fits.
 9. **Score** each report with `templates/scoring.md`: one row per ground-truth item, credit by
    content rather than by label, false positives counted only when the claim is wrong or rests
    on a premise the maintainer rejected, extras verified against the frozen code before they
-   count as valid, communication graded last. Lock the tiers before the first report is read
+   count as valid, communication graded last, then the pass/fail verdict: PASS only when every blocking item scores 0.75
+    or higher, so a review can be judged on whether it found what the maintainer blocked on, separately
+    from how much else it found. Lock the tiers before the first report is read
    and apply them identically; when a later report makes you refine a tier, re-grade the
    earlier ones. Composite = 0.70 coverage + 0.15 precision + 0.15 communication.
-10. **Report and save.** Scores table, items every variant missed, what separated them, valid
+10. **Report and save.** Scores table with a pass/fail column, the blocking items each failing variant
+    missed, items every variant missed, what separated them, valid
     findings outside the answer key, cost per variant from the process logs, and caveats
     (single run, interruptions, circularity). Write everything to the scratchpad first.
     Saving `ground_truth.md`, `case.json`, the frozen ticket and PR body, and `results.md`
@@ -106,6 +127,11 @@ cases with their ground truth and past results; start from one when it fits.
 | Editable install | Tests run the wrong branch | `PYTHONPATH` to the worktree, confirm `__file__` |
 | Rate limit | Parents and children die together | Resume by SendMessage; forward orphaned reports |
 | Agent delivers early | Missing skill steps look like skill failures | "No deadline" in the brief; send back to finish |
+| Built-in skill invoked through the Skill tool from a dispatched agent | The fork reviews the session's primary checkout, not the worktree | Run it as a separate `claude -p` process inside the worktree (`run_builtin_skill.sh`) |
+| `gh pr checkout` to get the PR into a worktree | Fetches the current head (the fixed code) and adds a remote | Worktree from the isolated clone, detached at the frozen head |
+| Seed clone has `main` checked out | `git branch -f main` refuses | Script parks HEAD on an unborn branch first |
+| Saved case lacks the sibling tickets the brief lists | Variants get less context than the runs they are compared with | Keep every context file under `cases/<case>/frozen/` and list it in `case.json` |
+| Brief silent on other local checkouts (edx-platform, tutor) | One variant reads platform source, another returns "Needs research"; coverage differs for reasons unrelated to the skill | State in the brief whether sibling repos may be read, the same for every variant |
 
 ## Common mistakes
 
@@ -119,9 +145,19 @@ cases with their ground truth and past results; start from one when it fits.
 - Counting a maintainer-rejected premise as a Question. If the real reviewer said the premise
   is wrong, a finding built on it is a false positive.
 - Claiming a ranking from one run. Differences of a few points flip on a rerun; say so.
+- Expecting a built-in skill's fork to read the brief. It gets only the skill prompt and its arguments; whatever
+  the orchestrating agent states before the call, even the absolute checkout path and the SHAs, does not reach it.
+- Writing a file with `cat > existing` in this shell. zsh has `noclobber` set, the write fails with "file exists",
+  and a later test runs the old file; use `cat >|` or a Python write.
 
 ## Saved cases
 
 - `cases/openedx-core-pr847/`: openedx/openedx-core PR #847 at head `2ca89b767`, 21 ground-truth
-  items, three variants scored on 2026-10-19 (`results.md`). Rebuild it with `freeze_pr.py`
-  (the arguments are in `case.json`) or reuse `frozen/` directly.
+  items, ten variants scored on 2026-10-19 and 2026-10-20 (`results.md`): six versions of the project's own
+  skills, the stock `code-review`, superpowers `requesting-code-review`, Anthropic's `pr-review-toolkit`, and a
+  no-skill `software-architect` control. Every variant written before the review fails the pass/fail gate on GT7,
+  the archived-rows-versus-unconditioned-constraint decision; the one pass (G, the 2026-10-20 rewrite of
+  code-review-openedx) was written from this case and needs a held-out PR before it counts.
+  `frozen/` holds the PR body, ticket #665 with its comments, and the seven sibling tickets the brief lists;
+  rebuild with `freeze_pr.py --issues 613 666 671 672 674 675 717` (the other arguments are in `case.json`) or
+  reuse `frozen/` directly.
