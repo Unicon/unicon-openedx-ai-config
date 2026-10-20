@@ -9,7 +9,7 @@ As a course author, when I export a course, I want the export to include the com
 ## Description
 Today, when a course is exported in Open edX, its content tags are included (as `tags.csv`), but the competency criteria groups and competency criteria associated with those tags are not. We should update the export to also write a JSON file describing this course's criteria groups and criteria, identifying content and competencies the same way `tags.csv` does, so that course import (#696) can reconstruct them.
 
-At a high level, the export side does this:
+At a high level, the export does this:
 
 ```
 when a course is exported, right after tags.csv is written:

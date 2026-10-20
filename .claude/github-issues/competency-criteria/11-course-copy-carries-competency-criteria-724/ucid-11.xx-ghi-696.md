@@ -9,7 +9,7 @@ As a course author, when I import a course, I want the import to include the com
 ## Description
 Today, when a course is imported in Open edX, its content tags are included (as `tags.csv`), but the competency criteria groups and competency criteria associated with those tags are not. We should update the import process to also read the JSON file that contains this course's criteria groups and criteria, and reconstruct them for the destination course, which may be a new course or an existing course run that already has some of them.
 
-At a high level, the import side does this:
+At a high level, the import does this:
 
 ```
 when a course is imported, right after tags.csv has been imported:
