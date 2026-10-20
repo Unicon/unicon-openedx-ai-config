@@ -1,25 +1,17 @@
-# [BE] Prune criteria groups emptied when tagging code deletes a criterion's association
+# [BE] Delete Orphan CompetencyCriteriaGroups on ObjectTag Hard Delete
 
 GitHub: pending
 Cached: 2026-10-20
 
 ## User Story
-As a course author, when I delete a subsection, or a competency tag is otherwise removed from content outside the Competency Management page before any learner has been graded on it, I want the competency rule that pointed at that content to be removed the same way it would be if I had removed it on the Competency Management page, in order to never leave behind an empty criteria group that makes the competency impossible to earn in my course without telling anyone why.
+As a course author, when I delete a subsection or re-import a course that results in the deletion of a tag association, I want the competency criteria group that held the rule for that content to be cleaned up the same way it would if I had removed the rule on the Competency Management page, in order to never be left with an empty group on the page that I cannot explain or remove, and that can block learners from being able to demonstrate the related competency in my course.
 
 ## Description
-A competency criterion points at an ObjectTag to connect it to a subsection. The ObjectTag cascades on delete, but it will only cascade delete the criterion, not the parent CompetencyCriteriaGroup. This can happen when Studio deletes a block or a course re-import re-sets a block's tags. When these deletes happen, the group that held the criterion is never checked, so it can be left as an orphan with no criteria at all. In this ticket, we need to make a criterion deletion from any path run the same upward pruning that #674 runs when a criterion is removed on the Competency Management page in order to delete these extra orphaned CompetencyCriteriaGroups.
+Add a listener to the CBE applet for Django's built-in post_delete signal that fires when an ObjectTag hard deletes a criterion and use the code written for #674 to walk up the hierarchy from the deleted criterion to also delete any CompetencyCriteriaGroups that would have been orphaned. This will prevent these orphans from existing for the cases of a block being deleted or a course re-import causing deletions.
 
-At a high level:
-
-```
-the CBE applet registers a listener for Django's built-in post_delete signal on its own criterion model
-  (Django fires this signal for every criterion row it deletes, including rows removed by a cascade from a tag association, so tagging code stays unaware of CBE and nothing new is emitted)
-when the listener fires:
-  walk upward from the deleted criterion's group using #674's existing pruning: a group left with no live criteria and no live child groups is deleted, or archived if a learner has a recorded status for it, and the walk continues to its parent
-```
 
 ## Context
-- #674 implements the upward pruning for a criterion removed on the Competency Management page.
+- Blocked by #674, which implements the upward pruning for a criterion removed on the Competency Management page.
 - #779 makes every tagging-layer delete path archive an association that learner mastery depends on and hard-delete the rest. This ticket covers what the hard-delete branch does to the criteria on that association.
 
 ## Notes for drafting
