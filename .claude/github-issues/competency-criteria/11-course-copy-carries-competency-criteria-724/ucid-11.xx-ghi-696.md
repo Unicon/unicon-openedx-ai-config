@@ -13,7 +13,7 @@ At a high level, the import side does this:
 
 ```
 when a course is imported, right after tags.csv has been imported:
-  if the criteria file is missing, stop. If it is malformed or its schema version is newer than this importer knows, log a warning and stop
+  if the criteria file is missing, stop. If it is malformed, log a warning and stop
   for each competency in the file:
     find the competency's Tag on this instance by taxonomy export_id and tag external_id; if it is missing or its taxonomy is not competency-enabled, skip the competency and log it
     find the live root group for that competency, or create it with the file's logic operator
