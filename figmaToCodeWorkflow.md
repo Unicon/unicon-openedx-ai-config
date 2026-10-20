@@ -42,18 +42,25 @@ implement or QA-check → verify against one definition of `complete` → a devi
 
 1. Clone this repo into your design workspace and symlink `.claude/` (not set up by default —
    do this once).
-2. Confirm the Figma MCP works on your Full seat.
+2. Confirm the Figma MCP works on your Full seat. The sync-to-code step below needs the remote
+   Figma MCP's `use_figma` tool, signed in with your own account.
 3. Read [`conventions.md`](.claude/design-system/conventions.md) for naming and annotation
    rules, and [`handoff-packet-template.md`](.claude/design-system/handoff-packet-template.md)
    for what a handoff revision needs.
-4. Post a handoff revision (`<ticket>-r1`) for the next ticket with a ready frame, using the
-   template. `paragon-design-check` (a later milestone, see below) will eventually draft this
-   for you from a read-only Figma check; for now it's written by hand.
+4. Before handoff, run `paragon-design-check` (EXPERIMENTAL) in its sync-to-code mode on the
+   frame. It links your own layers' colors, spacing and radii to the Paragon library variables
+   with the same value, and switches text styles that differ from code to the ones that match,
+   applying only the changes you approve. See its
+   [`SKILL.md`](.claude/skills/paragon-design-check/SKILL.md).
+5. Post a handoff revision (`<ticket>-r1`) for the next ticket with a ready frame, using the
+   template. `paragon-design-check`'s check-and-handoff mode (a later milestone, see below) will
+   eventually draft this for you; for now it's written by hand.
 
 ## The design-system tooling (what actually exists today)
 
-All under `.claude/design-system/`, zero-dependency Node ≥ 20, read-only against your Figma
-account (nothing writes to Figma yet), never executes Paragon's own package code:
+All under `.claude/design-system/`, zero-dependency Node ≥ 20, never executes Paragon's own
+package code. Exactly one script writes to Figma: `scripts/figma/apply-sync.figma.js`, which the
+project's designer runs through `paragon-design-check` under `policy.md` §5.
 
 | Script | What it does |
 |---|---|
@@ -62,6 +69,10 @@ account (nothing writes to Figma yet), never executes Paragon's own package code
 | `scripts/map-figma.mjs` | Checks a live Figma MCP `get_variable_defs` capture against the committed map; reports drift or unknown names |
 | `scripts/paragon-versions.mjs` | Reports declared vs installed Paragon (+ brand package) for one or more repos |
 | `scripts/seed-source.mjs` | Rebuilds the normalized `sources/<id>.json` from the raw catalog exports under `sources/raw/` |
+| `scripts/sync-plan.mjs` | Turns a read-only Figma audit into `paragon-design-check`'s sync-to-code proposal, deciding every change by lookup in the map and catalog |
+| `scripts/figma-script.mjs` | Prints a committed `scripts/figma/*.figma.js` script with its input filled in, ready for `use_figma`: `audit <node-id>`, or `apply <plan.json> --approve ...` |
+| `scripts/figma/audit-frame.figma.js` | Read-only Plugin-API audit of one node's own layers (never inside component instances) |
+| `scripts/figma/apply-sync.figma.js` | Applies the approved sync-to-code changes, re-checking each one against the live file first |
 
 Run any of them from `.claude/design-system/`: `node scripts/<name>.mjs --help`-equivalent is
 each script's own header comment (no `--help` flag built yet).
@@ -86,15 +97,17 @@ short evaluation logged in `.claude/ai-output-evaluations/Output-evaluations.md`
 fixes needed. Reviewed periodically (e.g. at the bi-weekly AI Dev Sync). Fixes go through
 `skill-improver`.
 
-**Milestone 3: harden the designer side.** Not built yet:
-- `paragon-design-check` (a designer-facing skill: checks a Figma frame against Paragon,
-  drafts a handoff revision). Its evidence matrix (which checks are provable today vs.
-  `unverified`) needs a spike first — see `paragon-gaps.md`'s style-capture gap above.
+**Milestone 3: harden the designer side.** `paragon-design-check` exists with its
+sync-to-code mode (experimental). Not built yet:
+- `paragon-design-check`'s check-and-handoff mode: checks a Figma frame against Paragon and
+  drafts a handoff revision. Its evidence matrix (which checks are provable today and which
+  are `unverified`) needs a spike first; see `paragon-gaps.md`'s style-capture gap above.
 - `scripts/export-catalog.figma.js`: a read-only `use_figma` Plugin-API script to export
-  **every** local variable, style, and component set from a Unicon-side Figma copy (not just
-  one frame's used styles, which is all `unicon-copy-2026-09` currently has). Only ever run
-  on a Unicon copy or a Community duplicate, never a canonical Axim file
-  (`policy.md` §5's guardrails).
+  **every** variable, style, and component set from the catalog's Figma file (not just one
+  frame's used styles, which is all `unicon-copy-2026-09` currently has). Being read-only, it
+  may run on any file you can open (`policy.md` §5); run it on the file `catalogs.md`
+  registers. Until it exists, sync-to-code reports every style the catalog hasn't captured as
+  unverified.
 - A copy-survival test: how much naming/annotation signal actually reaches a dev's account
   when a frame is copied from Axim to Unicon — decides how much of `conventions.md`'s
   annotation guidance is load-bearing versus redundant.
@@ -135,6 +148,7 @@ mkdir -p ~/.agents/skills
 ln -s "$(pwd)/.claude/skills/paragon-ui" ~/.agents/skills/paragon-ui
 ln -s "$(pwd)/.claude/skills/figma-to-paragon" ~/.agents/skills/figma-to-paragon
 ln -s "$(pwd)/.claude/skills/paragon-a11y-check" ~/.agents/skills/paragon-a11y-check
+ln -s "$(pwd)/.claude/skills/paragon-design-check" ~/.agents/skills/paragon-design-check
 ```
 
 There's no Claude-style sub-agent dispatch in Codex — the "Claude Code" sections in each
