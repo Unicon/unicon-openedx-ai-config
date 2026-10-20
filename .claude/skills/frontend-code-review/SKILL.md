@@ -30,8 +30,10 @@ reviewing the change.
 ## During the inherited 'Review' step, add the following frontend-specific questions:
 
 In addition to the standard 'Review' steps outlined in [code-review](../code-review/SKILL.md), evaluate the following detailed questions about this Frontend code review and raise any further concerns if prudent 
-1. Is the Paragon design system being used as extensively as possible for the given components added in this change? Paragon components, bootstrap classes from Paragon and design tokens, with CSS used sparingly?
-2. Does the implementation meet WCAG AA accessibility standards, if applicable?
+1. Is the Paragon design system being used as extensively as possible for the given components added in this change? Paragon components, bootstrap classes from Paragon and design tokens, with CSS used sparingly? Confirm token/component/icon names against the installed package via the `paragon-ui` skill rather than assuming from memory.
+2. Does the implementation meet WCAG AA accessibility standards, if applicable? Run `paragon-a11y-check` (read its SKILL.md in full) and require its observed checks, not only its inspected ones, if the app can be run.
 3. Does it adhere to general best practices for this repo's version of React? 
 4. Is it using TypeScript, TanStackQuery instead of Redux, other things? 
 5. Is it avoiding inline styles?
+6. If this PR implements a Figma design, does its description include the `figma-to-paragon` deviation report — the run's status (`complete`/`incomplete`), Figma-vs-code differences with the code value recorded as authoritative, and any open design questions?
+7. Run `node .claude/design-system/scripts/check-tokens.mjs --diff <base-ref> <changed-paths>` (from `.claude/design-system/`) on the changed files if the script exists in this checkout; report any `unknown-token` or hardcoded-color findings it surfaces.

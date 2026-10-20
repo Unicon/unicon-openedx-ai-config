@@ -1,0 +1,48 @@
+name: design-system
+
+# Verifies the Figma-to-Paragon mapping generator: its own unit/fixture tests, and that
+# figma-paragon-map.{json,md} + paragon-unmapped.md are what `generate.mjs` would produce
+# against a real, pinned @openedx/paragon (fetched read-only via `npm pack`, no install
+# scripts run). See .claude/design-system/policy.md.
+on:
+  push:
+    paths:
+      - '.claude/design-system/**'
+      - '.github/workflows/design-system.yml'
+  pull_request:
+    paths:
+      - '.claude/design-system/**'
+      - '.github/workflows/design-system.yml'
+
+# Bump this when frontend-app-authoring (the v0 pilot target) bumps its own Paragon
+# dependency, then run `node generate.mjs --paragon <new-version-dir>` locally and commit
+# the result before this workflow will pass again.
+env:
+  PARAGON_PIN: '23.23.0'
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: .claude/design-system
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Unit and fixture tests
+        run: node --test scripts/test/
+
+      - name: Fetch the pinned Paragon (no install scripts)
+        run: |
+          set -euo pipefail
+          npm pack "@openedx/paragon@${PARAGON_PIN}" --ignore-scripts --pack-destination /tmp
+          mkdir -p /tmp/paragon-pinned
+          tar -xzf /tmp/openedx-paragon-*.tgz -C /tmp/paragon-pinned --strip-components=1
+          echo "PARAGON_DIR=/tmp/paragon-pinned" >> "$GITHUB_ENV"
+
+      - name: Confirm the committed map matches what the generator produces
+        run: node scripts/generate.mjs --paragon "$PARAGON_DIR" --check

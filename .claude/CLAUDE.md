@@ -20,6 +20,11 @@ and community plugins. Treat public APIs as contracts and keep changes small.
   pattern `ticket-writer` already uses. A lone architect's questions skew technical
   and miss product-shaped gaps: is a field required, what happens on each entry
   point, what's editable and when.
+- Choosing or verifying a Paragon component, design token, or icon in a frontend
+  repo: use `paragon-ui`. Implementing a Figma design, or checking an already-built
+  screen against one, in a frontend repo: use `figma-to-paragon` (EXPERIMENTAL; it
+  builds on `paragon-ui` and `paragon-a11y-check`). See `figmaToCodeWorkflow.md` and
+  `.claude/design-system/policy.md`.
 
 ## Delegation
 
@@ -174,7 +179,11 @@ actual work is in a JS/TS frontend repo instead (an Open edX MFE such as
   `npx oxlint --type-aware --deny-warnings` (scoped to touched files), `npx dprint check`,
   `npx stylelint` on any touched SCSS, and `npx jest <touched paths> --coverage=false`. Skip
   the repo's slow full-suite command (e.g. `make validate`) for the same reason the
-  backend section above skips `make test`: too slow, too much output for one change. None
+  backend section above skips `make test`: too slow, too much output for one change. If
+  the host is macOS and `node_modules` holds Linux-only native binaries for one of these
+  tools (installed inside the Tutor container), run the command inside the running
+  container instead (`docker exec -w /openedx/app <container> npx ...`; see
+  `run-frontend-app-authoring`), not on the host directly. None
   of these actually compile Sass, so they miss two classes of SCSS bug: a build-breaking
   error (an undefined mixin or a broken import) and a rule that compiles cleanly but
   silently never matches at runtime (an unresolved custom-media name in a `@media`
@@ -196,10 +205,17 @@ actual work is in a JS/TS frontend repo instead (an Open edX MFE such as
 - Reuse the Paragon design system (`@openedx/paragon`) as much as possible for any UI
   work. Before writing custom markup or CSS for a visual element, check whether an
   existing Paragon component already covers it, including checking its actual compiled
-  CSS and props rather than assuming from memory. If something genuinely isn't available
-  in Paragon, flag it as early as possible, before implementation, not just once the PR
-  is up, and call it out in the PR description too, so the community can consider adding
-  it to Paragon upstream instead of it living on as a one-off.
+  CSS and props rather than assuming from memory (lookup steps: the `paragon-ui` skill).
+  If something genuinely isn't available in Paragon, flag it as early as possible, before
+  implementation, not just once the PR is up, and call it out in the PR description too,
+  so the community can consider adding it to Paragon upstream instead of it living on as
+  a one-off.
+- When a design (Figma or a ticket's design handoff note) is involved, code is the source
+  of truth: if a Figma value disagrees with the installed Paragon's resolved value, the
+  code value wins and the disagreement gets reported, not silently applied either
+  direction. See `.claude/design-system/policy.md`. `figma-to-paragon` (EXPERIMENTAL)
+  implements this and takes precedence over a generic Figma-to-code skill for work in
+  these repos.
 - That same check against Paragon's actual compiled output applies to accessibility, not
   just layout: confirm a component's real rendered DOM role before adding `aria-label` to
   it. Some implicit ARIA roles, such as the `generic` role a plain `<span>` or `<div>` gets

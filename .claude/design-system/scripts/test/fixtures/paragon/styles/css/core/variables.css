@@ -1,0 +1,42 @@
+:root {
+  --pgn-color-primary-base: #112233FF; /** Basic primary color. */
+  --pgn-color-primary-500: var(--pgn-color-primary-base); /** Primary color of level 500. */
+  --pgn-color-white: #FFFFFFFF;
+  --pgn-color-black: #000000FF;
+  --pgn-color-gray-700: #454545FF;
+  --pgn-color-btn-text-primary: var(--pgn-color-white); /** component-scoped: must NOT appear as a candidate for a white/black value match */
+  --pgn-color-badge-focus-dark: var(--pgn-color-black);
+  --pgn-color-action-hover-primary: #0e2a44ff; /** derived by `modify`; excluded from candidates */
+
+  --pgn-spacing-spacer-base: 1rem;
+  --pgn-spacing-spacer-1-5: calc(var(--pgn-spacing-spacer-base) * .375); /** Space value of level 1.5 */
+
+  --pgn-size-border-radius-base: 0.375rem;
+  --pgn-size-rounded-pill: 50rem; /** Pill border radius. */
+
+  --pgn-typography-font-size-base: 1.125rem; /** 18px root body size */
+  --pgn-typography-font-size-sm: 87.5%;
+  --pgn-typography-font-size-h1-base: 2.5rem;
+  --pgn-typography-font-size-h5-base: 0.875rem;
+  --pgn-typography-line-height-base: 1.5556;
+  --pgn-typography-line-height-lg: 1.5;
+  --pgn-typography-font-size-lg: calc(var(--pgn-typography-font-size-base) * 1.25);
+  --pgn-typography-font-weight-normal: 400;
+  --pgn-typography-font-weight-bold: 700;
+  --pgn-typography-font-weight-lighter: lighter;
+  --pgn-typography-headings-line-height: 1.25;
+  --pgn-typography-headings-font-weight: var(--pgn-typography-font-weight-bold);
+  --pgn-typography-headings-font-family: inherit;
+  --pgn-typography-font-family-base: "Fixture Sans", sans-serif;
+  --pgn-typography-font-family-monospace: "Fixture Mono", monospace;
+
+  --pgn-elevation-box-shadow-centered-1:
+    0
+    0
+    0.125rem
+    rgba(0, 0, 0, 0.15),
+    0
+    0
+    0.25rem
+    rgba(0, 0, 0, 0.15);
+}

@@ -1,0 +1,16 @@
+{
+  "schema": "unicon.design-system-overrides/1",
+  "description": "Hand-reviewed resolutions for Figma names the generator can't confirm on its own (join step 1, checked before every other rule). `token: null` records a deliberate 'this stays figma-only' decision instead of a mapping. generate.mjs fails if a `token` doesn't exist in the installed Paragon, or if `expect` no longer matches that token's resolved value (the override may be stale). See policy.md § 'How a candidate gets resolved'.",
+  "overrides": [
+    {
+      "kind": "variable",
+      "figma": "text/primary",
+      "collection": "Semantic",
+      "token": "--pgn-color-body-base",
+      "expect": "#454545ff",
+      "reason": "text/primary is Figma's name for default body text color. --pgn-color-body-base is Paragon's body-text token (aliases to gray-700 today), not the gray-700 primitive directly, so a brand that changes the body color independently of gray-700 stays correct.",
+      "reviewer": "Phil Ball",
+      "date": "2026-09-25"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "schema": "unicon.design-system-rules/1",
+  "description": "Curated join-step-4 rename rules (see join.mjs): Figma variable names that resolve to a differently-named Paragon token. Each `pattern` is a JS RegExp source tested against the raw Figma name; `template` is the replacement passed to String.replace with that same RegExp. generate.mjs fails if a rule's target token doesn't exist in the installed Paragon, so a Paragon version bump that renames or drops one of these tokens is caught, not silently skipped.",
+  "renameRules": [
+    {
+      "pattern": "^theme/bg/base$",
+      "template": "--pgn-color-bg-base",
+      "reason": "theme/bg/base has no theme- segment in code; it's just --pgn-color-bg-base.",
+      "confirmed": "2026-09-24 against Paragon 23.23.0"
+    },
+    {
+      "pattern": "^font-size/(h[1-6])$",
+      "template": "--pgn-typography-font-size-$1-base",
+      "reason": "Every heading font-size token has a -base suffix that the Figma name omits.",
+      "confirmed": "2026-09-24 against Paragon 23.23.0"
+    },
+    {
+      "pattern": "^border-radius/pill$",
+      "template": "--pgn-size-rounded-pill",
+      "reason": "The pill radius token is named --pgn-size-rounded-pill, not --pgn-size-border-radius-pill.",
+      "confirmed": "2026-09-24 against Paragon 23.23.0"
+    },
+    {
+      "pattern": "^container/(xs|sm|md|lg|xl)$",
+      "template": "--pgn-size-container-max-width-$1",
+      "reason": "Container width tokens are --pgn-size-container-max-width-<size>, not --pgn-size-container-<size>.",
+      "confirmed": "2026-09-24 against Paragon 23.23.0"
+    }
+  ]
+}
