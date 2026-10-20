@@ -21,15 +21,17 @@ that skill automatically. Before starting the review, read
 [`../code-review-openedx/SKILL.md`](../code-review-openedx/SKILL.md) in full.
 
 Follow the parent skill's review workflow, review-wide rules, evidence requirements,
-and finding format. The backend-specific checks below supplement the parent's
-`Review` section; they do not replace its general review requirements.
+and finding format. The backend-specific checks below belong to the parent's phase B dispatch
+wave (remits B3 to B5) and its phase C verification; they do not replace its general review
+requirements.
 
 If the parent skill file is missing or unreadable, stop and tell the user before
 reviewing the change.
 
-## During the inherited 'Review' step, add the following backend-specific questions:
+## In the parent's phase B remits and phase C verification, add the following backend-specific questions:
 
-In addition to the standard 'Review' steps outlined in [code-review-openedx](../code-review-openedx/SKILL.md), evaluate the following
+In addition to the parent's checks in [code-review-openedx](../code-review-openedx/SKILL.md) (give the data-model and
+query questions to remit B5, the test questions to remit B4, and the rest to phase C), evaluate the following
 detailed questions about this Backend code review and raise any further concerns if prudent
 
 1. Does it adhere to general best practices for this repo's version of Django/Python?
@@ -45,6 +47,12 @@ detailed questions about this Backend code review and raise any further concerns
 10. If a model field is added, which generic surfaces pick it up without any code naming it: an admin registration
     without an explicit `fields` list, a serializer or form using `__all__`, import/export, `model_to_dict`? Enumerate
     them and check each against what the ticket says may read or write the field.
+11. For each new row lock, locking read, or `select_for_update()`, state what it serializes against and whether an
+    outer lock or a database constraint already does that work. A lock whose work is already done is a
+    `Suggestion` to remove it; a rule that only a lock enforces, with no constraint behind it, is a `Question` for
+    the invariants table.
+12. For each value the change builds from other fields and stores in a bounded column (`max_length`), compare the
+    inputs' maximum lengths with the column's; the CI database may reject what the local one silently stores.
 
 Additional Notes:
 

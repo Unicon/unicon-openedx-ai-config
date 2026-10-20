@@ -21,15 +21,17 @@ that skill automatically. Before starting the review, read
 [`../code-review-openedx/SKILL.md`](../code-review-openedx/SKILL.md) in full.
 
 Follow the parent skill's review workflow, review-wide rules, evidence requirements,
-and finding format. The frontend-specific checks below supplement the parent's
-`Review` section; they do not replace its general review requirements.
+and finding format. The frontend-specific checks below belong to the parent's phase B dispatch
+wave (remits B3 to B5) and its phase C verification; they do not replace its general review
+requirements.
 
 If the parent skill file is missing or unreadable, stop and tell the user before
 reviewing the change.
 
-## During the inherited 'Review' step, add the following frontend-specific questions:
+## In the parent's phase B remits and phase C verification, add the following frontend-specific questions:
 
-In addition to the standard 'Review' steps outlined in [code-review-openedx](../code-review-openedx/SKILL.md), evaluate the following detailed questions about this Frontend code review and raise any further concerns if prudent 
+In addition to the parent's checks in [code-review-openedx](../code-review-openedx/SKILL.md) (give the component, accessibility,
+and styling questions to remit B5, any test question to remit B4, and the rest to phase C), evaluate the following detailed questions about this Frontend code review and raise any further concerns if prudent 
 1. Is the Paragon design system being used as extensively as possible for the given components added in this change? Paragon components, bootstrap classes from Paragon and design tokens, with CSS used sparingly?
 2. Does the implementation meet WCAG AA accessibility standards, if applicable?
 3. Does it adhere to general best practices for this repo's version of React? 
