@@ -41,7 +41,7 @@ Whatever defines the canonical shape for this kind of document, if anything does
 
 Some inputs have no type: a review comment on a proposal, a design note, a long chat
 write-up. For those, no template and no sibling document will exist, and a related skill's
-output spec (`code-review`'s finding format, say) is not a document of the same kind. Borrow
+output spec (`code-review-openedx`'s finding format, say) is not a document of the same kind. Borrow
 at most its section vocabulary, never its apparatus. Choose a shape yourself, state in the
 review which shape you chose and why, and hold it consistently through the rewrite.
 

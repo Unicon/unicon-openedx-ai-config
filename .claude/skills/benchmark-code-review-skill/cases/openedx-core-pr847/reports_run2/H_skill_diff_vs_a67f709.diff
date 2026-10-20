@@ -1,0 +1,588 @@
+--- a/.claude/skills/code-review-v2/SKILL.md
++++ b/.claude/skills/code-review-v2/SKILL.md
+@@ -3,29 +3,30 @@
+ description: Use when asked for a thorough, adversarial code review of a pull request, branch, or diff in an Open edX repository (openedx-core, edx-platform, frontend-app-authoring), or for a second opinion on a change before merge. Review-only; never fixes, commits, pushes, or posts to GitHub unless explicitly asked and approved.
+ ---
+ 
+-# Code review v2: parallel adversarial review with impact scoring
++# Code review v2: two adversarial reviewers, verified and scored
+ 
+ ## Overview
+ 
+-Six independent reviewers each attack the change from one angle, and the top-level session
+-then filters their reports for signal, scores every surviving finding 1-100 for impact on the
+-merge decision, and reports the result. The reviewers are deliberately strong models told to
+-be adversarial; the orchestrator is deliberately skeptical of them. Neither half works alone:
+-strong reviewers produce confident noise, and an orchestrator reviewing alone misses angles.
++Two independent reviewers attack the change from two angles, behavior and structure, and the
++top-level session then verifies their claims, scores every surviving finding 1-100 for impact
++on the merge decision, and reports the result. The reviewers are strong models told to be
++adversarial and given a hard tool budget; the orchestrator is skeptical of them and errs toward
++reporting: a defect whose evidence holds is never dropped, it is at most demoted to a one-line
++minor finding.
+ 
+ This skill runs in the top-level session. Per the Delegation rule in `CLAUDE.md`, only that
+ session dispatches the reviewers; a reviewer never dispatches further. A reviewer that needs
+ something it cannot fetch returns a "Needs research" item, and the orchestrator fulfills it
+ inline (a `gh api` call, a grep, a web fetch) or with a cheap `Explore` dispatch.
+ 
+-**Model choice and cost.** This skill dispatches `software-architect` reviewers on Fable
+-(security, correctness) and Opus (the other four). That is an explicit, standing user override
+-of the model table in `CLAUDE.md`, which would route review to Sonnet. The tradeoff was
+-accepted when the skill was created and is worth restating to the developer when the skill is
+-invoked on a small change: in its first run, on a 99-line schema-only PR, each reviewer used
+-100k to 200k tokens and 12 to 18 minutes of wall clock, and five of six surfaced the same
+-headline finding. Reserve the skill for reviews where a missed defect is expensive. Pass
+-`model` explicitly on every dispatch.
++**Budget.** The skill is sized to about 350k tokens and 25 minutes on a 1,000-line PR: the
++orchestrator about 120k, each reviewer about 110k to 130k. Three things keep it there, and each
++is an instruction, not a hope: the orchestrator writes one compact context pack instead of
++letting two reviewers each re-derive the facts; each reviewer has a tool-call budget of 25 and
++reads the diff once; the orchestrator verifies by reading cited lines and re-running the
++reviewers' stated commands, not by writing new probes. Models are an explicit, standing user
++override of the model table in `CLAUDE.md`: the behavior reviewer runs on Fable at `high`
++effort, the structure reviewer on Opus at `high`, both passed explicitly on the dispatch.
+ 
+ ## When to use
+ 
+@@ -36,126 +37,118 @@
+ 
+ Do not use it for a one-line fix, a rename, or a docs typo; a direct inline read is enough.
+ 
+-## 1. Pin the target and gather context (orchestrator, inline)
++## 1. Pin the target and write the pack (orchestrator, at most 12 tool calls)
+ 
+-Do this yourself with a handful of commands; it is lookups, not judgment.
++Lookups, not judgment. Do them yourself, in as few commands as possible.
+ 
+-1. Resolve the PR on the upstream repository, not the fork: `gh pr view <n> --repo
+-   <owner>/<repo> --json title,body,headRefName,baseRefName,files,commits,reviews,comments`.
+-   Record the head SHA, the base SHA, and the merge-base. Fetch prior reviews and inline
+-   review threads so the new review does not repeat them.
+-2. Resolve the ticket from "Closes #n" in the PR body. Fetch it and record its `updatedAt`.
+-   Fetch every ticket the PR body or the ticket names as a sibling, consumer, or design
+-   source (`gh issue view <n> --repo ... --json title,state,body`), and the comments of any
+-   design discussion issue (`gh api repos/<owner>/<repo>/issues/<n>/comments --paginate`).
+-3. Produce the diff against the merge-base: `git diff <merge-base>..<head>`.
+-4. List what landed on main after the PR branched, in the apps the PR touches and in any app
+-   that depends on them: `git log --oneline <merge-base>..upstream/main -- <paths>`. The
+-   checked-out tree does not contain those commits, so a reviewer reading HEAD will reason
+-   from a stale picture (a precedent the ticket says to mirror, a foreign key that changed,
+-   a new consumer). Name the relevant commits in the brief with their SHAs.
+-5. Locate the governing documents: ADRs in `docs/*/decisions/` of this repo and of sibling
+-   repos (`../edx-platform`, `../openedx-proposals`), the repo's `CLAUDE.md`, and any
+-   precedent the ticket says to mirror.
+-6. Confirm the cheap baseline facts inline so reviewers build on them instead of re-deriving:
+-   run the touched tests without coverage, run `makemigrations --check --dry-run` for the
+-   touched app, read the CI status with `gh pr checks`. Note any local environment gap you
+-   hit (a missing test dependency, for example) so reviewers are not surprised by it.
+-7. Save everything to the scratchpad under `context/`: `pr_<n>.diff`, `pr_<n>_body.md`,
+-   `pr_<n>_prior_reviews.md`, `issue_<n>.md` per ticket, and the comment dumps. Then write
+-   `context/BRIEF.md` from the template in [scopes.md](scopes.md): standing rules, the PR
+-   facts, the context file list, the confirmed facts, and the strict output format.
++1. Resolve the PR on the upstream repository: `gh pr view <n> --repo <owner>/<repo> --json
++   title,body,headRefName,baseRefName,commits,reviews`. Record head, base, and merge-base.
++2. Fetch the ticket from "Closes #n" in the PR body and record its `updatedAt`. List, do not
++   read, the sibling tickets the PR body or the ticket names: one line each with path and title.
++3. `git diff <merge-base>..<head> > context/pr_<n>.diff`, and `git log --oneline
++   <merge-base>..upstream/main -- <touched apps and their dependents>`: the commits a reader of
++   HEAD cannot see (a new field on a model this change constrains, a migration number reused).
++4. Run the touched tests once without coverage and the migration check for the touched app.
++5. Write `context/PACK.md` from the template in [scopes.md](scopes.md), at most 150 lines: the
++   facts, the acceptance criteria quoted, the numbered list of every factual claim the PR body,
++   commit message, and new comments or docstrings make about how a library, framework, or
++   database behaves (the reviewers verify them; you only list them), the commits on `main`, the
++   file list, the confirmed facts as command plus output, and the sibling-ticket list.
+ 
+-A confirmed fact in the brief is a command and its output ("`grep -rn 'class .*(ObjectTag)'
+-src/` returns only the test proxy"), never a universal negative ("nothing subclasses these
+-models"). In the first run a shell glob error silently truncated one grep and the brief
+-asserted a negative that a reviewer later disproved; a stated command lets a reviewer re-run
+-it, a bare conclusion makes them trust it.
++A confirmed fact in the pack is a command and its output, never a universal negative. A stated
++command lets a reviewer re-run it; a bare conclusion makes them trust it.
+ 
+-## 2. Dispatch six reviewers in one message (orchestrator)
++## 2. Dispatch two reviewers in one message (orchestrator)
+ 
+-One `software-architect` dispatch per scope, all in the same message so they run in parallel,
+-each told to read `BRIEF.md` first. The six scopes and the concrete probes each must cover
+-are in [scopes.md](scopes.md):
++The two scope prompts are in [scopes.md](scopes.md). Paste each one verbatim into its dispatch
++after the dispatch header, so the reviewer needs no file outside the pack and the checkout.
+ 
+-| # | Scope | Model |
+-| --- | --- | --- |
+-| 1 | Security: OWASP Top 10, Django/DRF practice, integrity of any protective data | fable |
+-| 2 | Correctness: every acceptance criterion, every PR claim, relevant ADRs here and in sibling repos | fable |
+-| 3 | Architectural conventions and soundness: how similar code is written here and in edx-platform, ADRs, OEPs, library stability | opus |
+-| 4 | Testing and edge cases: AC coverage, mutation checks, edge-case enumeration, tests fail for the stated reason | opus |
+-| 5 | Open questions: what the PR, ticket, or design left unanswered, with the concrete consequence of each answer | opus |
+-| 6 | Miscellaneous: style, docs, migration hygiene, linters on touched files, commit and PR hygiene, writing rules | opus |
++| # | Scope | Agent | Model, effort |
++| --- | --- | --- | --- |
++| 1 | Behavior: acceptance criteria, premise audit, every error path reachable from client input, security of the new surface, open questions | `general-purpose` | fable, high |
++| 2 | Structure: merge with main, data-model invariants, layering and public API, test quality with at most three mutation checks, linters once, hygiene | `software-architect` | opus, high |
+ 
+-Each prompt names the probes for its scope, tells the reviewer which claims in the PR body to
+-verify rather than trust, and asks for CONFIRMED versus INFERRED on every finding. Every
+-finding carries the reviewer's own impact estimate; the orchestrator re-scores it later.
++Each reviewer gets the same standing rules from scopes.md: read-only, a budget of 25 tool
++calls, the diff read once, probes in one scripted test file run once, CONFIRMED versus INFERRED
++on every finding, a report of at most 2,000 words. Wait for both; do not read their output
++files.
+ 
+-While they run, do independent work. Do not read their output files; wait for completion.
++## 3. Verify and score (orchestrator, at most 15 tool calls)
+ 
+-## 3. Filter for signal (orchestrator)
++1. **Merge the two reports.** The same defect may appear in both with different framing; keep
++   the strongest evidence and note the convergence.
++2. **Verify every finding scored 50 or higher** by reading the cited line or re-running the
++   reviewer's stated command. Write a new probe only when a blocking finding has no reproduction
++   at all. A finding whose evidence does not hold goes to the dropped list with the fact that
++   disproved it.
++3. **False premises are findings.** Re-read the citation of every FALSE row in scope 1's premise
++   audit. Each false claim in a comment, a docstring, the commit message, or the PR body scores
++   50 or higher, with the fix "state the actual behavior and remove the wrong rationale". This
++   holds when the code behaves correctly despite the claim, and when you used the same fact to
++   settle a disagreement between the reviewers.
++4. **Invariant gaps are findings.** Each row of scope 2's invariants table with enforcement
++   "application check", "lock", or "nothing", or with a gap in the archived, deleted, or replaced
++   column that this diff makes newly relevant, scores 50 or higher when a race, an out-of-band
++   write, or a replacement row can violate it.
++5. **Deferral is conditional.** When another ticket owns the work, write down what that ticket
++   must do and whether it can do it without undoing something this PR adds (a constraint, a
++   field name, a response shape, a lookup). If it can, the item is an open question to record;
++   if it cannot, it is a change request on this PR.
++6. **Score impact 1-100** by consequence, with the rubric below. INFERRED lowers confidence,
++   never impact: a 500 or data corruption reachable from client input scores 50 or higher when
++   the database-specific step was reasoned rather than executed, and the finding names that
++   step.
++7. **Sort into three lists.** Kept: evidence held, proposes a change, impact at or above the
++   threshold (default 25; say what you used). Minor: evidence held, proposes a change, impact
++   below the threshold; one line each. A precedent or a clean run demotes a finding here, it
++   does not drop it. Dropped: evidence did not hold, nothing can verify it, or it proposes no
++   change; one line each with the disproving fact.
+ 
+-When all six reports are in, work through them in this order:
+-
+-1. **Deduplicate across scopes.** The same defect often surfaces in several reports with
+-   different framing. Merge into one finding and keep the strongest evidence; note how many
+-   reviewers converged on it, which is itself a signal.
+-2. **Verify every load-bearing claim yourself** before scoring it. Read the cited line, run
+-   the cited command, check the quoted acceptance criterion against the ticket text. A
+-   reviewer's CONFIRMED label is a claim, not a proof. Drop any finding whose evidence does
+-   not hold. Check each new claim against what earlier reports and the brief established;
+-   when they conflict, resolve it by looking, not by majority.
+-3. **Separate merge impact from program impact.** Reviewers told to score "impact on the
+-   merge decision" will score a downstream design risk at 10 even when it is the most
+-   important thing in their report. Collect every item whose action is "record on ticket X"
+-   into one finding, "open questions to record downstream", and score the value of recording
+-   them now, while the context is fresh and the schema or contract is still cheap to change.
+-4. **Check each finding against the ticket's scope.** A finding that asks for work the ticket
+-   explicitly defers to another ticket is an open question to record, not a change request.
+-5. **Score impact 1-100** with the rubric below. Score the consequence, not the reviewer's
+-   severity label and not how much text the reviewer wrote.
+-6. **Pick the drop threshold** and say what it is. The default is 25. Lower it when the PR is
+-   small and clean and the few findings deserve a hearing; raise it when the PR is large and
+-   the list needs to fit in one reviewer sitting.
+-
+ ### Impact rubric
+ 
+ | Score | Meaning | Treat as |
+ | --- | --- | --- |
+ | 80-100 | Data loss, security hole, broken acceptance criterion, or a downstream consumer breaks. Merging as-is causes harm. | Change request, blocking |
+-| 50-79 | A real correctness, coverage, or convention gap with a concrete consequence, or a PR claim that is false and that a reviewer would rely on. | Change request, should fix before merge |
++| 50-79 | A real correctness, coverage, or convention gap with a concrete consequence, or a claim in the PR that is false and that a reviewer would rely on. | Change request, should fix before merge |
+ | 25-49 | A genuine improvement or an open question with a stated consequence, where the author could reasonably decline. | Comment, author's call |
+-| 1-24 | Preference, nit, or a problem the ticket defers elsewhere with no cost to deferring. | Drop, or list in one line |
++| 1-24 | Preference, nit, or a problem the ticket defers elsewhere with no cost to deferring. | Minor, one line each |
+ 
+ ## 4. Report (orchestrator)
+ 
+ Lead with the verdict in one sentence: approve, approve with comments, or request changes,
+-and the threshold used. Then:
++and the threshold used. Then, in this order, and nothing else:
+ 
+-- **Kept findings**, highest impact first, one short table row each: impact, scope, anchor,
+-  what is wrong, what to do. Below the table, give each kept finding the two to four sentences
+-  a reader needs to act without opening the reports.
+-- **Dropped findings**, one line each with the score and the reason they are noise, so the
+-  developer can disagree.
+-- **Checked and acceptable**, a short list of what the reviewers examined and found fine, so
+-  "not checked" is distinguishable from "checked, OK".
+-- **Gaps**: what could not be verified, any "Needs research" item left open, and any error in
+-  the brief that a reviewer caught.
++- **Premise audit**: only the FALSE and UNVERIFIABLE rows, after your re-verification, plus one
++  line saying how many claims were checked in total.
++- **Invariants**: only the rows with a gap, plus one line saying how many rows the table had;
++  one line saying the diff touches no model, constraint, index, or lock when it does not.
++- **Kept findings**, highest impact first, one table row each: impact, scope, anchor, what is
++  wrong, what to do. Below the table, one or two sentences per kept finding with the evidence
++  and the inferred step if any.
++- **Minor findings**, one line each: anchor, what is wrong, what to do.
++- **Dropped findings**, one line each with the fact that disproved it.
++- **Checked and acceptable**, at most eight lines, for what the reviewers examined and
++  proposed no change for.
++- **Gaps**: what could not be verified and any "Needs research" item left open.
+ 
+ Do not post to GitHub. If the developer asks for a GitHub review, draft the text, show it,
+ and post only the approved wording.
+ 
+ ## Common mistakes
+ 
++- **Re-deriving the pack.** A reviewer that re-reads every sibling ticket and re-runs the
++  suite has spent its budget before it has found anything. The pack exists so it does not.
++- **Verifying by exploring.** The orchestrator's job in step 3 is to read the cited line and
++  re-run the stated command. New probes are for a blocking finding with no reproduction.
+ - **Trusting the reviewers' severities.** They inflate nits and under-score program risks.
+   Re-score everything from consequence.
+-- **Scoring volume.** Six reports produce thirty findings; most are the same four defects.
++- **Dropping a defect on precedent or a clean run.** It goes to Minor.
++- **Filing an actionable item as acceptable.** A proposed change, however small, is a finding.
++- **Using a fact to referee the reviewers and not reporting it.** The text that stated the
++  losing version is a finding.
++- **Lowering impact because a step was inferred.** Score the consequence, label the inference.
+ - **Reviewing the roadmap instead of the diff.** A finding about what a downstream ticket
+-  should do belongs under open questions unless this PR fixes the schema or contract in a way
+-  that makes the downstream work impossible or expensive.
+-- **A stale HEAD.** The PR branch predates commits on main that change the picture. Step 1.4
+-  exists because a reviewer reading HEAD alone missed a PROTECT foreign key that had landed
+-  on main and changed a "silent data loss" finding into a "loud failure" one.
++  should do is an open question unless this PR fixes the schema or contract in a way that
++  makes that work impossible or expensive.
+ - **Letting a reviewer dispatch.** It cannot. Fulfill its "Needs research" item yourself.
+-- **Reading the agents' output files.** They are full transcripts and will flood the context.
+-  Wait for the completion notification and read the returned report.
++- **Reading the agents' output files.** They are full transcripts. Wait for the returned report.
+--- a/.claude/skills/code-review-v2/scopes.md
++++ b/.claude/skills/code-review-v2/scopes.md
+@@ -1,207 +1,145 @@
+-# code-review-v2: brief template and scope prompts
++# code-review-v2: pack template, standing rules, and the two scope prompts
+ 
+-Two things live here: the `BRIEF.md` template every reviewer reads first, and the six scope
+-prompts. Fill the placeholders (`<n>`, `<owner>/<repo>`, SHAs, paths) from step 1 of
+-`SKILL.md`. Keep each prompt's probe list; add probes specific to the change under review.
++Fill the pack from step 1 of `SKILL.md`. Paste the standing rules and one scope prompt into
++each dispatch, after the dispatch header. Keep each prompt's probe list; add probes specific to
++the change under review in one or two lines, no more.
+ 
+-## BRIEF.md template
++## PACK.md template (at most 150 lines)
+ 
+ ```markdown
+-# Shared review brief: <owner>/<repo> PR #<n>
++# Review pack: <owner>/<repo> PR #<n>
+ 
+-You are one of six independent adversarial reviewers of this PR. Each reviewer owns one scope.
+-Review only your scope, but report anything out of scope you stumble on in a short
+-"Out of scope, noticed anyway" section at the end.
++## Facts
++- Repo checkout: <absolute path>; HEAD = <head sha>; base = <base sha>; merge-base = <sha>.
++- Title: "<title>". Closes #<ticket> (updated <updatedAt>). CI on head: <status>.
++- Diff: <path>/pr_<n>.diff (<lines> lines, <files> files). Files: <list with line counts>.
++- Commits on main since the branch point in touched or dependent apps: <sha: subject>, ...
++- Venv: `source <repo>/.venv/bin/activate`; `PYTHONPATH=<checkout>/src`;
++  `DJANGO_SETTINGS_MODULE=test_settings`; pytest with `--no-cov -p no:cacheprovider`.
+ 
+-## Standing rules
++## Acceptance criteria (quoted from the ticket)
++1. "..."
+ 
+-- Read-only. Never edit, create, or delete repository files, commit, push, or post to GitHub.
+-  You MAY run read-only commands: `git`, `pytest` (with `--no-cov -p no:cacheprovider`),
+-  linters, `python manage.py makemigrations --check --dry-run`, `grep`, and so on.
+-  Activate the venv first: `source <repo>/.venv/bin/activate`. Use
+-  `DJANGO_SETTINGS_MODULE=test_settings` for manage.py commands.
+-  If you want to test "does this test fail when the code is broken", make a temporary edit
+-  and revert it with `git checkout -- <file>` before you finish. Leave the working tree
+-  exactly as you found it.
+-- You cannot dispatch sub-agents. If you need something you cannot fetch, return it as a
+-  "Needs research" item (what you need and why).
+-- Be adversarial. Your job is to find what is wrong, missing, or risky. But every finding must
+-  carry evidence: a quoted acceptance criterion, a cited rule (file plus rule) from an ADR, OEP,
+-  CLAUDE.md, or repo convention, or a concrete reproduction path with `file:line`. A preference
+-  without evidence is a "Suggestion", not a finding.
+-- Distinguish what you CONFIRMED by running or reading something from what you INFER.
+-- Review the change as it is, not the rest of the roadmap. A pre-existing problem counts only if
+-  this change makes it newly relevant.
+-- Prior review on this PR already exists (see pr_<n>_prior_reviews.md). Do not repeat those
+-  points unless you disagree with them or they were not actually addressed.
++## Claims to verify (from the PR body, commit message, and new comments or docstrings)
++C1. "<claim>" (<where: path:line | commit message | PR body>)
+ 
+-## The PR
++## Confirmed by the orchestrator (command and output; build on these)
++- `<command>` -> <output>
+ 
+-- Repo: <absolute path> (branch `<head branch>` is checked out; HEAD = <head sha>).
+-- Base: upstream/main = <base sha>. Merge-base = <merge-base sha>.
+-  <Note any precedent commit that landed on main after the PR branched, with its SHA.>
+-- Title: "<title>"
+-- Closes #<ticket> (issue last updated <updatedAt>).
+-- Files changed: <list>
+-- CI on the PR head: <status summary>.
++## Context files (read the ticket; read a sibling only when a finding depends on it)
++- <path>/issue_<ticket>.md: the ticket, source of truth for the criteria.
++- <path>/issue_<n>.md: <one line: what it is>.
++- <path>/pr_<n>_body.md; the commit message is `git log -1 <head>`.
++```
+ 
+-## Context files (read the ones your scope needs)
++## Standing rules (paste into every dispatch)
+ 
+-All in <scratchpad>/context/
+-- pr_<n>.diff, pr_<n>_body.md, pr_<n>_prior_reviews.md
+-- issue_<ticket>.md: the ticket with acceptance criteria. SOURCE OF TRUTH for correctness.
+-- issue_<sibling>.md ...: siblings, precedents, consumers.
+-- issue_<design>_comments.md: the design discussion; say where the decisive comments start.
+-
+-Relevant repo documents: <ADR paths, CLAUDE.md, annotation safe list, sibling repo paths,
+-likely-relevant OEPs>.
+-
+-## Facts already confirmed by the orchestrator (do not re-derive, build on them)
+-
+-- <test command> passes: <count>.
+-- <makemigrations check result>.
+-- <any grep result that settles a question, with the command>.
+-
+-## Output format (strict)
+-
+-Return Markdown with these sections:
+-
+-1. `## Scope` : one line restating your scope.
+-2. `## Findings` : a numbered list. Each finding has:
+-   - **Title** (one line)
+-   - **Severity**: Blocker | Major | Minor | Nit | Question
+-   - **Anchor**: `path:line` in the PR (or the file that should have changed)
+-   - **Evidence**: quoted AC / cited rule / reproduction path. Say CONFIRMED or INFERRED.
+-   - **Why it matters**: 1-3 sentences, concrete consequence.
+-   - **Suggested change**: what the author should do (or what question to answer).
+-   - **Your impact estimate (1-100)**: how much this should matter to the merge decision.
+-3. `## Checked and found acceptable` : bullet list of what you examined that is fine, so the
+-   orchestrator can tell "not checked" from "checked, OK".
+-4. `## Out of scope, noticed anyway` : optional.
+-5. `## Needs research` : optional.
+-
+-Write in full sentences. No em dashes.
+ ```
++You are one of two independent adversarial reviewers of this PR. Read PACK.md first, then the
++diff once. Rules:
++- Read-only on the checkout. You may run git, pytest (--no-cov -p no:cacheprovider), linters,
++  and `manage.py makemigrations --check --dry-run`. For a temporary edit (a mutation check, a
++  merge), use a throwaway worktree under <scratch> and remove it; leave the checkout clean.
++  Set PYTHONPATH to the worktree you run in and confirm the package's __file__ once.
++- Budget: at most 25 tool calls. Read each file once. Put every probe into one test file and
++  run it once. Do not read sibling tickets unless a finding depends on one.
++- You cannot dispatch sub-agents. Return what you cannot fetch as a "Needs research" item.
++- Every finding carries evidence: a quoted criterion, a cited rule (file plus rule), or a
++  reproduction with file:line. Mark each CONFIRMED (you ran or read it) or INFERRED (reasoned),
++  and name the inferred step. A preference without evidence is a Suggestion.
++- Review the change as it is. A pre-existing problem counts only if this change makes it newly
++  relevant.
++Output, at most 2,000 words, Markdown: `## Findings` (numbered; each with Title, Severity
++Blocker|Major|Minor|Nit|Question, Anchor path:line, Evidence with CONFIRMED/INFERRED, Why it
++matters in one sentence, Suggested change, Impact 1-100), the scope's required table(s),
++`## Checked and found acceptable` (nothing you propose a change for), `## Needs research`.
++Full sentences, no em dashes.
++```
+ 
+ ## Dispatch header (prepend to every scope prompt)
+ 
+ ```
+-First read the shared brief at <scratchpad>/context/BRIEF.md and follow its standing rules
+-and output format exactly.
++First read <scratch>/context/PACK.md and follow the standing rules below exactly.
+ ```
+ 
+-## Scope 1: Security (software-architect, model: fable)
++## Scope 1: Behavior (`general-purpose`, model fable, effort high)
+ 
+-Adversarially review the PR against OWASP Top 10 (2021) and Django/DRF security best
+-practices, and look for any vulnerability or security-relevant weakness the change introduces
+-or newly exposes. Be concrete about attack surface rather than generic. Probe at least:
++Does the PR do what the ticket asks, are its premises true, and what can a client make it do
++that it should not?
+ 
+-1. Mass assignment and broken access control: can any existing write path set the new fields
+-   or reach the new code unintentionally? Check DRF serializers (`fields = "__all__"` versus
+-   explicit lists; whether ModelSerializer picks up new model fields), Django admin, import or
+-   bulk paths, and the same models' serializers and admin in the consuming repo.
+-2. Integrity of any protective or state-carrying data the change adds: every path that copies,
+-   casts, bulk-updates, or recreates rows, and whether it can clear, reset, or propagate the
+-   new state onto the wrong row.
+-3. Migration safety as availability: what the migration emits for MySQL 8 and PostgreSQL on
+-   large tables (instant versus rewrite), whether CI exercises the MySQL settings, and whether
+-   the migration is reversible. Mark CONFIRMED or INFERRED.
+-4. PII and data governance (OEP-30): are new fields covered by existing annotations? Verify
+-   any PR claim about `make pii_check`.
+-5. Information disclosure through help_text, serializer output, or logs.
+-6. Anything else security-relevant.
++1. **Acceptance criteria.** For each criterion in the pack: met, not met, partially met, or
++   unverifiable, with file:line or a command. Compare every name and shape the PR exposes
++   (fields, response keys, function names) with what the criteria and the consumer tickets
++   expect; each difference is a finding.
++2. **Premise audit.** Verify each numbered claim in the pack against the installed source
++   (`python -c "import <pkg>; print(<pkg>.__file__)"`, then read the line) or this repository's
++   code and documents, never memory. Return `## Premise audit`: claim | where | checked against
++   (file:line or command) | TRUE, FALSE, UNVERIFIABLE | consequence if false. Every FALSE row is
++   also a finding, whether or not the code behaves correctly despite it.
++3. **Error paths, enumerated.** For each new endpoint or public function, read the source of
++   every callee and list each exception it can raise. Check each is handled or mapped to a
++   client response. Then write one probe test file that sends: each criterion's negative case;
++   the trigger of each unmapped exception; each first-class configuration option of the input
++   types (flags on the referenced model or taxonomy, key types the parser accepts); a value at
++   the maximum length of every input that is concatenated into a stored field; malformed input
++   through the permission check before validation. Run it once. Each unhandled error reachable
++   from client input is a Blocker, whatever configuration it needs, when that configuration is a
++   product setting.
++4. **Security of the new surface.** Access control and object-level permission on every new
++   path; mass assignment (`fields = "__all__"`, writable fields the ticket does not grant);
++   references to rows another tenant owns, accepted by id; what a failing permission check
++   discloses; cross-row effects of any read-merge-write.
++5. **ADR compliance.** The ADRs the ticket cites and the app's own series: conflicts, and an
++   ADR and ticket that disagree (name the conflict, follow neither).
++6. **Open questions.** What the PR, ticket, or design left unanswered that this PR either fixes
++   in the schema or contract now or should record downstream. Each with the concrete
++   consequence of the answer going one way, and one of: "answer in this PR", "record on
++   <ticket>", "settled".
+ 
+-## Scope 2: Correctness (software-architect, model: fable)
++Put the criteria table first, then the premise audit, then the findings.
+ 
+-Does the PR do exactly what the ticket asks, and does it comply with the relevant ADRs in this
+-repo and in the sibling repos? The ticket's acceptance criteria are the source of truth.
++## Scope 2: Structure (`software-architect`, model opus, effort high)
+ 
+-1. For EACH acceptance criterion: met / not met / partially met / unverifiable, with evidence
+-   (file:line or a command run). Give extra attention to any criterion where the PR body admits
+-   a deviation, and to any criterion whose test a prior reviewer had removed: decide whether
+-   the criterion is still verifiable as the ticket requires, with your own reasoning.
+-2. Check every factual claim in the PR body that a reviewer would rely on (precedent shape,
+-   index reasoning, reversibility, "fails on main for unrelated reasons"). Verify or refute.
+-3. ADR compliance: read the ADRs the ticket cites and the app's own ADR series; search the
+-   sibling repo for decisions touching the same area. Report conflicts and any ADR the change
+-   should have updated or added.
++Does the PR merge, does its data model enforce what it relies on, does it fit the repository's
++layering and conventions, and do its tests prove behavior?
+ 
+-Put the per-criterion table first, then the other findings.
++1. **Merge with main.** In a throwaway worktree at `main`: `git merge --no-commit --no-ff
++   <head>`; list conflicts; on the merged tree (or `main` plus the PR's migration files when the
++   merge conflicts) run the migration graph check and the import linter; abort the merge. A
++   migration-number collision, a conflicting leaf node, or a linter contract broken by the merge
++   is a Blocker. Say what the commits on `main` from the pack change about the PR's picture.
++2. **Invariants table.** When the diff adds or changes a model, constraint, index, or lock,
++   return `## Invariants`: one row per rule the data model relies on (stated in code or comments
++   or implied by tickets and ADRs, including the rules existing constraints, `on_delete`, and
++   signals already encode and the change interacts with): invariant | enforcement (database
++   constraint, application check, lock, nothing) | when a row is archived or soft-deleted | when
++   deleted | when a replacement row is created | gap. Each gap is also a finding: a rule only
++   application code or a lock enforces, where a race or an out-of-band writer can violate it; a
++   constraint without a condition that an archived row would keep occupying so no replacement
++   can exist, in a design whose tickets describe archiving; a lock whose work an outer lock or a
++   constraint already does; a lookup that will have to filter a lifecycle field that already
++   exists on `main` and does not.
++3. **Layering and public API.** `.importlinter` boundaries; HTTP-layer types (`Http404`,
++   `get_object_or_404`, DRF exceptions) raised from a module that is not a view or serializer;
++   what the module exports as supported API and whether each export upholds the module's
++   invariants alone; `UNSTABLE` markers where neighbors carry them; DEPR for changed public
++   contracts; one name per concept across signatures, serializer, and ticket.
++4. **Conventions and ADRs.** Field, function, and docstring conventions against neighbors in
++   the same file and in the consuming repo; the precedent the ticket says to mirror; whether a
++   decision this change makes needs a proposed ADR or an ADR amendment; the companion change
++   `edx-platform` or the MFE needs and whether it is linked.
++5. **Test quality.** A coverage table: criterion -> test(s) -> covered | implemented, untested |
++   not testable. Tests that assert how the code is written (a mocked collaborator was called, a
++   query count, a lock or manager call) rather than what it does: name each, and propose
++   removal or a behavioral replacement, never another test of the same kind. Fixtures that
++   change global state (settings, a permission registry) without restoring it. Edits to
++   pre-existing tests: run the pre-existing form against the new code; if it passes, the edit
++   was unnecessary and its comment is suspect. At most three mutation checks, on the tests that
++   guard a criterion or a data-integrity path: break the code, run the test, restore.
++6. **Hygiene, once.** Run the repository's linters on the touched files only and report new
++   warnings on touched lines. Migration file header and naming against the directory. Commit
++   subject against conventional commits. PR body accuracy against the diff (file names, counts,
++   test claims). Writing rules from CLAUDE.md on committed prose. One list, nits labelled as
++   nits with low impact.
+ 
+-## Scope 3: Architectural conventions and soundness (software-architect, model: opus)
+-
+-The code must follow the structures and decisions established by Open edX, and be
+-architecturally solid for a published library consumed by edx-platform and plugins.
+-
+-1. Field, function, and class conventions against neighbors in the same file and against the
+-   consuming repo (naming, `editable`, help_text phrasing, placement order).
+-2. Fidelity to the precedent the ticket says to mirror, and whether a shared abstraction is
+-   warranted (CLAUDE.md: not before three callers; count them).
+-3. ADR coverage: does the app's own ADR series need a new or updated ADR for the concept this
+-   change introduces (CLAUDE.md: impactful decisions get an ADR in proposed status)? Do model
+-   or module docstrings describe fields in a way that is now stale?
+-4. Migration conventions against the directory's history and OEP-49 / OEP-38.
+-5. Public API and library stability: changed public methods, downstream construction or
+-   serialization of the models, companion changes needed elsewhere, release-note or changelog
+-   conventions (python-semantic-release from commit subjects).
+-6. Primitive choice: raise only if the chosen primitive bakes a concrete defect into the schema
+-   or contract; you are reviewing, not redesigning.
+-7. Interaction with existing constraints: unique constraints, on_delete behaviors, signals.
+-
+-## Scope 4: Testing and edge cases (software-architect, model: opus)
+-
+-Four requirements: every acceptance criterion is covered by a test or explicitly declared
+-untestable with a reason; all important edge cases are enumerated and the covered ones
+-identified; each new or changed test fails when the behavior breaks and fails for the reason
+-its name states; the code handles the edge cases.
+-
+-1. Mutation checks: temporarily break the code each new test covers, run the test, read the
+-   assertion message, restore the file with `git checkout --`, confirm `git status` is clean.
+-   For a test that no plausible mutation can fail, say so and judge whether it earns its place.
+-2. Round-trip gaps: when the PR body describes a failure mode (for example "saving would
+-   reset the field"), check whether a test pins that exact mode or only an in-memory proxy.
+-3. Enumerate edge cases (constructor kwargs, copy and bulk paths, null foreign keys, resync or
+-   save hooks, database backends in CI, reverse migration) and check each for a test and for
+-   code handling. Confirm the test framework's semantics for any migration test.
+-4. Test quality: naming, placement, `is` versus `==` on database-loaded values, docstring
+-   style, annotation consistency.
+-5. Coverage table: AC -> test(s) -> verdict (covered / covered by schema not test / uncovered /
+-   not testable).
+-
+-Leave the working tree exactly as you found it.
+-
+-## Scope 5: Open questions and architectural concerns (software-architect, model: opus)
+-
+-Find what the PR, the ticket, or the approved design left unanswered and that this PR either
+-should answer now (because it fixes the schema or contract) or should record for downstream
+-tickets. Each item must be a genuine question with a concrete consequence: say what breaks or
+-becomes expensive if the answer goes one way. Typical angles: auditability of new state when
+-no history or timestamps exist; interaction of new state with unique constraints and
+-un-archive or re-create flows; state that is set and never cleared versus the rule it
+-implements; derived values across nullable foreign keys; deferred indexes versus the queries
+-already specified downstream; two overlapping "hidden" states on one model; operational cost
+-of the migration on large tables and whether the ecosystem asks for a note; semantics left
+-unstated for the next implementer.
+-
+-Conclude each item with one of: "Should be answered in this PR", "Should be recorded as an
+-open question on <downstream tickets> or a new ticket", or "Settled, no action".
+-
+-## Scope 6: Miscellaneous (software-architect, model: opus)
+-
+-Everything a careful senior reviewer flags that the other five scopes do not own.
+-
+-1. Code quality and style in the diff: translation-string wording and punctuation against
+-   neighbors, quoting, cross-references to other fields by bare name, docstrings and comments
+-   per CLAUDE.md ("comment why, not what"; stale comments are bugs).
+-2. Migration file hygiene: header versus installed framework version, evidence of hand edits,
+-   naming against the directory's convention. Run the repo's linters on the touched files only
+-   (pylint, pycodestyle, isort, mypy, pydocstyle, lint-imports as configured) and report new
+-   warnings on touched lines.
+-3. Test-file hygiene (not semantics): module docstring, constant naming, annotation
+-   consistency, placement, line length, trailing-comma style.
+-4. PR hygiene against Open edX expectations: OEP-51 conventional commits and squash
+-   expectations, PR template sections, accuracy of the testing instructions (run any grep or
+-   command the instructions name), changelog or release-note conventions.
+-5. Writing-style rules from CLAUDE.md on committed prose: no em dashes, US spelling, current
+-   state not history, state what things are.
+-6. Anything else. Keep nits labelled as nits with low impact scores; do not inflate.
++Put the invariants table first when it applies, then the coverage table, then the findings.

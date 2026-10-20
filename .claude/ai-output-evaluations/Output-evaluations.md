@@ -7,6 +7,6 @@ After developing a feature with AI, drop a very short note in here: what went we
 *08/25/2026 -- Jesper Hodge -- <PR Link>*
 
 - This is an Example Entry
-- AI hallucinated a folder that didn't exist; I added some context to the code-review skill to fix it. (I just made up this example)
+- AI hallucinated a folder that didn't exist; I added some context to the code-review-openedx skill to fix it. (I just made up this example)
 
 *Date -- Name -- PR Link*

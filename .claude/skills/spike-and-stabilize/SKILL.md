@@ -108,7 +108,7 @@ via `SendMessage` so it keeps context) these steps in order:
 4. Apply the rule of three: don't extract shared code until a third caller needs it.
 5. Report: what's covered, which checks ran clean, what's next.
 
-As the final step, you (the strong main model, not the sub-agent) run the `code-review`
+As the final step, you (the strong main model, not the sub-agent) run the `code-review-openedx`
 skill on the diff. Fix anything it flags as wrong before the change is done.
 
 If this increment produced or amended an ADR, run one more pass before calling it

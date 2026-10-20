@@ -9,8 +9,8 @@ and community plugins. Treat public APIs as contracts and keep changes small.
   unless the user asks for a different approach. Fall back to the `spike-and-stabilize`
   skill when superpowers is not available.
 - Reviewing a PR, branch, or diff: use the appropriate `frontend-code-review`
-  pr `backend-code-review` skill. These both inherit from `code-review`, and 
-  `code-review` should only be used as a foundational skill for more detailed
+  pr `backend-code-review` skill. These both inherit from `code-review-openedx`, and 
+  `code-review-openedx` should only be used as a foundational skill for more detailed
   code review skills that 'inherit' from it.
 - Writing or amending an ADR: apply the same clarify-first discipline as
   `spike-and-stabilize` before drafting the decision text. For a product-facing
