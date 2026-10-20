@@ -9,6 +9,22 @@ As a course author, when I import a course, I want the import to include the com
 ## Description
 Today, when a course is imported in Open edX, its content tags are included (as `tags.csv`), but the competency criteria groups and competency criteria associated with those tags are not. We should update the import process to also read the JSON file that contains this course's criteria groups and criteria, and reconstruct them for the destination course, which may be a new course or an existing course run that already has some of them.
 
+At a high level, the import side does this:
+
+```
+when a course is imported, right after tags.csv has been imported:
+  if the criteria file is missing, stop. If it is malformed or its schema version is newer than this importer knows, log a warning and stop
+  for each competency in the file:
+    find the competency's Tag on this instance by taxonomy export_id and tag external_id; if it is missing or its taxonomy is not competency-enabled, skip the competency and log it
+    find the live root group for that competency, or create it with the file's logic operator
+    find this course run's course-level group under that root, or create it
+    for each nested group in the file, find the existing group with the same ordering, or create it
+    for each criterion in the file:
+      find the block's association (ObjectTag) for that Tag; if it is missing, has no Tag, or is archived, skip the criterion and log it
+      if the group already has a live criterion on that association, skip it; otherwise create it with its rule (the target's default when the exported values match it, otherwise an override with the exported values)
+    leave out any group that ends up with no criteria
+```
+
 ## Context
 - #695 is the corresponding ticket for export
 
