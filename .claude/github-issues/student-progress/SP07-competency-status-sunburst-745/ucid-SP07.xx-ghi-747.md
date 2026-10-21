@@ -4,25 +4,29 @@ GitHub: https://github.com/openedx/openedx-core/issues/747 (#747, OPEN)
 Cached: 2026-09-21
 
 ## User Story
-As a learner, I want a way to visually see how the subsection assignments and subcompetencies in my course stack to parent competencies that I can demonstrate in order to understand what is needed from me in the course and how my work in this course inter-relates.
+As a learner, I want to see at a glance how the subsection assignments and sub-competencies in my course roll up to the competencies on my Progress page, and the status of each, in order to understand how my work in this course inter-relates and where I stand.
 
 ## Description
-Above the competency status cards in the primary pane of the Progress page, we want to add a sunburst and its legend.
+Above the competency status cards in the main column of the Progress page, add one sunburst per taxonomy that the course's competency criteria use, with a single legend. A course whose criteria use three or more taxonomies shows no sunbursts for now.
 
 Sunburst:
-- The center of the sunburst should say "COMPETENCIES DEMONSTRATED".
-- The rings of the sunburst should correspond to how the competency status cards are laid out in #734 so that the innermost rings correspond to the tags for the title of each card, and the subsequent levels of rings correspond to the subcompetencies displayed within those cards at their corresponding level in the hierarchy.
-- The outermost ring of the sunburst is for the subsection assignments, and it is thinner than the comepetency tag hierarchy levels.
+- The center of the sunburst says "COMPETENCIES DEMONSTRATED".
+- The rings correspond to how #734 lays out that taxonomy's cards. The innermost ring has one segment per card heading, and each further ring is one nesting depth of the rows inside the cards. Breadcrumb ancestors above a card heading are not drawn.
+- The outermost ring is for the subsection assignments, and it is thinner than the competency rings. A competency with no rows beneath it extends its segment outward to meet the subsection ring, so every subsection segment sits in that one outer ring.
+- Within each ring, children share their parent's angle equally. Segments run clockwise from 12 o'clock in the order the cards display them.
 
 Legend:
-- Demonstrated has a green checkmark and segments of the sunburst for demonstrated competencies and subsections should be the same green color as the icon.
-- Available has a dotted circle with a light blue/gray color and the segments of the suburst for available competencies and subsections should be the same color as the icon.
-- Partially attempted has a blue half circle icon and the segments of the sunburst for "Partially Attempted" competencies should be the same color as the icon.
-- Not Demonstrated is red with a minus sign and the segments of the sunburst for "Not Demonstrated" subsections should be the same colora s the icon.
+- Each segment is filled with its status's color.
+- Demonstrated has a green checkmark. Competency and subsection segments can be Demonstrated.
+- Available has a slate circle with a dashed ring. Competency and subsection segments can be Available.
+- Partially Attempted has a blue half-filled circle. Competency and subsection segments can be Partially Attempted.
+- Not Demonstrated has a dark red circle with a minus sign. Only subsection segments can be Not Demonstrated, because a competency is never Not Demonstrated.
+- The legend always lists all four statuses.
 
 ## Context
-- Implements the UXD Spike #769
-- The tooltip is out of scope for this ticket because it will be built in #751
+- Corresponds with the UXD Spike #769
+- The tooltip is out of scope for this ticket because it will be built in #751.
+- Blocked by #734, #739, #740
 
 ## Notes for drafting
 
@@ -37,7 +41,7 @@ Legend:
 - #734 is to be changed so that a tag that would head one card and also appear in another card's breadcrumb merges the two into one card headed by the shallower tag, with the deeper card's heading becoming a path row (for example, when the course has criteria on "Strategy Selection" and on "Root Cause Analysis" only, and none on "Problem Solving" or "Problem Definition": one "Problem Solving" card holding a "Strategy Selection" row with its criteria, and a "Problem Definition" path row with no criteria of its own, with "Root Cause Analysis" and its criteria nested under it). This keeps the sunburst, the cards, and #743's Focus Areas in parity and draws Problem Definition inside Problem Solving. #734's scenario "One tag can head one card and appear in another card's breadcrumb" is rewritten accordingly. This case is reachable in normal authoring (cousin tags), unlike the ancestor case.
 - Static means no hover, focus, click, tooltip, drill-in, or animation. Segments are not in the tab order and the chart is one image to assistive technology. Tooltips and the faded overlay belong to Epic SP8 (#749, built in #751).
 - Loading and failure: the chart renders nothing until #739's statuses have loaded, and stays hidden if they fail; the cards still render per #734's own rule. This departs from #743's "structure without statuses" decision on purpose, because the chart's only content is status color. Consequence for the AC: the chart appears after the slowest request, so the cards shift down when it lands.
-- Taxonomies: one sunburst per taxonomy, all of them rendered above all the cards (not inside each taxonomy section). A course using three or more taxonomies renders no sunbursts at all, as a temporary rule until Phil answers what the layout should be. Each sunburst's legend sits with it.
+- Taxonomies: one sunburst per taxonomy, all of them rendered above all the cards (not inside each taxonomy section). A course using three or more taxonomies renders no sunbursts at all, as a temporary rule until Phil answers what the layout should be. There is one legend in total, shared by both sunbursts when there are two.
 - Mixed depth: a competency with no rows beneath it extends its segment outward through the unused ring positions to the subsection ring, so every subsection segment sits in the one shared outer ring. With hand-rolled SVG this is one conditional on the segment's outer radius; a chart library would need two marks or a custom layout for it.
 - Hidden subsections: one segment per hidden criterion, because transparency to learners is a CBE tenet. Until Phil designs a distinct style and legend entry for them, the requirement is that a hidden subsection's segment looks the same as an Available subsection's segment, and the legend keeps four entries. If Phil later supplies a neutral style and a fifth legend entry, that becomes a follow-up change.
 - Sizing: each child gets an equal share of its parent's angle at every level. A competency with many subsections therefore gets thin outer segments.
