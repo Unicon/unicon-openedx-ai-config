@@ -4,27 +4,28 @@ GitHub: https://github.com/openedx/openedx-core/issues/751 (#751, OPEN)
 Cached: 2026-09-21
 
 ## User Story
-As a learner, when I hover my mouse over the sunburst, I want to see more information about what this segment represents in order to understand what I need to do to demonstrate mastery of it.
+As a learner, when I hover over or tap a segment of the sunburst, I want to see more information about what that segment represents in order to understand where I stand on it and what it takes to demonstrate it.
 
 ## Description
-This ticket will implement the tooltips for the sunburst built in #747. There are 2 cases of tooltips:
+This ticket implements the tooltips and hover highlight for the sunburst built in #747. Hovering with a pointer or tapping a segment shows its tooltip; tapping another segment switches, and tapping outside or pressing Escape dismisses it. There are 2 cases of tooltips:
 
 Tooltip for Competency Tag segment:
-- Display the competency tag name
-- Display the competency status just like how it looks in the card header rows
-- Display the icon and count of subsection assignments that go towards this competency in this course in the format "<icon> # ASSIGNMENTS".
-- If the criteria requirements cannot be displayed easily in 1 line, display "MULTIPLE REQUIREMENTS". If there is a single clear criteria rule to display, then display it in the format "COMPLETE ANY/ALL AT XX% OR BETTER".
-- If there are 12 or fewer corresponding subsection assignments, display an icon for the status of each assignment at the bottom of the tooltip. If there are more than 12 corresponding subsection assignments, then don't display any icons for them in the tooltip.
+- Display the competency tag name.
+- Display the competency status using the same oval that #740 shows on a card heading.
+- Display the icon and count of subsection assignments beneath this segment in the sunburst, in the format "<icon> # ASSIGNMENTS".
+- If this segment has no competency segments beneath it and its tag's criteria in this course are one group with one rule, display that rule in the format "COMPLETE ANY/ALL AT XX% OR BETTER" (or "OR LOWER" / "EXACTLY", matching #734's rule lines). Otherwise display "MULTIPLE REQUIREMENTS".
+- If the count is 12 or fewer, display an icon for the status of each of those subsection assignments at the bottom of the tooltip, in the same order as their segments. If the count is more than 12, don't display any icons for them.
 
 Tooltip for Subsection Assignment segment:
 - Display the subsection assignment icon and the name of the subsection, which should wrap.
-- Display the competency criterion status just like how it looks in its card row below
+- Display the competency criterion status just like how it looks in its card row below.
+- For a subsection hidden from the learner, display "A subsection that isn't visible to you" and no status.
 
-When hovering over part of the sunburst, apply an overlay on all segments of the sunburst except the path from the root of the sunburst to the segment that the mouse is touching.
+While a segment is hovered or tapped, its status icon is drawn inside the segment. Also while a segment is hovered or tapped, there is a faded overlay for all the other segments in that sunburst except for this one, its ancestors, and its descendants.
 
 ## Context
-- Tooltips are for the sunburst built in #747
 - Corresponds to UXD Spike #750
+- Blocked by #747
 
 ## Notes for drafting
 
