@@ -18,7 +18,7 @@ an upstream community repo: AI config, local dev setup notes, deployment notes, 
   - `agents/` — `business-analyst` and `software-architect`, expert sub-agents for ticket
     review/authoring and architecture design.
   - `skills/` — `ticket-writer` (interactive ticket drafting, dispatches both agents),
-    `code-review`, `spike-and-stabilize`.
+    `code-review`.
   - `*-principles.md`, `architecture-overview.md`, `cbe-project-context.md`,
     `ticket-template.md` — reference docs the agents ground their judgment in.
   - `github-issues/` — local cache of GitHub issue descriptions from `openedx-core`,
@@ -99,6 +99,10 @@ local to you.
 created. Open the Claude Code panel from there — it reads `.claude/` automatically and applies
 it across every repo in the workspace, with no extra setup.
 
+**7. Install the superpowers plugin for Claude Code.** Implementation work in this setup goes
+through the superpowers skills, so it needs the plugin. See
+[obra/superpowers](https://github.com/obra/superpowers) for installation instructions.
+
 ## Codex Setup
 
 This section is specifically for Codex/ChatGPT, which currently relies on our 
@@ -134,9 +138,9 @@ the other various tasks.
   software-architect agents and asking you the questions that actually change the ticket.
 - **Architecture or design question:** just ask; the software-architect agent gets pulled in
   automatically when it's relevant.
-- **Implementing a non-trivial change:** the `spike-and-stabilize` skill — survey the code, get
-  one combined clarify-and-plan approval, write a thin throwaway spike, then stabilize it
-  (types, tests, checks, review). Skip it for trivial changes like renames or typo fixes.
+- **Implementing a non-trivial change:** the superpowers skills: brainstorm the design, write a
+  plan, then implement it test-first. Claude asks you to install superpowers if it is
+  missing. Skip this for trivial changes like renames or typo fixes.
 - **Reviewing a diff or PR:** the `frontend-code-review` or `backend-code-review` skill as appropriate.
 - **Everything else** (`CLAUDE.md`, the principles docs) loads as background context
   automatically. You never invoke it directly, it's just informing every response.

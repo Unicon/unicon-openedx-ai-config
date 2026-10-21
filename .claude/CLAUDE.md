@@ -5,15 +5,21 @@ and community plugins. Treat public APIs as contracts and keep changes small.
 
 ## Which skill to use
 
-- Implementing a non-trivial change: use the superpowers skills when they are installed,
-  unless the user asks for a different approach. Fall back to the `spike-and-stabilize`
-  skill when superpowers is not available.
+- Implementing a non-trivial change: use the superpowers skills
+  (`superpowers:brainstorming`, `superpowers:writing-plans`,
+  `superpowers:test-driven-development`, and the rest of the superpowers workflow).
+  Superpowers is installed when skills named `superpowers:*` appear in your list of
+  available skills. If it is not installed, stop before starting the work and ask the
+  user to install it. Tell them this setup no longer uses the `spike-and-stabilize`
+  skill, partly because implementation work now requires test-driven development, which
+  superpowers enforces. If the user does not want to use superpowers, ask them how they
+  want the implementation organized instead, and follow that.
 - Reviewing a PR, branch, or diff: use the appropriate `frontend-code-review`
   pr `backend-code-review` skill. These both inherit from `code-review-openedx`, and 
   `code-review-openedx` should only be used as a foundational skill for more detailed
   code review skills that 'inherit' from it.
-- Writing or amending an ADR: apply the same clarify-first discipline as
-  `spike-and-stabilize` before drafting the decision text. For a product-facing
+- Writing or amending an ADR: clarify first. Before drafting the decision text, batch the
+  open questions into one round and get the user's answers. For a product-facing
   decision, dispatch both `business-analyst` (requirements, lifecycle, edge cases)
   and `software-architect` (mechanism, placement, tradeoffs) to generate clarifying
   questions independently, then batch the combined set into one round, the same
@@ -31,8 +37,8 @@ dispatch a further sub-agent, so letting one try either fails outright or falls 
 that sub-agent doing the work itself, on its own (more expensive) model.
 
 **Only the top-level session dispatches.** You, the top-level orchestrating session, or a
-skill running directly in you (`ticket-writer`, `spike-and-stabilize`, `frontend-code-review`,
-`backend-code-review`etc.), are the only ones who call the Agent tool. A dispatched sub-agent
+skill running directly in you (`ticket-writer`, `frontend-code-review`,
+`backend-code-review`, etc.), are the only ones who call the Agent tool. A dispatched sub-agent
 — `business-analyst`, `software-architect`, `Explore`, `general-purpose`, or any other — never
 calls it itself, regardless of what its own file says or what tools happen to be available to
 it. Anything below about pushing work to a cheaper agent is an instruction for *you*, before

@@ -1,6 +1,6 @@
 ---
 name: backend-code-review
-description: "Extends the 'code-review-openedx' skill. Senior backend peer review of a diff for this application. Use when asked to review a PR, a branch, or a diff, or for a second opinion on changes. Also run as the final step of spike-and-stabilize. Review-only: surface findings with file:line anchors and a severity marker; never fix, commit, or push. Post to GitHub only when explicitly asked and approved."
+description: "Extends the 'code-review-openedx' skill. Senior backend peer review of a diff for this application. Use when asked to review a PR, a branch, or a diff, or for a second opinion on changes. Review-only: surface findings with file:line anchors and a severity marker; never fix, commit, or push. Post to GitHub only when explicitly asked and approved."
 ---
 
 # Backend Code Review (Extension of 'code-review-openedx')
@@ -9,10 +9,9 @@ A senior peer review for the general backend application within the Open edX eco
 Surface what is wrong and why; let the developer decide what to act on. Never apply fixes,
 commit, or push from this skill.
 
-This skill runs at the top-level session (directly, or as `spike-and-stabilize`'s final
-step, which is explicitly run by "the strong main model, not the sub-agent"). Per the
-Delegation rule in `CLAUDE.md`, whoever runs it dispatches the sub-agents the parent skill
-names; it never runs inside a dispatched sub-agent that would then need to dispatch further.
+This skill runs in the top-level session. Per the Delegation rule in `CLAUDE.md`, whoever
+runs it dispatches the sub-agents the parent skill names; it never runs inside a dispatched
+sub-agent that would then need to dispatch further.
 
 ## Parent skill
 

@@ -1,11 +1,11 @@
 ---
 name: experimental-implement-ticket-starter
-description: Implement a github ticket by using the /spike-and-stabilize skill. 
+description: Implement a github ticket by using the superpowers skills. 
 ---
 
 ## Task
 
-Use the /spike-and-stabilize skill to implement a github ticket provided by the user. Use this background info as additional info augmenting the user's prompt.
+Use the superpowers skills, starting with `superpowers:brainstorming`, to implement a github ticket provided by the user. Use this background info as additional info augmenting the user's prompt.
 
 ## Questions to the User
 
