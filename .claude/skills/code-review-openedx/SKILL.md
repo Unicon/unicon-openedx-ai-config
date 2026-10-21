@@ -17,7 +17,7 @@ The review surfaces what is wrong and why, with evidence, and lets the developer
 act on. It never applies fixes, commits, or pushes. It posts to GitHub only when the developer
 asks and approves the wording.
 
-This skill runs in the top-level session, directly or as the final step of `spike-and-stabilize`.
+This skill runs in the top-level session.
 Per the Delegation rule in `CLAUDE.md`, that session is the only one that dispatches the
 sub-agents this skill names; a dispatched sub-agent never dispatches a further one. When a
 sub-agent needs something it cannot fetch, it returns a "Needs research" item and the top-level
