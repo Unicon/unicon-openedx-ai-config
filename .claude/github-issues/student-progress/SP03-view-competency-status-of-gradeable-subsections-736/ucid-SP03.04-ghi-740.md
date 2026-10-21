@@ -12,7 +12,7 @@ This ticket implements the oval status indicator display for each competency in 
 This implementation reads the competency statuses from the endpoint built in #738. The status shown is the learner's overall status for the competency across all courses, not only this course.
 
 For each competency tag serving as a card title (a card heading, at any depth), if the learner's status is:
-- Not yet recorded (no status row), then display the "Available" oval in blue/white with the corresponding icon.
+- Not yet recorded (no status row), then display the "Available" oval in slate with the dashed-ring icon.
 - PartiallyAttempted, then display the "Partially Attempted" oval in blue with the corresponding icon.
 - Demonstrated, then display the "Demonstrated" oval in green with the checkmark icon.
 
@@ -58,7 +58,7 @@ Scenario Outline: A card heading shows the learner's status for its competency
 
   Examples:
     | status              | label               | icon                |
-    | none recorded       | Available           | empty circle        |
+    | none recorded       | Available           | dashed-ring circle  |
     | Partially Attempted | Partially Attempted | half-filled circle  |
     | Demonstrated        | Demonstrated        | circle with a check |
 
