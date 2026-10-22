@@ -13,6 +13,27 @@ This skill runs in the top-level session. Per the Delegation rule in `CLAUDE.md`
 runs it dispatches the sub-agents the parent skill names; it never runs inside a dispatched
 sub-agent that would then need to dispatch further.
 
+## Step 0: component tree map (runs before everything else)
+
+When the review target is a pull request, run the `pr-component-tree` skill on it first, before
+reading the parent skill and before the parent's phase A. It does not count against phase A's
+tool-call budget. When the target is a branch or the working tree, skip this step and tell the
+developer why.
+
+1. Run `pr-component-tree` for the PR. It produces a Markdown file with the component tree as an
+   inline SVG, and a plain-text outline of the same tree and notes.
+2. Give the developer the result right away, in its own message and before the review starts:
+   the absolute path of the Markdown file and the short summary the skill prescribes. The
+   developer can read it while the review runs, so do not wait for the review to finish.
+3. Make the outline context for the review. In the parent's A4 shared brief, add one line: "Read
+   `<absolute path of the outline>` after this brief: the PR's component tree, one line per
+   component, with a note on each changed component and changed module." That line counts toward
+   the brief's 150 lines; the outline does not. Every B agent reads the outline after the brief.
+4. Treat the outline as orientation: which components changed, how they nest on each page, which
+   changed modules feed them, and what each change does. A sub-agent derived it from the diff, so
+   it is not evidence. Every finding still cites lines read at the head SHA, and a note in the
+   outline that the code contradicts is itself worth a finding.
+
 ## Parent skill
 
 This skill manually builds on the sibling `code-review-openedx` skill; Codex does not load
