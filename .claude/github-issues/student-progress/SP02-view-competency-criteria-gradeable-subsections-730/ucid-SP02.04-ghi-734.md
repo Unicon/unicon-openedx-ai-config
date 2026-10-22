@@ -16,6 +16,8 @@ Each card's layout will depend on the level of its tags, based on the following 
 - If a tag with competency criteria in this course is at the topmost level of its taxonomy, then display a card with that tag's name as the heading and the rules and subsections underneath.
 - If a tag with competency criteria in this course is right below the topmost level, then display a card with the tag's parent as the heading and the tag (along with any sibling tags that also have criteria in this course) as a child with the rules and subsections underneath it.
 - If that parent is itself below the topmost level, then add a breadcrumb above the card heading with each of the parent's ancestors.
+- If a tag with competency criteria in this course is also an ancestor, at any depth, of other tags with competency criteria in this course, then that ancestor heads the card, with its own rules and subsections first. Each descendant with criteria appears as a row nested along its path under the heading. The tags on that path that have no criteria of their own appear as rows too, with the target icon like every other tag in the card and nothing of their own underneath, and each row's children are indented beneath it so the hierarchy is visible (example: Ref 1 in the Acceptance Criteria).
+- If a tag that heads one card also appears in another card's breadcrumb, the two cards merge into one card headed by the shallower tag. The deeper card's heading becomes a row inside it with the target icon and nothing of its own, and the deeper card's content is indented beneath that row, as in the previous case (example: Ref 2 in the Acceptance Criteria).
 
 **Example:**
 ```
@@ -38,7 +40,7 @@ None of these tags is an ancestor or descendant of another, so they can all coex
 - A "Critical Thinking" card, with Analysis and Inference as children. Evaluation isn't shown, because it has no criteria in this course.
 - A "Problem Definition" card, with Root Cause Analysis as a child and a "Problem Solving" breadcrumb above the heading.
 
-Note that this course could not also have criteria on Critical Thinking itself, because Critical Thinking is the parent of Analysis and Inference.
+Note that this course could not also have criteria on Critical Thinking itself, because Critical Thinking is the parent of Analysis and Inference, unless a taxonomy re-import moved tags after the criteria were created.
 ```
 
 The tags with competency criteria in this course should have the target icon before them.
@@ -53,7 +55,7 @@ If this course has no CompetencyCriteria (if an empty array comes back from #733
 
 **Out of Scope (will be implemented in future tickets):**
 - Sunburst
-- Right hand column (`ProgressTabRelatedLinksSlot`)
+- Right hand column (#743)
 - Displaying grades in the cards
 - Displaying competency statuses in the cards
 - Expanding a subsection row to show attempts and score feedback
@@ -70,9 +72,9 @@ If this course has no CompetencyCriteria (if an empty array comes back from #733
 - Figma (six-level taxonomy): https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=1089-4395&t=eJLFBvoAFbCnde7b-4
 - Screenshots:
 
-<img width="3790" height="5248" alt="Image" src="https://github.com/user-attachments/assets/232b8e97-6728-4241-9ea8-9a0ac916dac8" />
+<img width="1155" height="1600" alt="Image" src="https://github.com/user-attachments/assets/c2af9fa4-ffd6-4adb-83e2-12ef5648f94a" />
 
-<img width="3790" height="5342" alt="Image" src="https://github.com/user-attachments/assets/fccf2dee-3b06-4ff2-99fa-9fec9ed66a3f" />
+<img width="1135" height="1600" alt="Image" src="https://github.com/user-attachments/assets/e9713d92-f9dd-4198-b636-73f3bf44e7b1" />
 
 ## Acceptance Criteria
 
@@ -129,12 +131,15 @@ Scenario: The course in the Description's example shows three cards
   When the learner opens the course's Progress tab
   Then exactly three cards appear: "Communication", "Critical Thinking", and "Problem Definition"
 
-Scenario: One tag can head one card and appear in another card's breadcrumb
+Scenario: A tag that heads one card and appears in another card's breadcrumb merges the two cards (Ref 2)
   Given "Problem Definition" and "Strategy Selection" are children of "Problem Solving", a top-level tag, and "Root Cause Analysis" is a child of "Problem Definition"
-  And the course has competency criteria on "Strategy Selection" and "Root Cause Analysis"
+  And the course has competency criteria on "Strategy Selection" and "Root Cause Analysis", and none on "Problem Solving" or "Problem Definition"
   When the learner opens the course's Progress tab
-  Then a card headed "Problem Solving" contains "Strategy Selection"
-  And a separate card headed "Problem Definition", with a "Problem Solving" breadcrumb, contains "Root Cause Analysis"
+  Then one card appears, headed "Problem Solving", with no target icon on the heading and no breadcrumb
+  And "Strategy Selection" appears inside the card, with a target icon and its groups and subsections under it
+  And "Problem Definition" appears inside the card as a row with a target icon and no groups or subsections of its own
+  And "Root Cause Analysis" appears indented under the "Problem Definition" row, with a target icon and its groups and subsections under it
+  And no card headed "Problem Definition" appears
 
 Scenario: A tag whose parent also has criteria appears under the parent's own requirements
   Given "Critical Thinking", a top-level tag, and its child "Analysis" both have criteria in this course, which can happen when a taxonomy is re-imported with a tag moved under a new parent after the criteria were created
@@ -142,6 +147,16 @@ Scenario: A tag whose parent also has criteria appears under the parent's own re
   Then one card appears, headed "Critical Thinking", with a target icon immediately before the heading
   And Critical Thinking's groups and subsections appear directly under the heading, before "Analysis"
   And "Analysis" appears inside the same card, with a target icon and its own groups and subsections under it
+
+Scenario: A tag whose ancestor two levels up has criteria appears nested along the path under that ancestor (Ref 1)
+  Given "Root Cause Analysis" is a child of "Problem Definition", which is a child of "Problem Solving", a top-level tag
+  And "Problem Solving" and "Root Cause Analysis" both have criteria in this course, and "Problem Definition" has none
+  When the learner opens the course's Progress tab
+  Then one card appears, headed "Problem Solving", with a target icon immediately before the heading and no breadcrumb
+  And Problem Solving's groups and subsections appear directly under the heading, before any row
+  And "Problem Definition" appears inside the card as a row with a target icon and no groups or subsections of its own
+  And "Root Cause Analysis" appears indented under the "Problem Definition" row, with a target icon and its groups and subsections under it
+  And no card headed "Problem Definition" appears
 
 Scenario: A tag that heads its own card isn't repeated in its parent's card
   Given "Problem Definition" is a child of "Problem Solving", a top-level tag, and "Root Cause Analysis" is a child of "Problem Definition"
@@ -356,8 +371,8 @@ The panel makes two requests through a react-query client the plugin owns: #733'
    1. Walk `outline.sections`, and each section's `sequence_ids`, in order. Index each usage key found in `outline.sequences` with its `title` and its position in the outline.
    2. Mark every criterion whose `object_id` isn't in that index as hidden. Hidden criteria are counted, never dropped, and the outline can't say why one is missing, so a deleted subsection counts the same as a hidden one.
    3. The bottom-tier groups are the course-level group's direct children, ordered by `ordering`. In each bottom-tier group, group the criteria into rule boxes by effective rule, the same identity #672 gives rule boxes on the Competency Management page, and order the boxes by their lowest criterion `id`, as #672 does. Order each rule box's visible subsections by outline position, and give the box a hidden count for its placeholder row. #665 creates only three levels of groups, with the bottom tier as the lowest, so how a deeper tree displays is left to #731 and #732.
-   4. Build the cards from each tag's `lineage`. A top-level tag heads its own card, and any other tag is a row in the card headed by its parent. When a tag is also the parent of another tag in the response, that tag heads the card and gets the target icon: its own groups go under the heading, ahead of the child rows, and it is not also a row in its own parent's card. Each `lineage` entry carries the tag's `id` and `value` (#733), ordered from the top of the taxonomy. The breadcrumb is the `value` of each entry in the heading's lineage without the heading. Key cards by the heading's tag `id`, and carry that `id` on the card and each row's tag `id` on the row, so #740 can attach competency statuses by tag id.
-   5. Group the cards into taxonomy sections, ordered by taxonomy name. Every section gets its taxonomy heading, including when there is only one.
+   4. Build the cards from each tag's `lineage`. A top-level tag heads its own card, and any other tag is a row in the card headed by its parent. When a tag in the response is an ancestor, at any depth, of another tag in the response, the ancestor heads the card and gets the target icon: its own groups go under the heading, ahead of the rows; each descendant with criteria is a row nested along its lineage path below the heading; the tags on that path with no criteria are rows with the target icon, no groups, and their children indented beneath them; and the ancestor is not also a row in its own parent's card. When a card's heading appears in the lineage of another card's heading, merge the deeper card into the shallower one: the deeper heading becomes a path row and its rows nest beneath it, so no tag both heads a card and appears in another card's breadcrumb. Each `lineage` entry carries the tag's `id` and `value` (#733), ordered from the top of the taxonomy. The breadcrumb is the `value` of each entry in the heading's lineage without the heading. Key cards by the heading's tag `id`, and carry that `id` on the card and each row's tag `id` on the row, path rows included, so #740 can attach competency statuses by tag id.
+   5. Group the cards into taxonomy sections, ordered by taxonomy name. Every section gets its taxonomy heading, including when there is only one. Within a section, keep the cards in the order #733 returns their heading tags, which #733 guarantees is the same on every request.
 
    Visibility removes nothing, because #733 already prunes every branch with no criterion, so every layout decision comes straight from #733's response: which tags head cards, whether a group's single rule sits on the group line, and where an AND/OR separator appears. The test fixtures should cover the Description's example, a tag with criteria alongside its own ancestor, a rule box mixing a profile-based criterion and an override criterion with the same effective rule (the backend normalizes this case away, but the grouping must key on the effective rule, not the profile ID), an unrecognized rule type or `op` (the subsection still appears, the line has no threshold, and the rule is logged), a rule box whose subsections are all hidden, a course whose subsections are all hidden, and placeholder counts of one and of several.
 6. **Rule text.** `formatRuleText(rule, intl)` in `src/ruleText.js` maps `gte`, `lte`, and `eq` to their messages.
@@ -367,7 +382,7 @@ The panel makes two requests through a react-query client the plugin owns: #733'
    - The placeholder row's text is one ICU plural message, so translators control the singular and plural forms.
    - Write the strings in `src/messages.js` in sentence case, and uppercase them with Paragon's `text-uppercase` class, so translators don't receive all-caps source strings.
 7. **Components.** `CompetencyProgressPanel` keeps its name and takes no props. It reads `courseId` from `useProgressRouteParams` and calls `useCompetencyCards`. It returns null unless both queries have data and the criteria response is non-empty; that single check covers loading, either request failing, and an empty result. `CompetencyCard` and `CriteriaGroupList` take the transform's output as plain props. The transform needs no try/catch, because the slot's error boundary and #829's `SilentErrorFallback` already contain a render-time throw.
-8. **Packaging and wiring.** Add `@tanstack/react-query` to `package.json` as a peer dependency at `"^5"`, because passing the client as `useQuery`'s second argument is v5 API. The Learning MFE on master already depends on v5, so the package reuses the host's copy. The `competency_progress_panel` registration stays as it is. Remove the `competency_progress_summary` registration from #829's `getPluginSlots`, which both `example.env.config.jsx` and tutor-mfe use, so learners don't see #829's sidebar placeholder before #743 replaces it.
+8. **Packaging and wiring.** Add `@tanstack/react-query` to `package.json` as a peer dependency at `"^5"`, because passing the client as `useQuery`'s second argument is v5 API. The Learning MFE on master already depends on v5, so the package reuses the host's copy. Both registrations in #829's `getPluginSlots` stay as they are; #829's sidebar placeholder remains visible until #743 replaces it.
 
 **Files to create and modify**
 
@@ -376,7 +391,7 @@ Paths are relative to the root of the plugin repository from #810.
 | File | Change |
 | --- | --- |
 | `src/CompetencyProgressPanel.jsx` | modified: the real panel replaces #829's placeholder |
-| `src/CompetencyCard.jsx` | new: breadcrumb, heading, heading's own groups, child rows |
+| `src/CompetencyCard.jsx` | new: breadcrumb, heading, heading's own groups, child rows, nested path rows under an ancestor with criteria |
 | `src/CriteriaGroupList.jsx` | new: bottom-tier groups, separators, rule lines, subsections, placeholder rows |
 | `src/ruleText.js` | new: `formatRuleText` |
 | `src/messages.js` | new |
@@ -385,7 +400,6 @@ Paths are relative to the root of the plugin repository from #810.
 | `src/data/apiHooks.js` | new |
 | `src/data/buildCompetencyCards.js` | new |
 | `package.json` | modified: `@tanstack/react-query` peer dependency |
-| `src/pluginSlots.js` | modified: sidebar registration removed |
 
 **Additional context**
 

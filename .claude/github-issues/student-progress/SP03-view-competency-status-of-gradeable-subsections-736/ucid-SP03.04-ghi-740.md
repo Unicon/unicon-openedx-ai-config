@@ -12,7 +12,7 @@ This ticket implements the oval status indicator display for each competency in 
 This implementation reads the competency statuses from the endpoint built in #738. The status shown is the learner's overall status for the competency across all courses, not only this course.
 
 For each competency tag serving as a card title (a card heading, at any depth), if the learner's status is:
-- Not yet recorded (no status row), then display the "Available" oval in blue/white with the corresponding icon.
+- Not yet recorded (no status row), then display the "Available" oval in slate with the dashed-ring icon.
 - PartiallyAttempted, then display the "Partially Attempted" oval in blue with the corresponding icon.
 - Demonstrated, then display the "Demonstrated" oval in green with the checkmark icon.
 
@@ -20,6 +20,8 @@ For each competency tag serving as a card subtitle (a tag row inside a card), wi
 - Not yet recorded (no status row), then display "Available" after the pipe next to the tag name.
 - PartiallyAttempted, then display "Partially Attempted" after the pipe next to the tag name.
 - Demonstrated, then display "Demonstrated" after the pipe next to the tag name.
+
+A tag row that appears only because a descendant has criteria shows its status just like all other subtitle tags.
 
 Breadcrumb entries above a card heading show no status.
 
@@ -34,7 +36,7 @@ If any subsection under a competency tag in this course shows "Available" becaus
 - [Figma Link](https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=983-3817&t=2Jkl6fnaAmO6aSi1-1)
 - Screenshots:
 
-<img width="799" height="892" alt="Image" src="https://github.com/user-attachments/assets/85cdd996-4487-4133-b175-7aa521503704" />
+<img width="1155" height="1600" alt="Image" src="https://github.com/user-attachments/assets/eaced074-3fe8-4418-9261-12ce93e6849a" />
 
 ## Acceptance Criteria
 
@@ -56,7 +58,7 @@ Scenario Outline: A card heading shows the learner's status for its competency
 
   Examples:
     | status              | label               | icon                |
-    | none recorded       | Available           | empty circle        |
+    | none recorded       | Available           | dashed-ring circle  |
     | Partially Attempted | Partially Attempted | half-filled circle  |
     | Demonstrated        | Demonstrated        | circle with a check |
 
@@ -79,6 +81,15 @@ Scenario: A card heading with no criteria of its own shows its competency's own 
   When the learner opens the course's Progress tab
   Then the "Critical Thinking" card heading shows "Partially Attempted"
   And the "Analysis" and "Inference" tag rows each show "Demonstrated"
+
+Scenario: A path row with no criteria of its own shows its status like any tag row
+  Given "Root Cause Analysis" is a child of "Problem Definition", which is a child of "Problem Solving", a top-level tag
+  And this course has criteria on "Problem Solving" and "Root Cause Analysis", and none on "Problem Definition", so one "Problem Solving" card contains a "Problem Definition" row with "Root Cause Analysis" nested under it
+  And the learner's competency status is Demonstrated for "Root Cause Analysis" and Partially Attempted for "Problem Definition" and "Problem Solving"
+  When the learner opens the course's Progress tab
+  Then the "Problem Solving" card heading shows "Partially Attempted"
+  And the "Problem Definition" tag row shows "Partially Attempted"
+  And the "Root Cause Analysis" tag row shows "Demonstrated"
 
 Scenario: A card heading below the top level shows its status, and its breadcrumb shows none
   Given "Root Cause Analysis" is a child of "Problem Definition", which is a child of "Problem Solving", a top-level tag

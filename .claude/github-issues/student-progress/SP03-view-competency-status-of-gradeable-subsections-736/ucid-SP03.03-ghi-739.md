@@ -12,7 +12,7 @@ This ticket implements the oval status indicator display for each subsection ass
 This implementation will call the endpoint built in #738 to get the competency statuses and the Progress API `/api/course_home/v1/progress/{course_key}` to get the subsection percentage scores.
 
 For each subsection, if the learner's competency status on it is:
-- Nonexistent, then display the "Available" oval in blue/white with the corresponding icon.
+- Nonexistent, then display the "Available" oval in slate with the dashed-ring icon.
 - AttemptedNotDemonstrated, then display the "Not Demonstrated" oval in red with the corresponding icon.
 - Demonstrated, then display their percentage score on this assignment in the oval in green with the checkmark icon.
 
@@ -35,7 +35,7 @@ If the course hides the subsection's score from the learner, or the subsection i
 These scenarios use #734's terms (card, group, group line, rule line, placeholder row) and these:
 
 - A named row is a subsection row that shows the subsection's name. A placeholder row is not a named row.
-- An oval is the status indicator on a named row. "Available" has an empty-circle icon. "Not Demonstrated" has a circle-with-a-minus icon. "Demonstrated" has a check icon and shows the learner's score on the subsection as a percentage.
+- An oval is the status indicator on a named row. "Available" has a slate circle with a dashed ring as its icon. "Not Demonstrated" has a circle-with-a-minus icon. "Demonstrated" has a check icon and shows the learner's score on the subsection as a percentage.
 - The learner's recorded status on a named row is the status the platform recorded for that learner, on that subsection, for the row's competency, when the subsection's grade was recorded. A learner who hasn't submitted a subsection has no recorded status on it.
 - A subsection's results visibility is its assessment results visibility setting in Studio.
 - Unless a scenario says otherwise, every subsection is released and its results are always shown to the learner.
@@ -181,7 +181,7 @@ The panel makes two more requests through #734's plugin-owned query client: #738
    - `buildCompetencyCards` carries each named subsection row's criterion `id`, alongside the tag ids #734 already carries. Each named row looks up its own criterion `id`, so a subsection under two tags, or in two groups under one tag, shows each criterion's own status. Joining by `object_id` would give both rows the same status.
    - #839's `useCompetencyPanelState` and its loading rule need no change, because the cards don't wait for #738 or the Progress API.
 7. **Oval.** `StatusOval({ status, percentGraded })` in `src/StatusOval.jsx` renders Available, Partially Attempted, Not Demonstrated, and Demonstrated. #740 reuses it on card headings.
-   - Icons: #768's icons, which Paragon exports as `RadioButtonUnchecked`, `Contrast`, `RemoveCircle`, and `CheckCircle`.
+   - Icons and colors: #768's Option G (Phil's 2026-10-08 comment, approved on the Axim/Unicon sync). Available is a slate circle with a dashed ring, `#CBD5E1`; Demonstrated `#3FA36F`; Partially Attempted `#0A67A3`; Not Demonstrated `#741420`. Paragon exports `Contrast`, `RemoveCircle`, and `CheckCircle` for the last three; the dashed-ring Available icon and the slate, green, and red colors are not in Paragon, and Phil is raising them with the Paragon WG. Put the four statuses' icons and colors in one shared status map that every renderer of a status reads (these ovals, #740's pills, #743's rows, #747's legend and segments).
    - Shape: pass `Badge`'s `pill` prop, which sets Paragon's pill radius (`--pgn-size-badge-border-radius-pill`), to match the design's fully rounded ovals. `Badge`'s default radius (`0.25rem`) is nearly square.
    - Outlined "Available" oval: Paragon's `Badge` has no outlined variant. If the design's "Available" oval is outlined, override `Badge`'s `--pgn-badge-bg` and add a border locally, and call out the gap in the PR description.
    - Accessibility: when `percentGraded` is passed, the Demonstrated oval shows the percentage as visible text, with "Demonstrated" in an `sr-only` sibling placed before it, so a screen reader reads "Demonstrated, 95%". The icon is `aria-hidden`.
