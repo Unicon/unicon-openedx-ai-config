@@ -142,5 +142,8 @@ the other various tasks.
   plan, then implement it test-first. Claude asks you to install superpowers if it is
   missing. Skip this for trivial changes like renames or typo fixes.
 - **Reviewing a diff or PR:** the `frontend-code-review` or `backend-code-review` skill as appropriate.
+  For a frontend PR, `frontend-code-review` first hands you a Markdown file with the PR's component
+  tree (edited and new components in red, notes on what changed), made by the `pr-component-tree`
+  skill, which you can also run on its own.
 - **Everything else** (`CLAUDE.md`, the principles docs) loads as background context
   automatically. You never invoke it directly, it's just informing every response.

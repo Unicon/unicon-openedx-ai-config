@@ -1,0 +1,217 @@
+{
+ "title": "Component trees per page: what PR #6 changed",
+ "subtitle": "AShatsila/frontend-app-authoring PR #6 \"feat: scope competency associations to the listed courses (#683)\", head aa5b441.",
+ "pages": [
+  {
+   "title": "Page: CompetencyManagementPage",
+   "sub": "Route /taxonomy/:taxonomyId/competencies (src/index.jsx). Components follow the JSX nesting; grey text lines are changed non-React modules, listed under the component that calls them.",
+   "nodes": [
+    {
+     "depth": 0,
+     "name": "CompetencyManagementPage",
+     "status": "same",
+     "notes": [
+      "Unchanged. Renders CompetencyAssociationsPanel inside the page layout."
+     ]
+    },
+    {
+     "depth": 1,
+     "name": "CompetencyAssociationsPanel",
+     "status": "same",
+     "notes": [
+      "Unchanged. Mounts the tree and, once a competency is selected, the provider + course pane."
+     ]
+    },
+    {
+     "depth": 2,
+     "name": "CompetencyTree",
+     "status": "same",
+     "notes": []
+    },
+    {
+     "depth": 3,
+     "name": "CompetencyTreeItem",
+     "status": "same",
+     "notes": []
+    },
+    {
+     "depth": 2,
+     "name": "CompetencyAssociationsProvider",
+     "status": "changed",
+     "notes": [
+      "Context provider in CompetencyAssociationsContext.tsx. Associations are now scoped to the courses currently listed.",
+      "New notifyCoursesDisplayed(keys) / displayedCourseKeys: the course list reports its keys, and the criteria-groups query runs with them (disabled until the first report).",
+      "New isLoadingAssociations (groups or profile query pending) and isCourseAccessResolved (every course outline fetch settled).",
+      "associatedObjectIds (duplicate guard and 'already associated' marking) now covers listed courses only.",
+      "When the listed courses change, an unsaved placeholder row is discarded; post-delete focus reads the course-scoped cache entry."
+     ]
+    },
+    {
+     "depth": 3,
+     "name": "data/apiHooks.ts",
+     "status": "mod",
+     "notes": [
+      "Criteria-groups query is keyed by the listed course keys and skipped (skipToken) until they are reported.",
+      "New refreshCompetencyCriteriaGroups: after every write (create, operator, rule score, delete) it drops inactive cached pages and refetches the active one."
+     ]
+    },
+    {
+     "depth": 4,
+     "name": "data/api.ts",
+     "status": "mod",
+     "notes": [
+      "getCompetencyCriteriaGroups(tagId, courseKeys) always sends course_keys (comma-joined; empty means instance-wide only)."
+     ]
+    },
+    {
+     "depth": 3,
+     "name": "data/types.ts",
+     "status": "mod",
+     "notes": [
+      "New CompetencyCriteriaTree (groups + criteria). CompetencyCriteriaGroupsResponse extends it with criteriaCount and totalCriteriaCount."
+     ]
+    },
+    {
+     "depth": 3,
+     "name": "utils.ts",
+     "status": "mod",
+     "notes": [
+      "buildCompetencyCriteriaGroupsIndex and associatedObjectIds retyped to take CompetencyCriteriaTree. No logic change."
+     ]
+    },
+    {
+     "depth": 3,
+     "name": "CourseSearchBrowse",
+     "status": "changed",
+     "notes": [
+      "Reports the listed course keys to the provider via notifyCoursesDisplayed in an effect.",
+      "Runs a second courses query (pageSize 1) to get the total accessible-course count.",
+      "Renders the new CourseListSummary under the toolbar, only once both counts are known and the association data matches the listed page (no stale numbers).",
+      "Passes courseListStatus to CriteriaAssociationsSection."
+     ]
+    },
+    {
+     "depth": 4,
+     "name": "CourseSearchBrowse.scss",
+     "status": "mod",
+     "notes": [
+      "Summary line gets overflow-wrap: anywhere."
+     ]
+    },
+    {
+     "depth": 4,
+     "name": "SearchField + DatePicker toolbar",
+     "status": "same",
+     "notes": []
+    },
+    {
+     "depth": 4,
+     "name": "CourseListSummary",
+     "status": "new",
+     "notes": [
+      "NEW component: the summary line under the search field.",
+      "Shows 'N of M courses' plus 'A of B criteria associations' (in the listed courses vs. all courses).",
+      "Six message variants for search term / start date / end date combinations. Search term truncated at 50 characters; dates shown as MM-DD-YYYY."
+     ]
+    },
+    {
+     "depth": 5,
+     "name": "course-search/messages.ts",
+     "status": "mod",
+     "notes": [
+      "Six new courses-summary messages, one per filter combination."
+     ]
+    },
+    {
+     "depth": 4,
+     "name": "CriteriaAssociationsSection",
+     "status": "changed",
+     "notes": [
+      "New required prop courseListStatus ('pending' | 'error' | 'success').",
+      "Shows a small spinner while the course list loads and renders CourseGroupList only on success, since groups are scoped to the listed courses."
+     ]
+    },
+    {
+     "depth": 5,
+     "name": "CourseGroupList",
+     "status": "changed",
+     "notes": [
+      "Loading check uses isPending instead of isLoading, because the scoped query starts disabled.",
+      "New spinner while the visible group list is empty but isCourseAccessResolved is false, so 'not known yet' no longer renders as the empty state.",
+      "Empty state now means 'none in the listed courses'. Empty-state focus effect also depends on isCourseAccessResolved."
+     ]
+    },
+    {
+     "depth": 6,
+     "name": "CourseGroupSection",
+     "status": "same",
+     "notes": []
+    },
+    {
+     "depth": 7,
+     "name": "GroupConnector",
+     "status": "same",
+     "notes": []
+    },
+    {
+     "depth": 7,
+     "name": "CriteriaGroupBox",
+     "status": "same",
+     "notes": []
+    },
+    {
+     "depth": 8,
+     "name": "RuleBoxList",
+     "status": "same",
+     "notes": []
+    },
+    {
+     "depth": 9,
+     "name": "RuleBox",
+     "status": "same",
+     "notes": [
+      "Group/rule components are unchanged; only their tests got the new response fields (criteriaCount, totalCriteriaCount)."
+     ]
+    },
+    {
+     "depth": 10,
+     "name": "ScoreThresholdField, CriterionChipList",
+     "status": "same",
+     "notes": []
+    },
+    {
+     "depth": 7,
+     "name": "AddControl",
+     "status": "same",
+     "notes": []
+    },
+    {
+     "depth": 4,
+     "name": "CourseRow",
+     "status": "same",
+     "notes": []
+    },
+    {
+     "depth": 5,
+     "name": "CourseOutlineSubtree",
+     "status": "changed",
+     "notes": [
+      "SubsectionRow's 'associate' button is also disabled while isLoadingAssociations, so a click cannot land before the groups and default profile have loaded."
+     ]
+    }
+   ]
+  }
+ ],
+ "otherPages": {
+  "heading": "Other pages that use this PR's changed components or modules: none",
+  "lines": [
+   "Checked by searching src/ for imports of taxonomy/competency-management, CompetencyAssociationsContext, the course-search and criteria-groups barrels, and the competency data hooks.",
+   "The only consumers outside the folder are src/taxonomy/index.ts and src/index.jsx, which mount CompetencyManagementPage at /taxonomy/:taxonomyId/competencies. data/api.ts, data/apiHooks.ts, data/types.ts and utils.ts are imported only inside the folder.",
+   "If another page starts reusing these, it gets its own section here."
+  ]
+ },
+ "footnotes": [
+  "Not drawn: test-only changes (*.test.tsx, testHelpers.tsx); shared widgets (Pagination, AlertMessage, LoadingSpinner, Helmet, Breadcrumb, SubHeader); competency-tree internals below CompetencyTreeItem. None of these changed in source.",
+  "Components such as CourseGroupSection, RuleBoxList and RuleBox also import utils.ts and data/types.ts, but only exports this PR did not touch, so those modules are listed once, under the provider that uses the changed ones."
+ ]
+}
