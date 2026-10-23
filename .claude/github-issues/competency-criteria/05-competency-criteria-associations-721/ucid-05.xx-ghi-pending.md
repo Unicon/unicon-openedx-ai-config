@@ -1,4 +1,4 @@
-# [Follow-up - BE] Reject a competency taxonomy import that re-arranges tags into a dominance conflict
+# [Follow-up - BE] Block dominance conflicts on taxonomy re-import
 
 GitHub: pending
 Cached: 2026-10-23
