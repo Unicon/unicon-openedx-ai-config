@@ -57,3 +57,10 @@ and styling questions to remit B5, any test question to remit B4, and the rest t
 3. Does it adhere to general best practices for this repo's version of React? 
 4. Is it using TypeScript, TanStackQuery instead of Redux, other things? 
 5. Is it avoiding inline styles?
+
+## Delivering the review
+
+When the review is done, your response in chat is only a link to the cleaned-up file that the
+parent's phase D produces, nothing more. When the user asked questions that are an integral part
+of the review, the answers are part of the review in that file. The component tree message from
+step 0 is sent earlier, while the review runs.
