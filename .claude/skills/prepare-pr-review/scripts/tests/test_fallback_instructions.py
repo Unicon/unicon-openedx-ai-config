@@ -1,6 +1,7 @@
 import re
 from pathlib import Path
 
+import fallback_instructions
 from fallback_instructions import LIMIT, compose_instructions, main
 
 BASE_FILE = Path(__file__).resolve().parents[2] / "references" / "guide-instructions-base.md"
@@ -52,10 +53,15 @@ def test_texts_cut_to_150_next():
 
 
 def test_texts_cut_to_first_line_next():
-    criteria = [(f"AC{i}", "Scenario: " + "a" * 140 + "\n" + "b" * 100) for i in range(1, 11)]
+    first = "Scenario: " + "a" * 50
+    criteria = [(f"AC{i}", first + "\n" + "Z" * 100) for i in range(1, 15)]
+    assert len(compose_instructions("B", criteria, limit=10**6)) > LIMIT
+    cut_150 = [(cid, text[:150]) for cid, text in criteria]
+    assert len(fallback_instructions._assemble("B", cut_150)) > LIMIT
     out = compose_instructions("B", criteria)
-    assert len(out) <= LIMIT
-    assert "a" * 140 in out and "b" not in out.replace("B", "", 1) and "…" not in out
+    assert len(out) <= LIMIT and not out.endswith("…")
+    assert "Z" not in out
+    assert all(f"AC{i}:\n{first}\n" in out for i in range(1, 15))
 
 
 def test_hard_cut_last():
