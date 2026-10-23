@@ -1,7 +1,7 @@
 # Mastery status lookup + learner progress models
 
-GitHub: https://github.com/openedx/openedx-core/issues/642 (#642, OPEN)
-Cached: 2026-09-25
+GitHub: https://github.com/openedx/openedx-core/issues/642 (#642, CLOSED)
+Cached: 2026-10-22
 
 # Mastery status lookup + learner progress models
 

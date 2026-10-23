@@ -1,7 +1,7 @@
 # Competency criteria models (authoring/definition layer)
 
-GitHub: https://github.com/openedx/openedx-core/issues/641 (#641, OPEN)
-Cached: 2026-09-25
+GitHub: https://github.com/openedx/openedx-core/issues/641 (#641, CLOSED)
+Cached: 2026-10-22
 
 # Competency criteria models (authoring/definition layer)
 

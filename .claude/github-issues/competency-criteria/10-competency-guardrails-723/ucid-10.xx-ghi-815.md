@@ -1,7 +1,7 @@
 # [BE] Exclude archived criteria and groups when rolling up a learner's competency status
 
 GitHub: https://github.com/openedx/openedx-core/issues/815 (#815, OPEN)
-Cached: 2026-09-21
+Cached: 2026-10-22
 
 ## User Story
 
@@ -10,7 +10,7 @@ As a learner, I want a mastery requirement that has been archived to stop counti
 ## Acceptance Criteria
 
 ```
-Scenario: An archived requirement no longer has to be met
+Scenario: A archived requirement no longer has to be met
   Given a criteria group requires two assignments together
     And the requirement for the first assignment has been archived
   When a learner demonstrates the requirement for the second assignment
@@ -24,7 +24,7 @@ Scenario: A requirement a learner failed before it was archived no longer holds 
   When that learner demonstrates the requirement for the second assignment
   Then that learner's status for that group reports "demonstrated"
 
-Scenario: An archived branch no longer has to be completed
+Scenario: A archived branch no longer has to be completed
   Given a criteria group requires two nested groups together
     And one of those two nested groups has been archived
   When a learner demonstrates every requirement of the other nested group
@@ -105,7 +105,7 @@ This section is background and a suggested approach, not the ticket's source of 
 
 **The parent-competency rule itself doesn't change.** \#643 already computes a parent as demonstrated through its own requirements or through all of its sub-competencies. A fully archived sub-competency simply never produces a status, so it already fails that second route without any change to the rule.
 
-**Not automatic: the investigation-logging query is widened.** \#643 logs a sub-competency with no root criteria group anywhere beneath it as an authoring gap. Archiving marks that group as archived rather than deleting it, so the row still exists and today's check would miss it. This ticket adds `archived=False` to the same existence check, so an archived branch is flagged the same as one that was never authored, per \#643's own convention of not caring why a status can never be produced, only that it can't. Trade-off: the warning now fires on every rollup for an affected learner, not once.
+**Not automatic: the investigation-logging query is widened.** \#643 logs a sub-competency with no root criteria group anywhere beneath it as an authoring gap. Archiving that group rather than deleting it, so the row still exists and today's check would miss it. This ticket adds `archived=False` to the same existence check, so an archived branch is flagged the same as one that was never authored, per \#643's own convention of not caring why a status can never be produced, only that it can't. Trade-off: the warning now fires on every rollup for an affected learner, not once.
 
 ### Implementation specifics
 

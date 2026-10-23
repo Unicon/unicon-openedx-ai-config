@@ -1,7 +1,7 @@
 # [FE] Add taxonomy type badge to Taxonomies page
 
-GitHub: https://github.com/openedx/openedx-core/issues/616 (#616, OPEN)
-Cached: 2026-09-21
+GitHub: https://github.com/openedx/openedx-core/issues/616 (#616, CLOSED)
+Cached: 2026-10-22
 
 ## Use Case
 

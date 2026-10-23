@@ -1,7 +1,7 @@
 # [BE] Create CompetencyCriteria
 
-GitHub: https://github.com/openedx/openedx-core/issues/665 (#665, OPEN)
-Cached: 2026-10-15
+GitHub: https://github.com/openedx/openedx-core/issues/665 (#665, CLOSED)
+Cached: 2026-10-22
 
 **Blocked by** \#613 (the CBE data model): `CompetencyCriteriaGroup`/`CompetencyCriterion` exist only as approved design in ADR 0002, not yet in code.
 

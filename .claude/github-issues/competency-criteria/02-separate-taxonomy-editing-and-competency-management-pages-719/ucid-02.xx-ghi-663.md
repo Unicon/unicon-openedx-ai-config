@@ -1,7 +1,7 @@
 # [FE] Add "Apply Competencies" entry point to the taxonomy card menu and footer, with a placeholder Competency Management page
 
-GitHub: https://github.com/openedx/openedx-core/issues/663 (#663, OPEN)
-Cached: 2026-09-21
+GitHub: https://github.com/openedx/openedx-core/issues/663 (#663, CLOSED)
+Cached: 2026-10-22
 
 **Blocked by:** \#616, "\[FE\] Add taxonomy type badge to Taxonomies page" (open, unmerged). \#616 owns the `TaxonomyData` field this ticket's conditional-visibility logic keys off — that field does not exist in `frontend-app-authoring` today. \#616 is itself blocked on backend issues \#618 and \#630 (unmerged). This ticket is ready for development but cannot be implemented, demoed, or tested until \#616 lands.
 

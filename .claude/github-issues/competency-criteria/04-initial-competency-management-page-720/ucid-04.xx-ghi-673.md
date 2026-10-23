@@ -1,7 +1,7 @@
 # [BE] Support editing an existing tag's external_id (Competency ID) on taxonomy re-import
 
-GitHub: https://github.com/openedx/openedx-core/issues/673 (#673, OPEN)
-Cached: 2026-09-21
+GitHub: https://github.com/openedx/openedx-core/issues/673 (#673, CLOSED)
+Cached: 2026-10-22
 
 ## Use Case
 

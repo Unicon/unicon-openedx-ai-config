@@ -1,7 +1,7 @@
 # [FE] Confirm every deletion of a tag association from the Competency Management page
 
 GitHub: https://github.com/openedx/openedx-core/issues/786 (#786, OPEN)
-Cached: 2026-09-25
+Cached: 2026-10-22
 
 ## User Story
 
@@ -96,7 +96,7 @@ Screenshots:
 
 ## Description
 
-Removing a competency's association with a piece of content on the Competency Management page happens immediately, with no confirmation. Underneath, that removal will either delete the association or archive it, depending on whether any learner has been evaluated through it, and the author is deliberately not told which.
+Removing a competency's association with a piece of content on the Competency Management page happens immediately, with no confirmation. Underneath, that removal will either delete the association or archives it, depending on whether any learner has been evaluated through it, and the author is deliberately not told which.
 
 This ticket adds the confirmation step. The wording and behavior come from the design spike \#775. The backend behavior it triggers is \#674 (delete one criterion) and \#675 (delete a whole group).
 

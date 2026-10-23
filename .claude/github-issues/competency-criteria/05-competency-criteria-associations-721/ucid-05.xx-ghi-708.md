@@ -1,7 +1,7 @@
 # [UXD Spike] Manage & Apply Competencies: clarify multi-box combining-operator UX and distinguish group levels visually
 
-GitHub: https://github.com/openedx/openedx-core/issues/708 (#708, OPEN)
-Cached: 2026-09-21
+GitHub: https://github.com/openedx/openedx-core/issues/708 (#708, CLOSED)
+Cached: 2026-10-22
 
 ## Use Case
 

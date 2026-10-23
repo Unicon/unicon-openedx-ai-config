@@ -1,7 +1,7 @@
 # [FE] Bundle the CBE Student Progress widgets with tutor-mfe
 
-GitHub: https://github.com/openedx/openedx-core/issues/828 (#828). Depends on #810, #829, and #734.
-Cached: 2026-09-22
+GitHub: https://github.com/openedx/openedx-core/issues/828 (#828, OPEN). Depends on #810, #829, and #734.
+Cached: 2026-10-22
 
 ## User Story
 

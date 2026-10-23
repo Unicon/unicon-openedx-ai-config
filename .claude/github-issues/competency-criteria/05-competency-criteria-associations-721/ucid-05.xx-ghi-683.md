@@ -1,7 +1,7 @@
 # [FE] Implement the plan to handle large quantities of competency criteria associations (pagination, filtering, cues to user, other?) on the frontend
 
 GitHub: https://github.com/openedx/openedx-core/issues/683 (#683, OPEN)
-Cached: 2026-09-21
+Cached: 2026-10-22
 
 ## User Story
 
@@ -160,6 +160,8 @@ Scenario: A very long search term is shown truncated in the summary
   Then the summary states the search term truncated with an ellipsis, rather than in full
   And the course list is still filtered by the search term I actually entered, in full
 ```
+
+<img width="1422" height="1031" alt="Image" src="https://github.com/user-attachments/assets/2c2a9210-9587-46ee-8cdb-46ddcdbd43bd" />
 
 ## Description
 

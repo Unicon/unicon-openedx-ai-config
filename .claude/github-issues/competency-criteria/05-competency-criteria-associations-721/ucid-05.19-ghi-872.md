@@ -1,7 +1,7 @@
 # [BE] Enforce one root Competency Criteria Group per competency in the database
 
-GitHub: https://github.com/openedx/openedx-core/issues/872 (#872, Open)
-Cached: 2026-10-15
+GitHub: https://github.com/openedx/openedx-core/issues/872 (#872, OPEN)
+Cached: 2026-10-22
 
 ## User Story
 

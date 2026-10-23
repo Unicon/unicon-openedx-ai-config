@@ -1,7 +1,7 @@
 # [FE] Add Taxonomy Type dropdown to taxonomy import flow
 
-GitHub: https://github.com/openedx/openedx-core/issues/615 (#615, OPEN)
-Cached: 2026-09-21
+GitHub: https://github.com/openedx/openedx-core/issues/615 (#615, CLOSED)
+Cached: 2026-10-22
 
 ## Use Case
 
