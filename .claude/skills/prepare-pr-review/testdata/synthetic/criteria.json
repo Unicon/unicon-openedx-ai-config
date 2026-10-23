@@ -1,0 +1,32 @@
+{
+  "criteria": [
+    {
+      "id": "AC1",
+      "text": "An author can add a competency",
+      "implemented_at": [
+        "src/pages/CompetencyPage.tsx:12-30",
+        "src/data/api.ts:5-20"
+      ],
+      "tested_by": [
+        "src/data/api.test.ts::adds a competency"
+      ],
+      "verdict": "Covered"
+    },
+    {
+      "id": "AC2",
+      "text": "An author can change the level",
+      "implemented_at": [
+        "src/data/api.ts:22-30"
+      ],
+      "tested_by": [],
+      "verdict": "Implemented, untested"
+    },
+    {
+      "id": "AC3",
+      "text": "Deleting a competency asks for confirmation",
+      "implemented_at": [],
+      "tested_by": [],
+      "verdict": "Not implemented"
+    }
+  ]
+}

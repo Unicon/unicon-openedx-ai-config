@@ -1,0 +1,23 @@
+{
+  "url": "https://github.com/openedx/frontend-app-authoring/pull/123",
+  "number": 123,
+  "title": "Add competency levels",
+  "headRefOid": "abc123",
+  "files": [
+    {
+      "path": "src/pages/CompetencyPage.tsx"
+    },
+    {
+      "path": "src/data/api.ts"
+    },
+    {
+      "path": "src/data/api.test.ts"
+    },
+    {
+      "path": "migrations/0002_add_level.py"
+    },
+    {
+      "path": "src/old/Legacy.tsx"
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "verdict": "Ready to merge: no. AC3 is not implemented.",
+  "findings": [
+    {
+      "severity": "Bug",
+      "title": "Level is sent as a string",
+      "anchor": "src/data/api.ts:22-30",
+      "why": "The API expects an integer, so the PATCH returns 400."
+    },
+    {
+      "severity": "Nit",
+      "title": "Unused import",
+      "anchor": "src/pages/CompetencyPage.tsx:15",
+      "why": "The import of Badge is unused."
+    },
+    {
+      "severity": "Question",
+      "title": "Caller still passes the old prop",
+      "anchor": "src/unchanged/Caller.tsx:8",
+      "why": "Caller.tsx passes levelName, which the page no longer reads."
+    }
+  ]
+}
