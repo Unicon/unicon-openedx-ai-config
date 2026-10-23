@@ -1,7 +1,7 @@
 # [FE] Show and remove competency criteria whose gradeable subsection has been deleted
 
 GitHub: https://github.com/openedx/openedx-core/issues/826 (#826, OPEN)
-Cached: 2026-10-14
+Cached: 2026-10-22
 
 ## User Story
 
@@ -13,60 +13,59 @@ As a course author managing a competency's criteria, I want a criterion whose gr
       Given a criteria group contains a criterion for a gradeable subsection
         And that subsection has since been deleted from its course
       When I open that competency's criteria on the Competency Management page
-      Then the criterion is listed in its group alongside the group's other criteria
-        And it is labelled as an unresolvable subsection instead of showing a subsection title
+      Then the criterion is listed in its rule box alongside the group's other criteria
+        And in place of a subsection title it shows a "Content unavailable" chip, with the Warning icon
+        next to the text
 
     Scenario: An unresolvable criterion is distinguishable at a glance
       Given a criteria group contains one criterion whose subsection still exists and one whose
         subsection was deleted
       When I view that group
-      Then the unresolvable criterion carries a warning indication that the other criterion does not
+      Then the deleted subsection's criterion shows the "Content unavailable" chip and the Warning
+        icon, which the other criterion does not
         And the criterion whose subsection still exists shows its subsection title as it does today
 
     Scenario: The course the deleted subsection belonged to is named
       Given a criterion whose subsection was deleted
       When I view it
-      Then the course that subsection belonged to is identified on the criterion
-        And two unresolvable criteria from different courses are told apart by that course name
+      Then the "From within ..." header of the rule box that holds the criterion names the course
+        the subsection belonged to
+        And two unresolvable criteria from different courses are told apart by their rule boxes'
+        "From within ..." headers
 
-    Scenario: Removing an unresolvable criterion
-      Given a criteria group contains a criterion whose subsection was deleted
-      When I remove that criterion
-      Then it is no longer listed in the group
-        And the group's other criteria are still listed
-        And I am asked to confirm the removal in the same way I am for any other criterion
+    Scenario: A course's criteria are replaced by a loading placeholder while its outline loads
+      Given a criteria group contains criteria for subsections in a course
+      When I view that group before the course's outline has loaded
+      Then that course's criteria are replaced by one ghosted placeholder rule box showing a loading
+        spinner, rather than a loading state on each criterion
+        And no criterion is labelled "Content unavailable" while the outline is still loading
+        And once the outline has loaded, the placeholder is replaced by the criteria, each showing
+        its subsection title or the "Content unavailable" chip
 
-    Scenario: A subsection title that has not loaded yet is not reported as unresolvable
-      Given a criterion whose subsection still exists
-      When I view its group before its subsection title has loaded
-      Then the criterion shows a loading state
-        And it is not labelled unresolvable
-
-    Scenario: A failed or refused subsection lookup is not reported as unresolvable
+    Scenario: A failed or refused subsection lookup shows the same "Content unavailable" chip
       Given a criterion points at a subsection in a course whose outline cannot be read, either
         because the request fails or because I do not have access to that course
       When I view its group
-      Then the criterion shows that its subsection could not be checked
-        And it is not labelled unresolvable
+      Then the criterion shows the "Content unavailable" chip with the Warning icon, the same as a
+        criterion whose subsection was deleted, because the page cannot tell the two cases apart
         And the group's other criteria still render normally
 
     Scenario: A group whose every criterion is unresolvable still renders
       Given every criterion in a criteria group points at a deleted subsection
       When I view that group
-      Then the group renders with each of its criteria labelled unresolvable
+      Then the group renders with each of its criteria showing the "Content unavailable" chip
         And the group is not shown as empty
 
     Scenario: The unresolvable state is available to a keyboard and screen reader user
       Given a criterion whose subsection was deleted
-      When I move through its group using a keyboard
-      Then the unresolvable state is conveyed in text, not by color or an icon alone
-        And the criterion's removal control receives focus and is announced
+      When I move through its group using a keyboard or a screen reader
+      Then the "Content unavailable" state is conveyed in text, not by color or the icon alone
 
     Scenario: The unresolvable criterion is usable on a small screen
       Given a criterion whose subsection was deleted
       When I view its group on a small screen
-      Then its label and the course it belonged to stay readable without the layout overflowing
-        And its removal control is reachable
+      Then its "Content unavailable" chip and its rule box's "From within ..." header stay readable
+        without the layout overflowing
 
 ## Description
 
@@ -81,9 +80,13 @@ and every learner's recorded competency status in place. This is done so that ma
 
 This ticket makes those broken criteria visible, and allows the user to removable them.
 
-[Figma Design](https://www.figma.com/design/VhAdaucNQS49x0Afp9xPZw/Competency-Application?node-id=3149-32046&t=4aB6WHRUR0eYluqv-1)
+Figma Designs:
+[U1 · Content unavailable](https://www.figma.com/design/VhAdaucNQS49x0Afp9xPZw/Competency-Application?node-id=3149-32046)
+[U3 · Loading](https://www.figma.com/design/VhAdaucNQS49x0Afp9xPZw/Competency-Application?node-id=3149-32204)
 
-<img width="3548" height="2574" alt="Image" src="https://github.com/user-attachments/assets/50041e84-483d-4da7-94eb-ce5795a684dc" />
+<img width="1600" height="1161" alt="Image" src="https://github.com/user-attachments/assets/7d97f7b3-7f6c-44aa-870e-007c3671ee30" />
+
+<img width="1600" height="1161" alt="Image" src="https://github.com/user-attachments/assets/f1a92dc6-f9e9-49b6-8fb5-c839901212aa" />
 
 <details>
 <summary>Technical Details</summary>
@@ -104,11 +107,13 @@ than built here.
 
 **How the page decides a criterion is unresolvable.** Subsection titles are resolved on the client
 by taking the criterion's usage key, reading the outline of the course that key names, and finding
-the matching node. A criterion counts as unresolvable only when that outline was read successfully
-and contains no node with that usage key. Every other state is not evidence of a deletion: a
-request still in flight, a request that failed, and a course the author has no access to must each
-render as their own state. Treating them as deletions would show authors phantom warnings whenever
-a request failed.
+the matching node. A criterion counts as unresolvable when that outline was read and contains no
+node with that usage key, and also when the outline could not be read at all, because the request
+failed or the author has no access to the course: from the client the two cases look the same, so
+both show the same "Content unavailable" chip. A request still in flight is the one state that is
+not a verdict: while a course's outline loads, that course's criteria are replaced by one ghosted
+placeholder rule box with a `LoadingSpinner`, so no criterion is labelled before its outline has
+been checked.
 
 **Which course outlines the page loads, and through which query.** Parse the course key out of
 each criterion's usage key, reduce that to the distinct set of courses the competency's criteria
@@ -117,15 +122,11 @@ the criteria that do resolve, so this adds no request that titling does not alre
 them through the same cached query the course browse panel uses rather than a second request path,
 so a course already expanded in the browse panel costs nothing to resolve here.
 
-**Removal needs no new endpoint.** The single-criterion removal endpoint (#674) takes a criterion
-id, decides internally between deleting the row and archiving it depending on whether a learner
-status row references it, and never touches the shared tagging row. None of that depends on the
-subsection existing, so an unresolvable criterion removes exactly like any other one.
-
-**What the criterion shows in place of a title.** Name the state in words rather than leaning on an
-icon or a color, and include the course the deleted subsection belonged to, so an author with
-several unresolvable criteria can tell which course each one came from and judge which competency
-rule is affected.
+**What the criterion shows in place of a title.** The "Content unavailable" chip, with Paragon's
+`Warning` icon next to the text, so the state is named in words rather than by an icon or a color
+alone. The course the subsection belonged to is not repeated on the criterion: the rule box that
+holds it already names the course in its "From within ..." header, which is how an author with
+several unresolvable criteria tells which course each one came from.
 
 ### Implementation specifics
 
@@ -147,17 +148,16 @@ rule is affected.
   at `courseStructure` on the response envelope (`CourseOutline`, `src/course-outline/data/types.ts`)
   and recursing through each node's `childInfo.children`; the node fields come from `XBlockBase` and
   `XBlock` in `src/data/types.ts`. Do not assume a position or depth, and do not match on title.
-- **Branch on the query state explicitly.** Only a successful outline read with no matching usage
-  key yields the unresolvable state; pending and error states each render their own state, and a
-  permission failure is an error, not a deletion.
-- **Do not block the criteria list on the outline queries.** Render the groups and their criteria
-  first with titles pending, then settle each criterion as its course's outline resolves.
-- **Scope a failed outline read to the criteria that depend on it**, the way the course browse panel
-  renders a per-course outline failure as an inline error on that course's row rather than failing
-  the whole panel. One unreadable course must not take down the rest of the competency's criteria.
-- **Leave the removal control enabled while a title lookup is pending.** Removal needs only the
-  criterion id, which the criteria response already carries, so it does not depend on the outline
-  queries and must not be gated on them.
+- **Branch on the query state explicitly.** A pending outline query renders the ghosted placeholder
+  rule box with a `LoadingSpinner` for that course's criteria. A successful read with no matching
+  usage key and a failed read, including a permission failure, both render the "Content
+  unavailable" chip.
+- **Do not block the criteria list on the outline queries.** Render the groups at once, with each
+  course's criteria behind its placeholder, then replace each placeholder with the criteria as that
+  course's outline settles.
+- **Scope a failed outline read to the criteria that depend on it.** One unreadable course marks
+  only its own criteria "Content unavailable" and must not take down the rest of the competency's
+  criteria.
 - **Memoize the distinct course-key list on the criteria query's own data reference**, not on an
   array recomputed inline in the same render. A dependency rebuilt every render defeats the
   memoization silently, with no type error or failing test to catch it, and here it would refire a
@@ -187,25 +187,21 @@ rule is affected.
   `openedx-core`, which must not import from `openedx-platform` (enforced by `.importlinter`), so
   it cannot resolve a usage key against the modulestore or the content search index. Resolution
   stays on the client, which is also where titling already happens.
-- **Reuse the confirmation the criteria removal flow already shows.** Do not add a second dialog or
-  write new confirmation copy for this case.
-- **A removed criterion that carries learner status is archived rather than deleted**, and archived
-  records are excluded from read paths, so the criterion leaves the list on either branch without
-  this ticket special-casing the outcome.
 - **Tests:** a criterion whose usage key is absent from a successfully read outline renders the
-  unresolvable label, the warning icon, and its course; a criterion present in the outline renders
-  its title unchanged; a pending outline query renders a loading state and not the unresolvable
-  label; a failed outline query and a 403 each render the could-not-check state and not the
-  unresolvable label; a group whose every criterion is unresolvable renders all of them; an
-  unparseable stored key renders unresolvable without a course and without throwing; removal posts
-  the criterion id to the removal endpoint and drops the criterion from the list; several criteria
-  in one course fire a single outline query rather than one per criterion, and re-rendering fires no
-  further ones; the unresolvable state is present as text in the DOM; the label and course stay
+  "Content unavailable" chip and the warning icon; a criterion present in the outline renders its
+  title unchanged; a pending outline query renders the ghosted placeholder rule box with a spinner
+  for that course and no "Content unavailable" chip; a failed outline query and a 403 each render
+  the "Content unavailable" chip; a group whose every criterion is unresolvable renders all of them;
+  an unparseable stored key renders the chip without throwing; several criteria in one course fire
+  a single outline query rather than one per criterion, and re-rendering fires no further ones; the
+  "Content unavailable" state is present as text in the DOM; the chip and the rule box header stay
   within the layout at a small viewport width.
-- **Out of scope:** the learner-facing progress surface, which faces the same situation and has its
-  own design work ahead of it; the warning shown before deleting a subsection on the Course Outline
-  page; any job that prunes or reports orphaned criteria in bulk; and any competency-level
-  indication that a competency's rules can no longer be satisfied.
+- **Out of scope:** removing an unresolvable criterion, which moved to a follow-up ticket in the
+  10/13 rescope; a tooltip or other way to expose the stored usage key, which is its own follow-up;
+  the learner-facing progress surface, which faces the same situation and has its own design work
+  ahead of it; the warning shown before deleting a subsection on the Course Outline page; any job
+  that prunes or reports orphaned criteria in bulk; and any competency-level indication that a
+  competency's rules can no longer be satisfied.
 
 </details>
 
@@ -222,16 +218,16 @@ them.
 
 | File | Purpose |
 | --- | --- |
-| `src/taxonomy/competency-management/criteria-groups/useSubsectionResolution.ts` | Batches one course-outline query per distinct course key across a competency's criteria and reports each criterion as resolved, unresolvable, pending, or unreadable. Sits alongside the `associations/` and `course-search/` directories of the same page |
-| `src/taxonomy/competency-management/criteria-groups/useSubsectionResolution.test.ts` | Covers the four resolution states and the unparseable-key case |
+| `src/taxonomy/competency-management/criteria-groups/useSubsectionResolution.ts` | Batches one course-outline query per distinct course key across a competency's criteria and reports each criterion as resolved, unavailable, or pending. Sits alongside the `associations/` and `course-search/` directories of the same page |
+| `src/taxonomy/competency-management/criteria-groups/useSubsectionResolution.test.ts` | Covers the three resolution states and the unparseable-key case |
 
 **Modified files**
 
 | File | Nature of modification |
 | --- | --- |
-| `src/taxonomy/competency-management/criteria-groups/SelectedContentItem.tsx` | Render the unresolvable, pending, and unreadable states in place of a subsection title, with the warning icon, the text label, and the course |
+| `src/taxonomy/competency-management/criteria-groups/SelectedContentItem.tsx` | Render the "Content unavailable" chip with the warning icon in place of a subsection title, and the ghosted placeholder rule box with a spinner while the course's outline loads |
 | `src/taxonomy/competency-management/criteria-groups/SelectedContentList.tsx` | Pass each criterion's resolution result through to its item |
-| `src/taxonomy/competency-management/messages.ts` | Copy for the unresolvable, pending, and unreadable labels |
+| `src/taxonomy/competency-management/messages.ts` | Copy for the "Content unavailable" label |
 | `src/taxonomy/competency-management/criteria-groups/*.test.tsx` | Component coverage for the scenarios above, including the small-viewport and text-in-DOM assertions |
 
 </details>
@@ -244,7 +240,6 @@ them.
 - #670 provides the associations panel and the course browse panel, and establishes reading a
   course outline lazily per course through `useCourseOutlineIndex`.
 - #680 provides the Competency Management page, its competency tree, and the page's `messages.ts`.
-- #674 removes a single criterion by id, branching between deletion and archiving.
 - `src/generic/key-utils.ts` for `getCourseKey`; `src/course-outline/data/outlineIndexQuery.ts` for
   `useCourseOutlineIndex` and `src/course-outline/data/queryKeys.ts` for the key factory to batch
   over; `src/course-outline/data/types.ts` and `src/data/types.ts` for the outline envelope and its
@@ -264,11 +259,3 @@ them.
   failing on them. Nothing in the data model filters them today, so this is a requirement to record
   on that endpoint's ticket rather than work for this one. Owner: BA and architect, to fold into
   that ticket and link its issue number here.
-- What should the label read? "Unknown subsection" and "Deleted subsection" both claim more than
-  the page can prove, since an unreadable course looks the same from the client as a deleted
-  subsection, and only a successful outline read distinguishes them. Owner: designer, with the BA.
-- Should the criterion expose the stored usage key, for instance on hover or behind an expand, so a
-  support engineer can identify the content that was deleted? Owner: designer.
-- Should a criterion in a course the author has no access to read differently from one whose outline
-  request failed? They are the same state to the client, but an author with partial course access
-  would see the second message permanently. Owner: designer, with the BA.
