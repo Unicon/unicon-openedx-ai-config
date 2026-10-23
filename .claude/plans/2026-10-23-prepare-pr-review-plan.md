@@ -27,7 +27,7 @@
   - Guide id: `^[A-Za-z0-9][A-Za-z0-9._-]*$`, at most 160 chars. Plannotator's own form is `<epoch-ms>-<slug>`, with the slug being the lowercased title, runs of non `[a-z0-9]` replaced by `-`, trimmed, cut to 60 chars, and trailing `-` removed.
   - Envelope: `{"version": 1, "savedAt": <ms>, "label": str, "title": str, "headSha": str, "prUrl": str, "guide": {"title": str, "intent": str, "overview"?: {"text": str, "diagram"?: {"kind": "mermaid", "source": str}}, "sections": [{"title": str, "overview": str, "diffs": [{"file": str, "summary": str}]}]}, "reviewed": [false, ...]}`. A section with `"diffs": []` is valid.
   - Prose renders paragraphs, `#` headings, `-` and `*` bullets (no numbered lists), fenced code, inline bold, italic, code, and links. Callouts are `> [!WARNING]`, `> [!IMPORTANT]`, and `> [!NOTE]`; the single-line form `> [!NOTE] text` works, and the lines of a multi-line callout are joined into one paragraph.
-  - Links in prose are markdown links: `[label](code:path#L24-L40)`, `[label](code:path#L24)`, `[label](chapter:2)` (1-based over sections). In Mermaid: `click <node> "code:path"`.
+  - Links in prose are markdown links: `[label](code:path#L24-L40)`, `[label](code:path#L24)`, `[label](chapter:2)` (1-based over sections). Task 1 showed that the live review screen (0.28.27) renders these links as text and does not make them clickable, and that it never shows `guide.overview`. So the scripts write line and chapter references as plain text, and the change map is a separate `.mmd` file.
   - Review progress (PR mode): `<data-dir>/review-progress/<key>/<sha256-hex(path)>.json`, with `key = sha256-hex(JSON.stringify(["pr", prUrl, "layer"]))` and the record `{"v": 1, "path", "fingerprint", "viewed", "suppressed"}`.
 - `TESTED_PLANNOTATOR_VERSION = "0.28.27"`.
 
@@ -333,12 +333,12 @@ git commit -m "ai: map criteria and findings to prepare-pr-review chapters"
 - Produces:
   - `CALLOUT_BY_SEVERITY = {"Bug": "WARNING", "Gap": "WARNING", "Question": "IMPORTANT", "Suggestion": "NOTE", "Nit": "NOTE"}`
   - `one_line(text: str) -> str` (collapses whitespace runs, newlines included, to single spaces, and strips the ends)
-  - `code_link(anchor: Anchor) -> str`, for example `"[src/a.py L40-L52](code:src/a.py#L40-L52)"` or `"[src/a.py L15](code:src/a.py#L15)"`
-  - `render_finding(f: Finding) -> str`, for example `"> [!WARNING] Bug: Level is sent as a string. The API expects an integer, so the PATCH returns 400. [src/data/api.ts L22-L30](code:src/data/api.ts#L22-L30)"`
+  - `code_ref(anchor: Anchor) -> str`, for example ``"`src/a.py` L40-L52"`` or ``"`src/a.py` L15"``
+  - `render_finding(f: Finding) -> str`, for example ``"> [!WARNING] Bug: Level is sent as a string. The API expects an integer, so the PATCH returns 400. `src/data/api.ts` L22-L30"``
   - `render_file_summary(entry: FileEntry, criteria) -> str`, which is `one_line(summary)` plus `" " + tags + "."` when there are tags. For example: `"Adds the create and patch calls. AC1 L5-L20, AC2 L22-L30."`
   - `render_overview(chapter, *, criteria: list[Criterion], findings: list[Finding], first_section_by_path: dict[str, int], this_section: int) -> str`
   - `render_before_you_start(*, verdict: str, gaps: Gaps, outside: list[Finding], change_map_note: str | None) -> str`
-  - `render_change_map(chapters, first_section: int) -> str` (Mermaid source)
+  - `render_change_map(chapters) -> str` (Mermaid source)
 
 Exact text of a step overview, blocks separated by one blank line and omitted when empty:
 
@@ -352,22 +352,22 @@ Sharpened from the PR. Author's wording: "<original>"
 <one render_finding line per finding, each its own block>
 
 **Code, in the order it runs:**
-- <code_link>: <role>.
-- <code_link>: <role>. First read in [chapter N](chapter:N).
+- <code_ref>: <role>.
+- <code_ref>: <role>. First read in chapter N.
 ```
 
-The "Sharpened" line appears only when `original` is set. The "First read in" suffix appears when `first_section_by_path[path] != this_section`. A layer overview is the same without the **Do**, **Expect**, and Sharpened lines; its code list is omitted when it has no code refs. `render_before_you_start` emits, in order: `**Review verdict:** <verdict>`; `**Acceptance criteria with no code in this PR:**` with `- AC3 "<text>"` bullets, or `- None.`; `**Changed files no acceptance criterion points at:**` with `- [<path>](code:<path>)` bullets, or `- None.`; `**Findings outside the changed files:**` followed by `render_finding` lines, with the heading omitted when there are none; then `change_map_note` when it is not `None`.
+The "Sharpened" line appears only when `original` is set. The "First read in" suffix appears when `first_section_by_path[path] != this_section`, with N = `first_section_by_path[path]`. A layer overview is the same without the **Do**, **Expect**, and Sharpened lines; its code list is omitted when it has no code refs. `render_before_you_start` emits, in order: `**Review verdict:** <verdict>`; `**Acceptance criteria with no code in this PR:**` with `- AC3 "<text>"` bullets, or `- None.`; `**Changed files no acceptance criterion points at:**` with ``- `<path>` `` bullets, or `- None.`; `**Findings outside the changed files:**` followed by `render_finding` lines, with the heading omitted when there are none; then `change_map_note` when it is not `None`.
 
-The change map starts with `flowchart LR`. It has one node `c<i>` per chapter, labeled with the chapter title, with `click c<i> "chapter:<first_section + i - 1>"`. It has one node `f<j>` per distinct path in code refs and files, labeled with the path, with `click f<j> "code:<path>"`. There is one edge `c<i> --> f<j>` per distinct (chapter, path) pair. Labels are wrapped in `"..."`, with `"` replaced by `#quot;`.
+The change map starts with `flowchart LR`. It has one node `c<i>` per chapter, labeled with the chapter title, and one node `f<j>` per distinct path in code refs and files, labeled with the path. There is one edge `c<i> --> f<j>` per distinct (chapter, path) pair, and no `click` lines. Labels are wrapped in `"..."`, with `"` replaced by `#quot;`.
 
 - [ ] **Step 1: Write the failing tests**
 
 ```python
-def test_code_link_range():
-    assert code_link(Anchor("src/a.py", 40, 52)) == "[src/a.py L40-L52](code:src/a.py#L40-L52)"
+def test_code_ref_range():
+    assert code_ref(Anchor("src/a.py", 40, 52)) == "`src/a.py` L40-L52"
 
-def test_code_link_single():
-    assert code_link(Anchor("src/a.py", 15, 15)) == "[src/a.py L15](code:src/a.py#L15)"
+def test_code_ref_single():
+    assert code_ref(Anchor("src/a.py", 15, 15)) == "`src/a.py` L15"
 
 @pytest.mark.parametrize("sev,kind", [("Bug", "WARNING"), ("Gap", "WARNING"), ("Question", "IMPORTANT"), ("Suggestion", "NOTE"), ("Nit", "NOTE")])
 def test_finding_callout_kind(sev, kind):
@@ -383,12 +383,12 @@ def test_step_overview_order(inputs):
     marks = ["**Do:**", "**Expect:**", "**Covers:**", "> [!WARNING] Bug:", "> [!NOTE] Nit:", "**Code, in the order it runs:**"]
     assert [text.index(m) for m in marks] == sorted(text.index(m) for m in marks)
     assert text.count('AC1 "An author can add a competency"') == 1
-    assert "- [src/pages/CompetencyPage.tsx L12-L30](code:src/pages/CompetencyPage.tsx#L12-L30): renders the Add button." in text
+    assert "- `src/pages/CompetencyPage.tsx` L12-L30: renders the Add button." in text
 
 def test_sharpened_step_and_first_read(inputs):
     text = render_overview(inputs.chapters[1], criteria=[], findings=[], first_section_by_path={"src/data/api.ts": 2, "src/pages/CompetencyPage.tsx": 2}, this_section=3)
     assert "Sharpened from the PR. Author's wording: \"check editing works\"" in text
-    assert "patches the level. First read in [chapter 2](chapter:2)." in text
+    assert "patches the level. First read in chapter 2." in text
 
 def test_file_summary_with_tags(inputs):
     assert render_file_summary(FileEntry("src/data/api.ts", "Adds the create and patch calls."), inputs.criteria) == "Adds the create and patch calls. AC1 L5-L20, AC2 L22-L30."
@@ -399,20 +399,22 @@ def test_before_you_start_lists_outside_findings(inputs):
     text = render_before_you_start(verdict=inputs.verdict, gaps=gaps, outside=outside, change_map_note=None)
     assert text.startswith("**Review verdict:** Ready to merge: no.")
     assert '- AC3 "Deleting a competency asks for confirmation"' in text
-    assert "- [migrations/0002_add_level.py](code:migrations/0002_add_level.py)" in text
+    assert "- `migrations/0002_add_level.py`" in text
     assert "> [!IMPORTANT] Question: Caller still passes the old prop." in text
 
 def test_change_map_structure(inputs):
-    src = render_change_map(inputs.chapters, first_section=2)
+    src = render_change_map(inputs.chapters)
     assert src.splitlines()[0] == "flowchart LR"
-    assert 'click c1 "chapter:2"' in src and 'click c3 "chapter:4"' in src
+    assert "click " not in src
+    for title in [c.title for c in inputs.chapters]:
+        assert f'"{title}"' in src
     for path in inputs.changed:
         assert f'"{path}"' in src
     assert src.count(" --> ") == 7
 
 def test_change_map_escapes_quotes():
     ch = Chapter("layer", 'Say "hi"', None, None, None, (), (FileEntry("a.py", "s"),))
-    assert '"Say #quot;hi#quot;"' in render_change_map([ch], first_section=1)
+    assert '"Say #quot;hi#quot;"' in render_change_map([ch])
 ```
 
 The 7 edges are: chapter 1 to `CompetencyPage.tsx`, `api.ts`, and `api.test.ts`; chapter 2 to `api.ts` and `CompetencyPage.tsx`; chapter 3 to the migration and `Legacy.tsx`.
@@ -436,9 +438,9 @@ git commit -m "ai: render prepare-pr-review chapter text and change map"
 - Test: `SKILL_DIR/scripts/tests/test_compose_guide.py`
 
 **Interfaces:**
-- Consumes: Tasks 2 to 4. Task 1's facts table, for the values of `EMBED_CHANGE_MAP` and `BEFORE_YOU_START_AS_SECTION`.
+- Consumes: Tasks 2 to 4. Task 1 showed that an empty "Before you start" section renders and that `guide.overview` does not, which fixes steps 3 and 4 below.
 - Produces:
-  - `TESTED_PLANNOTATOR_VERSION = "0.28.27"`, `EMBED_CHANGE_MAP: bool`, `BEFORE_YOU_START_AS_SECTION: bool` (set both from Task 1; when a fact is missing, the default is `True`)
+  - `TESTED_PLANNOTATOR_VERSION = "0.28.27"`
   - `canonical_pr_url(url: str) -> str` (`https://github.com/<owner>/<repo>/pull/<n>`; raises `ValueError` for anything else)
   - `repo_key_from_pr_url(url: str) -> str`, `make_guide_id(title: str, now_ms: int) -> str`, `data_dir() -> Path`
   - `version_warning(version_output: str | None) -> str | None`
@@ -449,8 +451,8 @@ git commit -m "ai: render prepare-pr-review chapter text and change map"
 `compose` reads `pr.json`, `chapters.json`, `criteria.json`, and `findings.json` from `artifacts`, then:
 1. Runs `check_placement`.
 2. Writes `artifacts/change-map.mmd`.
-3. Builds the sections. When `BEFORE_YOU_START_AS_SECTION` is true, "Before you start" comes first with `diffs: []`, and the chapters follow, numbered from 2. When it is false, the "Before you start" text is appended to `intent`, and the chapters are numbered from 1. Each chapter's `diffs` are `{"file": path, "summary": render_file_summary(...)}`.
-4. Builds the envelope: label `f"PR #{n} prepared {today}"`, title `f"PR #{n}: {pr title}"`, intent `f"{pr title}. Prepared on {today}: {chapter count} chapters, {finding count} findings."`, `headSha` = `headRefOid`, `prUrl` = the canonical URL, and `reviewed` all false. When `EMBED_CHANGE_MAP` is true, it adds `guide.overview = {"text": "Testing steps and the files each one runs.", "diagram": {"kind": "mermaid", "source": <map>}}`. When it is false, the `change_map_note` is `"Change map: <absolute path of change-map.mmd>. Open it with plannotator annotate."`.
+3. Builds the sections. "Before you start" comes first with `diffs: []`, and the chapters follow, numbered from 2. Each chapter's `diffs` are `{"file": path, "summary": render_file_summary(...)}`.
+4. Builds the envelope: label `f"PR #{n} prepared {today}"`, title `f"PR #{n}: {pr title}"`, intent `f"{pr title}. Prepared on {today}: {chapter count} chapters, {finding count} findings."`, `headSha` = `headRefOid`, `prUrl` = the canonical URL, and `reviewed` all false. It sets no `guide.overview`. The `change_map_note` passed to `render_before_you_start` is `"Change map: <absolute path of change-map.mmd>. Open it with plannotator annotate."`.
 5. Writes `<data_dir>/guides/<repo-key>/<id>.json` atomically (write a temporary file in the same directory, then `os.replace`). It also writes a copy to `artifacts/guide-envelope.json`.
 
 `main` runs `plannotator --version` through `subprocess` (`None` on `FileNotFoundError`), uses `datetime.now()`, prints the guide path, the label, the change map path, and the warnings, and returns 0. On `PlacementError` or `ValueError`, it prints the message to stderr and returns 1.
@@ -501,7 +503,7 @@ def test_main_fails_on_unplaced_file(tmp_path, synthetic, capsys):
     assert "src/old/Legacy.tsx" in capsys.readouterr().err
 ```
 
-If Task 1 set `BEFORE_YOU_START_AS_SECTION = True`, also assert `env["guide"]["sections"][0]["title"] == "Before you start"` and `env["guide"]["sections"][0]["diffs"] == []`.
+Also assert `env["guide"]["sections"][0]["title"] == "Before you start"`, `env["guide"]["sections"][0]["diffs"] == []`, `"overview" not in env["guide"]`, and that the "Before you start" overview contains `"Change map: "` followed by the absolute path of `change-map.mmd`.
 
 - [ ] **Step 2: Run the tests and confirm they fail** (`ModuleNotFoundError: No module named 'compose_guide'`)
 - [ ] **Step 3: Implement `compose_guide.py`**
@@ -693,7 +695,7 @@ The body covers the design's workflow Steps 1 to 8 and the fallback, with these 
 - **Mapper:** dispatch it with `run_in_background: true` before starting the review, as `general-purpose` with `model: sonnet`, filling in the brief's placeholders.
 - **After the review:** save the complete output to `review.md`. Write `criteria.json`, numbering criteria AC1 to ACn across all linked issues and widening single-line anchors to the enclosing function or block at the head SHA, and `findings.json` with the review's verdict line.
 - **Compose:** `python3 SKILL_DIR/scripts/compose_guide.py --artifacts <dir>`. On exit 1, show the error and stop. Show any version warning and offer the fallback.
-- **Launch:** call the `plannotator` tool with `{"action": "review", "target": "<canonical PR URL>"}` and end the turn after the summary message. The message holds: the guide label to pick, the change map path (or "in the guide overview"), the component tree file path when `frontend-code-review` produced one, the AC gap list, and the verdict line. Without the tool, run `plannotator review <url>` with `run_in_background: true` and `timeout: 7200000`, and say that Ask AI in the browser lacks the workspace config.
+- **Launch:** call the `plannotator` tool with `{"action": "review", "target": "<canonical PR URL>"}` and end the turn after the summary message. The message holds: the guide label to pick, the change map path, the component tree file path when `frontend-code-review` produced one, the AC gap list, and the verdict line. Without the tool, run `plannotator review <url>` with `run_in_background: true` and `timeout: 7200000`, and say that Ask AI in the browser lacks the workspace config.
 - **Ask AI questions:** answer from `review.md`, the issues, and the code at the head SHA, citing `file:line`.
 - **"check coverage":** `python3 SKILL_DIR/scripts/coverage_check.py --artifacts <dir>`, and relay its output.
 - **Fallback:** `python3 SKILL_DIR/scripts/fallback_instructions.py --artifacts <dir>`, then tell Jesper to click Guide and generate.

@@ -28,7 +28,7 @@ without its cost (stacked branches that complicate merging).
    `/Users/jesperhodge/openedx`, prepares any GitHub PR the `gh` CLI can read: upstream
    `openedx/*` PRs and PRs on forks.
 2. The guide's chapters follow the PR's manual testing steps. Each testing-step chapter lists
-   the changed code that step runs, in execution order, with links to the exact line ranges.
+   the changed code that step runs, in execution order, with the exact line ranges.
    Changed code that no testing step runs (migrations, refactors, settings, unrelated tests)
    goes into chapters after the testing steps, ordered by layer.
 3. Every changed file appears in exactly one chapter. Nothing is left unplaced.
@@ -38,7 +38,8 @@ without its cost (stacked branches that complicate merging).
 5. The guide has a two-way gap list: acceptance criteria that no code implements, and changed
    code that matches no acceptance criterion.
 6. A diagram of the change ("change map") shows the testing steps and the files each one runs
-   through. For frontend PRs, the component tree that `frontend-code-review` already produces is
+   through. It is a separate `.mmd` file, and the summary message and the "Before you start"
+   chapter give its path. For frontend PRs, the component tree that `frontend-code-review` already produces is
    also available.
 7. Questions Jesper asks on a line in Plannotator (Ask AI) are answered by the Claude Code
    session that ran the skill, which has the full workspace `.claude` config and has already
@@ -80,20 +81,37 @@ it yet. Task 1 of the plan settles every unverified item.
 | Fact | Status |
 | --- | --- |
 | The Claude Code plugin installs with `/plugin marketplace add backnotprop/plannotator`, then `/plugin install plannotator@plannotator`, then a restart. It adds `/plannotator-review`, the plan-review hook, and the "mod" that gives the session a `plannotator` tool. | Confirmed in docs |
-| The `plannotator` tool returns at once. The session ends its turn, and the reviewer's decision arrives later as a new message, so the session can take other input while the review is open. | Confirmed in docs and the Plannotator skill; unverified here |
+| The `plannotator` tool returns at once. The session ends its turn, and the reviewer's decision arrives later as a new message, so the session can take other input while the review is open. | Confirmed in docs and the Plannotator skill. Not tested in Task 1 (item 9). `SKILL.md` tells Jesper to use a second session if the first one does not answer. |
 | `/Users/jesperhodge/openedx/.claude` and `/Users/jesperhodge/openedx/openedx-core/.claude` are symlinks to the config repo's `.claude`, so a skill on the checked-out branch of the config repo is live in sessions started in `/Users/jesperhodge/openedx`. | Confirmed on disk |
 | Local clones live at `/Users/jesperhodge/openedx/<repo-name>` (for example `openedx-core`, `edx-platform`, `frontend-app-authoring`, `frontend-app-learning`), each with remotes for upstream and Jesper's fork. Remote names differ per clone. | Confirmed on disk |
-| With the mod, Ask AI in the review UI is answered by the Claude Code session that opened the review. The mod targets the interactive terminal, so it may not work from the VS Code chat panel. | Confirmed in docs; unverified here |
-| Plannotator's own AI features run the local `claude` binary, so they use the Team seat login. | Confirmed in docs; unverified here |
+| With the mod, Ask AI in the review UI is answered by the Claude Code session that opened the review. The mod targets the interactive terminal, so it may not work from the VS Code chat panel. | Ask AI answers come from Claude (Task 1, items 5 and 6). Which session answered was not pinned down. The VS Code chat panel was not tested. |
+| Plannotator's own AI features run the local `claude` binary, so they use the Team seat login. | Confirmed in Task 1: Ask AI answered with no API key set. |
 | Plannotator's built-in guide agent runs `claude -p --setting-sources user`, which loads only `~/.claude`, never the workspace `.claude`. | Confirmed in code |
-| Saved guides live at `~/.plannotator/guides/<repo-key>/<id>.json`. In PR mode the repo key comes from the PR URL, for example `github.com__openedx__frontend-app-authoring`. A guide file written there shows up in the Guide screen's list of previous guides. The format is undocumented. | Confirmed in code; unverified here |
+| Saved guides live at `~/.plannotator/guides/<repo-key>/<id>.json`. In PR mode the repo key comes from the PR URL, for example `github.com__openedx__frontend-app-authoring`. A guide file written there shows up in the Guide screen's list of previous guides. The format is undocumented. | Confirmed in Task 1: the hand-written guide appeared in the list and loaded. |
 | Saved-guide envelope: `{version: 1, savedAt, label, title, headSha, prUrl, guide: {title, intent, sections: [{title, overview, diffs: [{file, summary}]}]}, reviewed: [false, ...]}`. Loading does not validate the file list against the live diff. | Confirmed in code |
-| Section overviews render paragraphs, headings, bullets, fenced code, `> [!NOTE]` callouts, inline formatting, and links, including `code:path#L24-L40` line-range links and `chapter:N` links. Tables are probably not rendered. | Confirmed in code (tables inferred) |
+| Section overviews render paragraphs, headings, bullets, fenced code, `> [!NOTE]` callouts, inline formatting, and links, including `code:path#L24-L40` line-range links and `chapter:N` links. Tables are probably not rendered. | Callouts, headings, bullets, and inline formatting confirmed in Task 1. Failed in Task 1: `code:` and `chapter:` links render as text and are not clickable in the live review screen, because the review editor passes no link handler to the guide renderer (only the export viewer handles them). Tables not tested. |
 | A file can appear in only one section. A diff reference is a whole file, never a hunk. | Confirmed in code |
-| A Mermaid diagram is supported only in the top-level `guide.overview.diagram` field of snapshot format v2. Whether a saved guide can carry it is unknown. | Unverified |
-| Plannotator stores per-file review progress at `~/.plannotator/review-progress/<snapshot-key>/<sha256(path)>.json` as `{v, path, fingerprint, viewed, suppressed}`. | Confirmed in code |
+| A Mermaid diagram is supported only in the top-level `guide.overview.diagram` field of snapshot format v2. Whether a saved guide can carry it is unknown. | Failed in Task 1: the live review screen never shows `guide.overview` (text or diagram), because the review editor never reads it. |
+| Plannotator stores per-file review progress at `~/.plannotator/review-progress/<snapshot-key>/<sha256(path)>.json` as `{v, path, fingerprint, viewed, suppressed}`. | Confirmed in Task 1 (item 7): see the item 7 row below. |
 | The built-in guide agent reads extra instructions fresh from `~/.plannotator/guide-instructions.md` at each launch, capped at 2,000 characters. | Confirmed in code |
 | `code-review-openedx` produces an acceptance-criteria table (criterion quoted, implemented at `file:line`, tested by, verdict) and findings with a severity and a `path:line` anchor. | Confirmed in the skill file |
+
+Results of Task 1, one row per checklist item. Jesper ran the checklist against Plannotator 0.28.27
+and PR #3246 of `openedx/frontend-app-authoring`. The controller checked the two failures in
+Plannotator's code.
+
+| Item | Result |
+| --- | --- |
+| 1. The hand-written guide appears in the previous-guides list and renders. | Confirmed in Task 1: it appears and loads. |
+| 1 (links). `code:` and `chapter:` links work. | Failed in Task 1: they render as text and are not clickable in the live review screen. The review editor passes no link handler to the guide renderer. The scripts write line and chapter references as plain text, such as `` `src/x/api.py` L40-L52 `` and "first read in chapter 1". |
+| 2. Which callout kinds render. | Confirmed in Task 1: `[!WARNING]`, `[!IMPORTANT]`, and `[!NOTE]` single-line callouts render as labeled, tinted boxes. Findings can use any of the three kinds. |
+| 3. A section with an empty `diffs` list is allowed. | Confirmed in Task 1: it renders. "Before you start" stays a section, always first, and does not move into `intent`. |
+| 4. `guide.overview` with a Mermaid diagram renders from a saved guide. | Failed in Task 1: the live review screen does not show `guide.overview` at all. `EMBED_CHANGE_MAP` is `False`: the change map is always a separate `.mmd` file, and the summary message and "Before you start" give its path. |
+| 5. Ask AI is answered by the terminal session, and from the VS Code chat panel. | Partly confirmed in Task 1: answers come from Claude. Which session answered was not pinned down, and the VS Code chat panel was not tested. |
+| 6. The Team seat login works for Ask AI. | Confirmed in Task 1: Ask AI answered with no API key set. |
+| 7. Review-progress files for this PR. | Confirmed in Task 1: the directory is `~/.plannotator/review-progress/d8098d292f430f6d22d3bf38b84681163d588211d9127df243cb10effda489ea/`, which is `sha256(json.dumps(["pr", url, "layer"], separators=(",", ":")))` for the canonical URL form `https://github.com/<owner>/<repo>/pull/<n>`. It holds a record with `"viewed": true` for `src/course-unit/CourseUnit.tsx`, named by the sha256 of that path. |
+| 8. The post dialog posts only Jesper's annotations. | Not tested in Task 1. Ruling: the design never adds annotations, so the dialog can only hold Jesper's own. |
+| 9. The `plannotator` tool returns at once, and the session answers "check coverage" while the review is open. | Not tested in Task 1. Ruling: the Plannotator skill documents the tool as non-blocking. `SKILL.md` tells Jesper to use a second session if the first one does not answer. |
 
 ## How a review runs, from Jesper's side
 
@@ -190,8 +208,9 @@ findings file into a saved guide, deterministically:
   unknown file is placed. It fails loudly otherwise.
 - It computes the gap list: criteria with no implemented-at anchor in the diff, and changed
   source files (not tests) that no criterion's anchor touches.
-- It writes the change map as Mermaid: testing steps as nodes, linked to the files each runs
-  through, files grouped by layer.
+- It writes the change map as a separate Mermaid `.mmd` file: testing steps as nodes, linked to
+  the files each runs through, files grouped by layer. The summary message and the "Before you
+  start" chapter give the file's path.
 - It writes the envelope to `~/.plannotator/guides/<repo-key>/<id>.json`, with `label` set to
   "PR #<n> prepared <date>" so Jesper can find it in the list.
 
@@ -223,20 +242,22 @@ A testing-step chapter's overview, in this order:
 **Covers:** AC2 "<full text>". AC3 "<full text>".
 
 > [!NOTE]
-> Bug, AC2: <one line>. code:src/x/api.py#L40-L52
-> Question: <one line>. code:src/x/views.py#L88
+> [!WARNING] Bug, AC2: <one line>. `src/x/api.py` L40-L52
+> [!NOTE] Question: <one line>. `src/x/views.py` L88
 
 **Code, in the order it runs:**
-1. code:src/x/Page.tsx#L12-L30 renders the Add button.
-2. code:src/x/data/api.ts#L5-L20 posts the new competency.
-3. Also runs code:src/x/models.py#L40-L60, first read in chapter:1.
+- `src/x/Page.tsx` L12-L30: renders the Add button.
+- `src/x/data/api.ts` L5-L20: posts the new competency.
+- `src/x/models.py` L40-L60: runs here too. First read in chapter 1.
 ```
 
 Each `diffs` entry's summary is one line, with AC tags: "Adds the POST handler. AC2 L40-L52."
 Layer chapters use the same shape without **Do** and **Expect**. Severity words lead each
-finding line. Which callout kind to use for which severity depends on what the renderer supports
-(Task 1). The first chapter or the guide's `intent` carries the gap list and, when supported,
-the change map.
+finding line. The live review screen renders `[!WARNING]`, `[!IMPORTANT]`, and `[!NOTE]`
+single-line callouts as labeled, tinted boxes (Task 1). Line and chapter references are plain
+text because the live review screen does not make `code:` and `chapter:` links clickable.
+"Before you start" is always the first section, with `diffs: []`. It carries the gap list and the
+path of the change map.
 
 ### 5. Fallback: built-in guide
 
