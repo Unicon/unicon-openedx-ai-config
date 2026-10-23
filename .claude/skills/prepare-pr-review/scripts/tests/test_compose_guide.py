@@ -56,6 +56,23 @@ def test_compose_end_to_end(tmp_path, synthetic):
     assert first["title"] == "Before you start" and first["diffs"] == []
     assert "overview" not in env["guide"]
     assert f"Change map: {(art / 'change-map.mmd').resolve()}" in first["overview"]
+    sections = env["guide"]["sections"]
+    assert [s["title"] for s in sections] == [
+        "Before you start",
+        "AC1: Author adds a competency",
+        "AC2: Author changes the level",
+        "AC3: Deleting asks for confirmation",
+        "Refactoring and setup",
+    ]
+    assert len(placed) == len(set(placed))
+    assert sections[2]["diffs"] == [] and sections[3]["diffs"] == []
+    assert len(env["reviewed"]) == 5
+    assert "(key piece for AC1)" in sections[1]["overview"]
+    api = next(d for s in sections for d in s["diffs"] if d["file"] == "src/data/api.ts")
+    assert api["summary"].endswith("AC1, AC2. 1 finding.")
+    assert env["guide"]["intent"] == (
+        "Add competency levels. Prepared on 2026-10-23 14:05: 3 acceptance criteria, 4 chapters, 3 findings."
+    )
     assert res.change_map_path == (art / "change-map.mmd").resolve()
     assert json.loads((art / "guide-envelope.json").read_text()) == env
     assert env["title"] == "PR #123: Add competency levels"
@@ -77,12 +94,12 @@ def test_main_writes_guide_and_prints_paths(tmp_path, synthetic, capsys):
     assert str(tmp_path / "pn" / "guides") in out and "change-map.mmd" in out
 
 
-def test_main_fails_on_unplaced_file(tmp_path, synthetic, capsys):
+def test_main_fails_when_a_file_has_no_piece(tmp_path, synthetic, capsys):
     art = tmp_path / "art"
     shutil.copytree(synthetic, art)
-    data = json.loads((art / "chapters.json").read_text())
-    data["chapters"][2]["files"] = data["chapters"][2]["files"][:1]
-    (art / "chapters.json").write_text(json.dumps(data))
+    data = json.loads((art / "pieces-1.json").read_text())
+    data["pieces"] = [p for p in data["pieces"] if not p["anchor"].startswith("src/old/Legacy.tsx")]
+    (art / "pieces-1.json").write_text(json.dumps(data))
     assert main(["--artifacts", str(art), "--data-dir", str(tmp_path / "pn")]) == 1
     assert "src/old/Legacy.tsx" in capsys.readouterr().err
 

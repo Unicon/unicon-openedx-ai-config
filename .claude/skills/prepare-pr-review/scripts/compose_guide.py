@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Compose the Plannotator saved guide from the four artifact JSON files and write it.
+"""Compose the Plannotator saved guide from the artifact JSON files and write it.
 
-Reads ``pr.json``, ``chapters.json``, ``criteria.json`` and ``findings.json`` from an
+Reads ``pr.json``, ``criteria.json``, ``pieces-<k>.json`` and ``findings.json`` from an
 artifacts folder, builds the guide sections with ``guide_mapping`` and ``guide_render``,
 writes the Mermaid change map next to the inputs, and saves the envelope where Plannotator
 lists saved guides: ``<data-dir>/guides/<repo-key>/<id>.json``. Standard library only.
@@ -21,13 +21,13 @@ from pathlib import Path
 
 from guide_inputs import (
     changed_files,
-    check_placement,
-    load_chapters,
+    check_mapper_output,
     load_criteria,
     load_findings,
+    load_mapper_outputs,
     load_pr,
 )
-from guide_mapping import assign_findings, criteria_by_chapter, find_gaps
+from guide_mapping import acs_without_code, build_chapters, key_pieces, place_findings, section_of_file
 from guide_render import render_before_you_start, render_change_map, render_file_summary, render_overview
 
 TESTED_PLANNOTATOR_VERSION = "0.28.27"
@@ -125,8 +125,9 @@ def _write_json_atomic(path: Path, data: dict) -> None:
 def compose(artifacts: Path, *, data_dir: Path, now_ms: int, prepared_at: str, version_output: str | None) -> ComposeResult:
     """Build the saved guide from ``artifacts`` and write it under ``data_dir``.
 
-    Raises ``PlacementError`` when the chapters do not place every changed file exactly once,
-    and ``ValueError`` for malformed inputs or a PR URL that is not a GitHub pull request.
+    Raises ``MapperCheckError`` (a ``ValueError``) when the mapper output does not summarize and
+    label every changed file or cites an unknown criterion, and ``ValueError`` for malformed inputs or
+    a PR URL that is not a GitHub pull request.
     ``prepared_at`` is ``YYYY-MM-DD HH:MM`` and ends up in the guide label, so two runs on the same
     day stay distinguishable in Plannotator's list of saved guides.
     Also writes ``change-map.mmd`` and a copy of the envelope, ``guide-envelope.json``, into
@@ -135,29 +136,37 @@ def compose(artifacts: Path, *, data_dir: Path, now_ms: int, prepared_at: str, v
     artifacts = Path(artifacts).resolve()
     pr = load_pr(artifacts / "pr.json")
     changed = changed_files(pr)
-    chapters = load_chapters(artifacts / "chapters.json")
-    criteria = load_criteria(artifacts / "criteria.json")
+    criteria, backgrounds = load_criteria(artifacts / "criteria.json")
+    mapper = load_mapper_outputs(artifacts)
     verdict, findings = load_findings(artifacts / "findings.json")
-    check_placement(changed, chapters)
+    check_mapper_output(changed, mapper, criteria)
 
     pr_url = canonical_pr_url(pr["url"])
     number, pr_title = pr["number"], pr["title"]
 
+    chapters = build_chapters(criteria, mapper, changed)
+    keys = key_pieces(criteria, mapper, changed)
+    placement = place_findings(findings, changed)
+    sections_of = section_of_file(chapters)
+    criteria_by_id = {c.id: c for c in criteria}
+    file_order = {path: i for i, path in enumerate(changed)}
+    pieces_by_path: dict[str, list] = {}
+    for piece in sorted(mapper.pieces, key=lambda p: (file_order[p.anchor.path], p.anchor.start, p.anchor.end)):
+        pieces_by_path.setdefault(piece.anchor.path, []).append(piece)
+    summaries = {entry.path: entry.summary for entry in mapper.files}
+
     change_map_path = artifacts / "change-map.mmd"
     change_map_path.write_text(render_change_map(chapters), encoding="utf-8")
-
-    placement = assign_findings(findings, chapters, changed)
-    criteria_rows = criteria_by_chapter(criteria, chapters)
-    first_section_by_path: dict[str, int] = {}
-    for i, chapter in enumerate(chapters):
-        for entry in chapter.files:
-            first_section_by_path.setdefault(entry.path, i + 2)
 
     note = f"Change map: {change_map_path}. Open it with plannotator annotate."
     sections = [{
         "title": "Before you start",
         "overview": render_before_you_start(
-            verdict=verdict, gaps=find_gaps(criteria, changed), outside=placement.outside, change_map_note=note,
+            verdict=verdict,
+            backgrounds=backgrounds,
+            gaps=acs_without_code(criteria, chapters),
+            outside=list(placement.outside),
+            change_map_note=note,
         ),
         "diffs": [],
     }]
@@ -166,12 +175,22 @@ def compose(artifacts: Path, *, data_dir: Path, now_ms: int, prepared_at: str, v
             "title": chapter.title,
             "overview": render_overview(
                 chapter,
-                criteria=criteria_rows[i],
-                findings=placement.by_chapter[i],
-                first_section_by_path=first_section_by_path,
-                this_section=i + 2,
+                section=i + 2,
+                criteria_by_id=criteria_by_id,
+                keys=keys,
+                pieces_by_path=pieces_by_path,
+                findings_by_path=placement.by_path,
+                sections=sections_of,
             ),
-            "diffs": [{"file": entry.path, "summary": render_file_summary(entry, criteria)} for entry in chapter.files],
+            "diffs": [
+                {
+                    "file": path,
+                    "summary": render_file_summary(
+                        summaries[path], path, pieces_by_path, len(placement.by_path.get(path, ())),
+                    ),
+                }
+                for path in chapter.files
+            ],
         })
 
     label = f"PR #{number} prepared {prepared_at}"
@@ -185,7 +204,10 @@ def compose(artifacts: Path, *, data_dir: Path, now_ms: int, prepared_at: str, v
         "prUrl": pr_url,
         "guide": {
             "title": title,
-            "intent": f"{pr_title}. Prepared on {prepared_at}: {len(chapters)} chapters, {len(findings)} findings.",
+            "intent": (
+                f"{pr_title}. Prepared on {prepared_at}: {len(criteria)} acceptance criteria, "
+                f"{len(chapters)} chapters, {len(findings)} findings."
+            ),
             "sections": sections,
         },
         "reviewed": [False] * len(sections),
@@ -210,7 +232,7 @@ def _plannotator_version() -> str | None:
 def main(argv: list[str] | None = None) -> int:
     """Run the CLI; return 0 on success and 1, with the message on stderr, for invalid or missing inputs."""
     parser = argparse.ArgumentParser(description="Write the prepare-pr-review saved guide for Plannotator.")
-    parser.add_argument("--artifacts", required=True, type=Path, help="folder with pr, chapters, criteria and findings JSON")
+    parser.add_argument("--artifacts", required=True, type=Path, help="folder with pr, criteria, pieces and findings JSON")
     parser.add_argument("--data-dir", type=Path, default=None, help="Plannotator data directory (default: $PLANNOTATOR_DATA_DIR or ~/.plannotator)")
     args = parser.parse_args(argv)
     now = datetime.now()
