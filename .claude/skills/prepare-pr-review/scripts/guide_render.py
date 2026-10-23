@@ -2,96 +2,165 @@
 """Render the text of each guide chapter and the Mermaid change map.
 
 Pure functions over the dataclasses from ``guide_inputs`` and ``guide_mapping``. Plannotator
-shows links as plain text, so line references are written as plain text too. Every piece of
-free text goes through ``one_line``, so a stray newline cannot break a callout or a bullet.
-Standard library only.
+shows links as plain text, so line references are written as plain text too. Free text goes
+through ``one_line``, so a stray newline cannot split a bullet. Acceptance criterion text is the
+exception: it is copied exactly, inside a fenced block. Standard library only.
 """
-from guide_inputs import Anchor, Chapter, Criterion, FileEntry, Finding, one_line
-from guide_mapping import Gaps, ac_tags_for_file
+from guide_inputs import Anchor, Background, Criterion, Finding, Piece, one_line
+from guide_mapping import Chapter, _overlaps, ac_name
 
-CALLOUT_BY_SEVERITY = {
-    "Bug": "WARNING",
-    "Gap": "WARNING",
-    "Question": "IMPORTANT",
-    "Suggestion": "NOTE",
-    "Nit": "NOTE",
-}
+_ZWSP = "\u200b"
 
 
-def code_ref(anchor: Anchor) -> str:
-    """Return the plain-text reference to an anchor, such as ```src/a.py` L40-L52`` or ```src/a.py` L15``."""
-    lines = f"L{anchor.start}" if anchor.start == anchor.end else f"L{anchor.start}-L{anchor.end}"
-    return f"`{anchor.path}` {lines}"
+def lines(anchor: Anchor) -> str:
+    """Return the line reference of an anchor: ``L5-L20`` for a range, ``L15`` for one line."""
+    return f"L{anchor.start}" if anchor.start == anchor.end else f"L{anchor.start}-L{anchor.end}"
 
 
-def render_finding(f: Finding) -> str:
-    """Return one single-line callout for a finding: severity, title, why, then the code reference."""
-    title = one_line(f.title)
+def piece_label(piece: Piece) -> str:
+    """Return the short label that starts a piece's bullet.
+
+    A piece with criteria is labeled by them: the ids alone for an ``implements`` piece, the ids
+    and the kind otherwise. A piece with no criteria is labeled by its kind.
+    """
+    if not piece.acs:
+        return piece.kind
+    acs = ", ".join(piece.acs)
+    return acs if piece.kind == "implements" else f"{acs} {piece.kind}"
+
+
+def ac_block(text: str) -> str:
+    """Return ``text`` in a fenced block, keeping every line exactly as written.
+
+    A line whose left-trimmed text starts with three backticks gets a leading zero-width space, so
+    it cannot close the fence early.
+    """
+    body = [_ZWSP + line if line.lstrip().startswith("```") else line for line in text.split("\n")]
+    return "\n".join(["```", *body, "```"])
+
+
+def _finding_text(finding: Finding) -> str:
+    title = one_line(finding.title)
     if not title.endswith("."):
         title += "."
-    return f"> [!{CALLOUT_BY_SEVERITY[f.severity]}] {f.severity}: {title} {one_line(f.why)} {code_ref(f.anchor)}"
+    return f"{finding.severity}: {title} {one_line(finding.why)}"
 
 
-def render_file_summary(entry: FileEntry, criteria: list[Criterion]) -> str:
-    """Return a file's summary, followed by the criterion tags that point at the file when there are any."""
-    summary = one_line(entry.summary)
-    tags = ac_tags_for_file(criteria, entry.path)
-    return f"{summary} {tags}." if tags else summary
+def _file_group(path, keys, pieces_by_path, findings_by_path, criteria_by_id) -> str:
+    items = [(p.anchor.start, 0, p.anchor.end, p) for p in pieces_by_path.get(path, ())]
+    items += [(f.anchor.start, 1, f.anchor.end, f) for f in findings_by_path.get(path, ())]
+    items.sort(key=lambda item: item[:3])
+    out = [f"### {path}"]
+    for _, is_finding, _, item in items:
+        if is_finding:
+            out.append(f"- {lines(item.anchor)} {_finding_text(item)}")
+            continue
+        key_ids = [cid for cid in criteria_by_id if keys.get(cid) is item]
+        suffix = f" (key piece for {', '.join(key_ids)})" if key_ids else ""
+        out.append(f"- {lines(item.anchor)} {piece_label(item)}: {one_line(item.purpose)}{suffix}")
+        out.extend(ac_block(criteria_by_id[cid].text) for cid in key_ids)
+    return "\n".join(out)
+
+
+def _also_groups(chapter, section, keys, findings_by_path, sections) -> list[str]:
+    by_section: dict[int, list[str]] = {}
+    for piece in chapter.pieces:
+        shown_in = sections.get(piece.anchor.path)
+        if shown_in is None or shown_in == section:
+            continue
+        marks = []
+        if chapter.ac is not None and keys.get(chapter.ac) is piece:
+            marks.append("key piece")
+        count = sum(_overlaps(f.anchor, piece.anchor) for f in findings_by_path.get(piece.anchor.path, ()))
+        if count:
+            marks.append(f"{count} finding" if count == 1 else f"{count} findings")
+        suffix = f" ({', '.join(marks)})" if marks else ""
+        by_section.setdefault(shown_in, []).append(
+            f"- {piece.anchor.path} {lines(piece.anchor)} {piece_label(piece)}: {one_line(piece.purpose)}{suffix}")
+    return [
+        "\n".join([f"### Also in this chapter, diff shown in chapter {n}", *bullets])
+        for n, bullets in sorted(by_section.items())
+    ]
 
 
 def render_overview(
     chapter: Chapter,
     *,
-    criteria: list[Criterion],
-    findings: list[Finding],
-    first_section_by_path: dict[str, int],
-    this_section: int,
+    section: int,
+    criteria_by_id: dict[str, Criterion],
+    keys: dict[str, Piece],
+    pieces_by_path: dict[str, list[Piece]],
+    findings_by_path: dict[str, tuple[Finding, ...]],
+    sections: dict[str, int],
 ) -> str:
-    """Return a chapter's overview text; blocks are separated by a blank line and empty ones are omitted.
+    """Return a chapter's left-column text; blocks are joined by one blank line.
 
-    A step chapter starts with its Do line, its Expect line, and, when the step was sharpened,
-    the author's original wording, each as its own block because Plannotator joins adjacent
-    lines into one paragraph. Both chapter kinds then list the criteria they cover, the findings
-    (rendered in the order given), and the code in reading order. A code ref whose file an
-    earlier chapter already showed gets a pointer to that chapter.
+    An acceptance criterion chapter starts with its review verdict, when it has one, and its exact
+    text when no code implements it or when its key piece's file is shown in another section.
+    Then each of the chapter's files gets a ``###`` heading with one bullet per code piece and per
+    finding in that file, interleaved by line number (every piece of the file, whichever criterion
+    it serves). A key piece's bullet is followed by the exact text of each criterion it is the key
+    piece for. Pieces of this chapter whose file is shown in another section are listed last, by
+    section, with no criterion text.
     """
     blocks = []
-    if chapter.kind == "step":
-        blocks.append(f"**Do:** {one_line(chapter.do)}")
-        blocks.append(f"**Expect:** {one_line(chapter.expect)}")
-        if chapter.original:
-            blocks.append(f'Sharpened from the PR. Author\'s wording: "{one_line(chapter.original)}"')
-    if criteria:
-        covers = " ".join(f'{c.id} "{one_line(c.text)}".' for c in criteria)
-        blocks.append(f"**Covers:** {covers}")
-    blocks.extend(render_finding(f) for f in findings)
-    if chapter.code:
-        lines = ["**Code, in the order it runs:**"]
-        for ref in chapter.code:
-            line = f"- {code_ref(ref.anchor)}: {one_line(ref.role)}."
-            first = first_section_by_path.get(ref.anchor.path, this_section)
-            if first != this_section:
-                line += f" First read in chapter {first}."
-            lines.append(line)
-        blocks.append("\n".join(lines))
+    key = keys.get(chapter.ac) if chapter.ac is not None else None
+    if chapter.kind == "ac":
+        criterion = criteria_by_id[chapter.ac]
+        if criterion.verdict:
+            blocks.append(f"Review verdict: {one_line(criterion.verdict).rstrip('.')}.")
+        if not chapter.pieces:
+            blocks.append("No code in this PR implements this AC.")
+            blocks.append(ac_block(criterion.text))
+        elif key is not None and sections.get(key.anchor.path) != section:
+            blocks.append(ac_block(criterion.text))
+    blocks.extend(
+        _file_group(path, keys, pieces_by_path, findings_by_path, criteria_by_id)
+        for path in chapter.files
+    )
+    blocks.extend(_also_groups(chapter, section, keys, findings_by_path, sections))
     return "\n\n".join(blocks)
 
 
-def render_before_you_start(*, verdict: str, gaps: Gaps, outside: list[Finding], change_map_note: str | None) -> str:
-    """Return the guide's opening text: the verdict, the two gap lists, and findings on unchanged files.
+def render_file_summary(summary: str, path: str, pieces_by_path: dict[str, list[Piece]], finding_count: int) -> str:
+    """Return a file's one-line summary, then the criteria its pieces serve and its finding count.
 
-    ``change_map_note`` is appended as the last block when it is not None.
+    The summary ends with one period. Criteria are listed in numeric order of their ids, and the finding count
+    is omitted when it is zero.
     """
-    criteria_lines = [f'- {c.id} "{one_line(c.text)}"' for c in gaps.unimplemented] or ["- None."]
-    file_lines = [f"- `{path}`" for path in gaps.unmatched_files] or ["- None."]
-    blocks = [
-        f"**Review verdict:** {one_line(verdict)}",
-        "\n".join(["**Acceptance criteria with no code in this PR:**", *criteria_lines]),
-        "\n".join(["**Changed files no acceptance criterion points at:**", *file_lines]),
-    ]
+    text = one_line(summary)
+    if not text.endswith("."):
+        text += "."
+    acs = {ac for piece in pieces_by_path.get(path, ()) for ac in piece.acs}
+    if acs:
+        text += " " + ", ".join(sorted(acs, key=lambda ac: (len(ac), ac))) + "."
+    if finding_count:
+        text += f" {finding_count} finding." if finding_count == 1 else f" {finding_count} findings."
+    return text
+
+
+def render_before_you_start(
+    *,
+    verdict: str,
+    backgrounds: list[Background],
+    gaps: list[Criterion],
+    outside: list[Finding],
+    change_map_note: str | None,
+) -> str:
+    """Return the guide's opening text: the verdict, shared backgrounds, criteria with no code, and findings on unchanged files.
+
+    ``gaps`` are the criteria no code implements. ``change_map_note`` is appended as the last block
+    when it is not None.
+    """
+    blocks = [f"**Review verdict:** {one_line(verdict)}"]
+    blocks.extend(f"Background from {one_line(b.source)}:\n{ac_block(b.text)}" for b in backgrounds)
+    gap_lines = [f"- {c.id}: {ac_name(c.text)}" for c in gaps] or ["- None."]
+    blocks.append("\n".join(["**Acceptance criteria with no code in this PR:**", *gap_lines]))
     if outside:
-        blocks.append("**Findings outside the changed files:**")
-        blocks.extend(render_finding(f) for f in outside)
+        blocks.append("\n".join([
+            "**Findings on files this PR does not change:**",
+            *(f"- {f.anchor.path} {lines(f.anchor)} {_finding_text(f)}" for f in outside),
+        ]))
     if change_map_note is not None:
         blocks.append(change_map_note)
     return "\n\n".join(blocks)
@@ -102,18 +171,17 @@ def _label(text: str) -> str:
 
 
 def render_change_map(chapters: list[Chapter]) -> str:
-    """Return Mermaid source linking each chapter node ``c<i>`` to the file nodes ``f<j>`` it shows or places.
+    """Return Mermaid source linking each chapter node ``c<i>`` to the file nodes ``f<j>`` of its pieces.
 
-    File nodes are numbered in order of first appearance, with code refs before file entries
-    within a chapter. There is one edge per distinct (chapter, path) pair and no click lines.
+    File nodes are numbered in order of first appearance. There is one edge per distinct (chapter,
+    file of one of its pieces) pair, and no click lines.
     """
     file_index: dict[str, int] = {}
     nodes = []
     edges = []
     for i, chapter in enumerate(chapters):
         nodes.append(f"    c{i}[{_label(chapter.title)}]")
-        paths = [ref.anchor.path for ref in chapter.code] + [entry.path for entry in chapter.files]
-        for path in dict.fromkeys(paths):
+        for path in dict.fromkeys(piece.anchor.path for piece in chapter.pieces):
             if path not in file_index:
                 file_index[path] = len(file_index)
             edges.append(f"    c{i} --> f{file_index[path]}")

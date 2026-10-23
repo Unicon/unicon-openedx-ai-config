@@ -1,136 +1,147 @@
-"""Tests for the chapter text and change map renderers."""
+"""Tests for the chapter text, file summary, opening section, and change map renderers."""
+from types import SimpleNamespace
+
 import pytest
 
-from guide_inputs import Anchor, Chapter, Finding, FileEntry
-from guide_mapping import assign_findings, criteria_by_chapter, find_gaps
+from guide_inputs import Anchor, Finding
+from guide_mapping import (
+    build_chapters,
+    key_pieces,
+    place_findings,
+    section_of_file,
+)
 from guide_render import (
-    code_ref,
-    one_line,
+    ac_block,
+    lines,
+    piece_label,
     render_before_you_start,
     render_change_map,
     render_file_summary,
-    render_finding,
     render_overview,
 )
 
-
-def test_one_line_collapses_whitespace():
-    assert one_line("  a \n\n b\t c  ") == "a b c"
+ZWSP = "\u200b"
 
 
-def test_code_ref_range():
-    assert code_ref(Anchor("src/a.py", 40, 52)) == "`src/a.py` L40-L52"
+@pytest.fixture
+def ctx(inputs):
+    chapters = build_chapters(inputs.criteria, inputs.mapper, inputs.changed)
+    keys = key_pieces(inputs.criteria, inputs.mapper, inputs.changed)
+    placed = place_findings(inputs.findings, inputs.changed)
+    criteria_by_id = {c.id: c for c in inputs.criteria}
+    pieces_by_path = {}
+    ordered = sorted(inputs.mapper.pieces, key=lambda p: (inputs.changed.index(p.anchor.path), p.anchor.start, p.anchor.end))
+    for piece in ordered:
+        pieces_by_path.setdefault(piece.anchor.path, []).append(piece)
+    sections = section_of_file(chapters)
 
+    def render(i):
+        return render_overview(
+            chapters[i],
+            section=i + 2,
+            criteria_by_id=criteria_by_id,
+            keys=keys,
+            pieces_by_path=pieces_by_path,
+            findings_by_path=placed.by_path,
+            sections=sections,
+        )
 
-def test_code_ref_single():
-    assert code_ref(Anchor("src/a.py", 15, 15)) == "`src/a.py` L15"
-
-
-@pytest.mark.parametrize("sev,kind", [("Bug", "WARNING"), ("Gap", "WARNING"), ("Question", "IMPORTANT"), ("Suggestion", "NOTE"), ("Nit", "NOTE")])
-def test_finding_callout_kind(sev, kind):
-    assert render_finding(Finding(sev, "T", Anchor("a.py", 1, 1), "W")).startswith(f"> [!{kind}] {sev}: T. W ")
-
-
-def test_finding_exact_text():
-    f = Finding("Bug", "Level is sent as a string", Anchor("src/data/api.ts", 22, 30), "The API expects an integer, so the PATCH returns 400.")
-    assert render_finding(f) == (
-        "> [!WARNING] Bug: Level is sent as a string. The API expects an integer, so the PATCH returns 400. `src/data/api.ts` L22-L30"
+    return SimpleNamespace(
+        chapters=chapters, keys=keys, placed=placed, criteria_by_id=criteria_by_id,
+        pieces_by_path=pieces_by_path, sections=sections, render=render,
     )
 
 
-def test_finding_title_with_period_gets_no_second_period():
-    line = render_finding(Finding("Nit", "Already ends.", Anchor("a.py", 1, 1), "W"))
-    assert line.startswith("> [!NOTE] Nit: Already ends. W ")
+def test_lines_range_and_single():
+    assert lines(Anchor("a.py", 5, 20)) == "L5-L20"
+    assert lines(Anchor("a.py", 15, 15)) == "L15"
 
 
-def test_finding_collapses_newlines():
-    line = render_finding(Finding("Bug", "Two\nlines", Anchor("a.py", 1, 1), "Why\n> quoted"))
-    assert "\n" not in line and "Two lines" in line
+def test_piece_label(inputs):
+    pieces = inputs.mapper.pieces
+    assert piece_label(pieces[0]) == "AC1"
+    assert piece_label(pieces[4]) == "AC2 edge case"
+    assert piece_label(pieces[5]) == "AC1, AC2 test"
+    assert piece_label(pieces[6]) == "migration"
 
 
-def test_step_overview_order(inputs):
-    crit = criteria_by_chapter(inputs.criteria, inputs.chapters)
-    text = render_overview(inputs.chapters[0], criteria=crit[0], findings=inputs.findings[:2], first_section_by_path={"src/pages/CompetencyPage.tsx": 2, "src/data/api.ts": 2}, this_section=2)
-    marks = ["**Do:**", "**Expect:**", "**Covers:**", "> [!WARNING] Bug:", "> [!NOTE] Nit:", "**Code, in the order it runs:**"]
-    assert [text.index(m) for m in marks] == sorted(text.index(m) for m in marks)
-    assert text.count('AC1 "An author can add a competency"') == 1
-    assert "- `src/pages/CompetencyPage.tsx` L12-L30: renders the Add button." in text
-    assert "Sharpened" not in text
-    assert "First read in" not in text
+def test_ac1_chapter_overview(ctx):
+    text = ctx.render(0)
+    assert text.startswith("Review verdict: Covered.\n\n### src/pages/CompetencyPage.tsx\n")
+    assert "- L12-L30 AC1: renders the Add button (key piece for AC1)\n```\nScenario: Author adds a competency\n" in text
+    assert "- L40-L44 AC2: opens the edit form" in text
+    assert "- L22-L30 AC2: patches the level (key piece for AC2)\n```\nScenario: Author changes the level\n" in text
+    assert "- L22-L30 Bug: Level is sent as a string. The API expects an integer, so the PATCH returns 400." in text
+    assert "> [!" not in text and "Also in this chapter" not in text
 
 
-def test_step_overview_exact_blocks(inputs):
-    text = render_overview(inputs.chapters[0], criteria=inputs.criteria[:1], findings=[], first_section_by_path={}, this_section=1)
-    assert "**Do:** Open Studio > Competencies and click Add.\n\n**Expect:** The new competency appears in the list." in text
-    assert text.split("\n\n")[:3] == [
-        "**Do:** Open Studio > Competencies and click Add.",
-        "**Expect:** The new competency appears in the list.",
-        '**Covers:** AC1 "An author can add a competency".',
-    ]
+def test_notes_interleave_by_line(ctx):
+    text = ctx.render(0)
+    api = text[text.index("### src/data/api.ts"):text.index("### src/data/api.test.ts")]
+    marks = ["L5-L20 AC1", "L22-L30 AC2: patches", "L22-L30 Bug", "L31-L35 AC2 edge case"]
+    assert [api.index(m) for m in marks] == sorted(api.index(m) for m in marks)
+    assert text.index("### src/pages/CompetencyPage.tsx") < text.index("### src/data/api.ts") < text.index("### src/data/api.test.ts")
 
 
-def test_sharpened_step_and_first_read(inputs):
-    text = render_overview(inputs.chapters[1], criteria=[], findings=[], first_section_by_path={"src/data/api.ts": 2, "src/pages/CompetencyPage.tsx": 2}, this_section=3)
-    assert "\n\n**Expect:** The list shows level 3.\n\nSharpened from the PR. Author's wording: \"check editing works\"" in text
-    assert "patches the level. First read in chapter 2." in text
-    assert "**Covers:**" not in text
+def test_also_section_lists_shared_piece(ctx):
+    text = ctx.render(1)
+    assert text.startswith("Review verdict: Implemented, untested.\n\n```\nScenario: Author changes the level\n")
+    assert "### Also in this chapter, diff shown in chapter 2" in text
+    assert "- src/data/api.ts L22-L30 AC2: patches the level (key piece, 1 finding)" in text
+    assert "- src/data/api.test.ts L1-L40 AC1, AC2 test: covers the POST and PATCH calls" in text
+    assert text.count("Scenario: Author changes the level") == 1
 
 
-def test_layer_overview_without_code_is_empty_of_step_lines(inputs):
-    text = render_overview(inputs.chapters[2], criteria=[], findings=[], first_section_by_path={}, this_section=4)
-    assert text == ""
+def test_ac_without_code(ctx):
+    assert ctx.render(2) == "No code in this PR implements this AC.\n\n```\nScenario: Deleting asks for confirmation\n  When the author deletes a competency\n  Then a confirmation dialog appears\n```"
 
 
-def test_layer_overview_with_code_and_findings():
-    ch = Chapter("layer", "L", None, None, None, (), ())
-    finding = Finding("Nit", "T", Anchor("a.py", 1, 1), "W")
-    text = render_overview(ch, criteria=[], findings=[finding], first_section_by_path={}, this_section=1)
-    assert text == "> [!NOTE] Nit: T. W `a.py` L1"
-    assert "**Do:**" not in text
+def test_purpose_chapter(ctx):
+    text = ctx.render(3)
+    assert text == "### migrations/0002_add_level.py\n- L1-L20 migration: adds the level column\n\n### src/old/Legacy.tsx\n- L1 removal: drops the old page"
 
 
-def test_file_summary_with_tags(inputs):
-    assert render_file_summary(FileEntry("src/data/api.ts", "Adds the create and patch calls."), inputs.criteria) == "Adds the create and patch calls. AC1 L5-L20, AC2 L22-L30."
+def test_ac_block_keeps_text_and_fence():
+    text = "Scenario: X\n  Given `code`  \n```js\nThen y"
+    block = ac_block(text)
+    assert block.splitlines()[0] == "```" and block.splitlines()[-1] == "```"
+    assert block.splitlines()[1:-1] == ["Scenario: X", "  Given `code`  ", ZWSP + "```js", "Then y"]
 
 
-def test_file_summary_without_tags(inputs):
-    assert render_file_summary(FileEntry("src/data/api.test.ts", "Tests\nboth calls."), inputs.criteria) == "Tests both calls."
+def test_ac_block_guards_indented_fence():
+    assert ac_block("a\n  ```\nb").splitlines()[2] == ZWSP + "  ```"
 
 
-def test_before_you_start_lists_outside_findings(inputs):
-    gaps = find_gaps(inputs.criteria, inputs.changed)
-    outside = assign_findings(inputs.findings, inputs.chapters, inputs.changed).outside
-    text = render_before_you_start(verdict=inputs.verdict, gaps=gaps, outside=outside, change_map_note=None)
+def test_finding_text_is_one_line_and_title_period_is_not_doubled(ctx):
+    findings = {"migrations/0002_add_level.py": (
+        Finding("Nit", "Already ends.", Anchor("migrations/0002_add_level.py", 1, 1), "Why\nnow"),)}
+    text = render_overview(
+        ctx.chapters[3], section=5, criteria_by_id=ctx.criteria_by_id, keys=ctx.keys,
+        pieces_by_path=ctx.pieces_by_path, findings_by_path=findings, sections=ctx.sections)
+    assert "- L1 Nit: Already ends. Why now" in text
+
+
+def test_file_summary(ctx):
+    assert render_file_summary("Adds the create and patch calls.", "src/data/api.ts", ctx.pieces_by_path, 1) == "Adds the create and patch calls. AC1, AC2. 1 finding."
+    assert render_file_summary("Deletes the old page", "src/old/Legacy.tsx", ctx.pieces_by_path, 0) == "Deletes the old page."
+    assert render_file_summary("Tests both calls.", "src/data/api.test.ts", ctx.pieces_by_path, 2) == "Tests both calls. AC1, AC2. 2 findings."
+
+
+def test_before_you_start(ctx, inputs):
+    text = render_before_you_start(verdict=inputs.verdict, backgrounds=inputs.backgrounds, gaps=[inputs.criteria[2]], outside=list(ctx.placed.outside), change_map_note=None)
     assert text.startswith("**Review verdict:** Ready to merge: no.")
-    assert '- AC3 "Deleting a competency asks for confirmation"' in text
-    assert "- `migrations/0002_add_level.py`" in text
-    assert "> [!IMPORTANT] Question: Caller still passes the old prop." in text
+    assert "Background from openedx/frontend-app-authoring#99:\n```\nBackground:\n  Given an author is logged in\n```" in text
+    assert "**Acceptance criteria with no code in this PR:**\n- AC3: Deleting asks for confirmation" in text
+    assert "**Findings on files this PR does not change:**\n- src/unchanged/Caller.tsx L8 Question: Caller still passes the old prop." in text
 
 
-def test_before_you_start_none_and_note():
-    from guide_mapping import Gaps
-
-    text = render_before_you_start(verdict="V", gaps=Gaps([], []), outside=[], change_map_note="Map at x.mmd")
-    assert text == (
-        "**Review verdict:** V\n\n"
-        "**Acceptance criteria with no code in this PR:**\n- None.\n\n"
-        "**Changed files no acceptance criterion points at:**\n- None.\n\n"
-        "Map at x.mmd"
-    )
-    assert "outside the changed files" not in text
+def test_before_you_start_empty_and_note():
+    text = render_before_you_start(verdict="Ok.", backgrounds=[], gaps=[], outside=[], change_map_note="See the map.")
+    assert text == "**Review verdict:** Ok.\n\n**Acceptance criteria with no code in this PR:**\n- None.\n\nSee the map."
 
 
-def test_change_map_structure(inputs):
-    src = render_change_map(inputs.chapters)
-    assert src.splitlines()[0] == "flowchart LR"
-    assert "click " not in src
-    for title in [c.title for c in inputs.chapters]:
-        assert f'"{title}"' in src
-    for path in inputs.changed:
-        assert f'"{path}"' in src
-    assert src.count(" --> ") == 7
-
-
-def test_change_map_escapes_quotes():
-    ch = Chapter("layer", 'Say "hi"', None, None, None, (), (FileEntry("a.py", "s"),))
-    assert '"Say #quot;hi#quot;"' in render_change_map([ch])
+def test_change_map(ctx):
+    src = render_change_map(ctx.chapters)
+    assert src.splitlines()[0] == "flowchart LR" and "click " not in src
+    assert src.count(" --> ") == 8
+    assert 'c3["Refactoring and setup"]' in src
