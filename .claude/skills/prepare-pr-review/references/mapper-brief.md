@@ -61,7 +61,7 @@ New-side line numbers are line numbers in the file at `{head_sha}`, counted from
 5. **Handle files with no line-level change.** A pure rename, a mode change, or a binary file gets one piece anchored at line 1 with kind `other` and a purpose such as `renames the file` or `updates the binary asset`.
 6. **Mark exactly one key piece per AC.** Each AC that your files serve appears in `key_for` of exactly one piece across the whole batch, never two. Choose the piece a reviewer most needs to read to judge that AC. Prefer a piece of kind `implements`. When the AC's pieces in your batch are all tests or edge cases, mark the most important of those. `key_for` lists only ids that are also in that piece's `acs`.
 7. **Write summaries.** Write one `summary` per file, at most 15 words, saying what the file's change does.
-8. **Check coverage before validating.** For each file, list the new-side line number of every added (`+`) line in its diff, and confirm each lies inside exactly one piece's anchor of that file. Run this once per file. It prints every line that is in zero or several pieces, and nothing when coverage is right. Fix the pieces until it prints nothing:
+8. **Check coverage before validating.** For each file, list the new-side line number of every added (`+`) line in its diff, and confirm each lies inside exactly one piece's anchor of that file. Run it for all of the batch's files in one shell loop, which counts as one tool call, so a 25-file batch does not spend one call per file. It prints every line that is in zero or several pieces, and nothing when coverage is right. Fix the pieces until it prints nothing:
 
 ```bash
 git -C <tmp> diff -U0 $(git -C <tmp> merge-base <base> {head_sha}) {head_sha} -- <file> | python3 -c '
