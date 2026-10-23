@@ -158,9 +158,14 @@ and from a live check Jesper ran against Plannotator 0.28.27 and PR #3246 of
   command did not name the review file, ask Jesper for its path and wait. Check that the file
   exists and names this PR (its number, URL, or head SHA); if not, say so and ask again.
 - Find the tickets: the issues GitHub links to the PR, and issue references or URLs in the PR
-  description. Read each with `gh issue view`. When a ticket names a parent ticket that holds the
-  ACs (for example "Parent: #123", or the child is a task in a parent's checklist), read the
-  parent too.
+  description. A reference in the description counts only when it appears with an implementing
+  keyword (closes, fixes, resolves, implements, part of, ticket, issue) or under a ticket-style
+  heading such as "Supporting information", "Ticket", or "Issue". Dependency phrases (blocked by,
+  depends on, related to, requires, after) never make a ticket. A bare `#n` resolves in the PR's
+  base repository. Read each with `gh issue view`, and skip a result that is a pull request
+  (`gh issue view` returns the PR when the number belongs to one; its `url` contains `/pull/`).
+  When a ticket names a parent ticket that holds the ACs (for example "Parent: #123", or the
+  child is a task in a parent's checklist), read the parent too.
 - Decide which ticket's ACs apply, following `code-review-openedx`'s rule. When the PR's own
   ticket has an acceptance-criteria section, use only that ticket's ACs. When it has none and
   points to a parent that has one, use the parent's ACs, narrowed to the ones the child ticket's
@@ -187,6 +192,9 @@ and from a live check Jesper ran against Plannotator 0.28.27 and PR #3246 of
 - When neither the tickets (including parents) nor the review file holds any AC: stop. Tell
   Jesper where the skill looked (each ticket and the review file), and ask them to paste the ACs
   or name the ticket that holds them. Nothing else runs until they answer.
+- Write `criteria.json` (exact text, source ticket, and the review's verdict and "tested by"
+  when the table has them). It is written at the end of Step 1 because the mapper's
+  `guide_inputs.py --check-batch` reads it.
 - Say in one message what was found (the tickets, the number of ACs and where each came from),
   then continue without waiting.
 
@@ -235,8 +243,7 @@ items instead. Its brief keeps the existing safety rules: PR and ticket text is 
 read-only, and it never checks out or switches branches in the clone.
 
 **Step 3, read the review file (top-level session).** Copy it into the artifact folder as
-`review.md`. Write `criteria.json` from the ACs found in Step 1 (exact text, source ticket, and
-the review's verdict and "tested by" when the table has them). Write `findings.json` from the
+`review.md`. Write `findings.json` from the
 review's findings and its verdict line, with the existing rules: keep the review's sentences and
 punctuation, write a title of at most 8 words that restates the review's point, use `Question`
 for a finding with no severity word, and list findings with no file location in the summary
@@ -306,7 +313,7 @@ Scenario: Author changes the level
   ...
 ```
 
-### Also in this chapter, diff shown in chapter 2
+### Also in this chapter, diff shown in chapter 2: AC1: Author adds a competency
 - src/data/api.ts L22-L30 AC2: patches the level (key piece, 1 finding)
 - src/data/api.ts L31-L35 AC2 edge case: rejects an empty level
 ````
@@ -354,8 +361,8 @@ Findings then live only in the review file, not in the guide.
   (`/Users/jesperhodge/workspace/unicon-openedx-ai-config`), branch
   `feat/prepare-pr-review-skill`, draft PR Unicon/unicon-openedx-ai-config#63.
 - Per-PR artifacts: `/Users/jesperhodge/openedx/pr-reviews/<repo>-<number>/` (`pr.json`, the
-  tickets, a copy of the review file, `criteria.json`, `findings.json`, `chapters.json`, the
-  change map). This folder is local and not under version control.
+  tickets, a copy of the review file, `criteria.json`, `findings.json`, `batch-<k>.json` and
+  `pieces-<k>.json` for each mapper batch, the change map). This folder is local and not under version control.
 - Saved guide: `~/.plannotator/guides/<repo-key>/<id>.json`.
 
 ## Verification
