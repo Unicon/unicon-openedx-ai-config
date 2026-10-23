@@ -104,3 +104,55 @@ def test_check_placement_requires_deleted_files():
     with pytest.raises(PlacementError) as e:
         check_placement(["a.py", "src/old/Legacy.tsx"], [ch])
     assert e.value.missing == ["src/old/Legacy.tsx"]
+
+
+def _write(tmp_path, obj):
+    p = tmp_path / "in.json"
+    p.write_text(json.dumps(obj))
+    return p
+
+
+@pytest.mark.parametrize("loader, key", [(load_chapters, "chapters"), (load_criteria, "criteria"), (load_findings, "findings")])
+def test_loaders_reject_missing_top_level_key(tmp_path, loader, key):
+    with pytest.raises(ValueError, match=key):
+        loader(_write(tmp_path, {"verdict": "v"}))
+
+
+@pytest.mark.parametrize("loader, key", [(load_chapters, "chapters"), (load_criteria, "criteria"), (load_findings, "findings")])
+def test_loaders_reject_non_object_row(tmp_path, loader, key):
+    with pytest.raises(ValueError, match=rf"{key}\[0\]"):
+        loader(_write(tmp_path, {key: ["not an object"], "verdict": "v"}))
+
+
+@pytest.mark.parametrize("field", ["code", "files"])
+@pytest.mark.parametrize("value", [None, "text", ["not an object"]])
+def test_load_chapters_rejects_bad_code_and_files(tmp_path, field, value):
+    row = {"kind": "layer", "title": "L", "code": [], "files": [], field: value}
+    with pytest.raises(ValueError, match=field):
+        load_chapters(_write(tmp_path, {"chapters": [row]}))
+
+
+@pytest.mark.parametrize("field", ["tested_by", "implemented_at"])
+@pytest.mark.parametrize("value", ["src/a.py::test", None, [5]])
+def test_load_criteria_rejects_non_list_of_strings(tmp_path, field, value):
+    row = {"id": "AC1", "text": "t", "implemented_at": [], "tested_by": [], "verdict": "Covered", field: value}
+    with pytest.raises(ValueError, match=field):
+        load_criteria(_write(tmp_path, {"criteria": [row]}))
+
+
+def test_load_chapters_rejects_non_string_original(tmp_path):
+    row = {"kind": "step", "title": "S", "do": "d", "expect": "e", "original": 5, "code": [], "files": []}
+    with pytest.raises(ValueError, match="original"):
+        load_chapters(_write(tmp_path, {"chapters": [row]}))
+
+
+@pytest.mark.parametrize("pr, match", [
+    ({}, "files"),
+    ({"files": None}, "files"),
+    ({"files": ["a.py"]}, r"files\[0\]"),
+    ({"files": [{"additions": 1}]}, "path"),
+    ({"files": [{"path": 5}]}, "path"),
+])
+def test_changed_files_rejects_malformed_pr(pr, match):
+    with pytest.raises(ValueError, match=match):
+        changed_files(pr)
