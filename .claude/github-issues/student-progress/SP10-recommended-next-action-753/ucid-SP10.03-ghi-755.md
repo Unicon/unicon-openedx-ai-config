@@ -1,7 +1,7 @@
 # [FE] Build Display of Recommended Next Action
 
 GitHub: https://github.com/openedx/openedx-core/issues/755 (#755, OPEN)
-Cached: 2026-09-21
+Cached: 2026-10-22
 
 ## User Story
 As a learner, I want to know what my recommended next action is in my CBE course in order to maintain momentum in learning and skill demonstration without having to figure this out myself or have someone tell me.
@@ -30,10 +30,10 @@ Therefore, the sentence displayed in the "Recommended Next Action" notice will s
 
 ## UX Design
 
-@illiphilli, please add the UX design screenshot(s) and the Figma link for this ticket.
+- [Figma Design](https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=983-3817&t=SsljQMEHyyPaRoW8-1)
+- Screenshots: 
 
-- Figma: TBD
-- Screenshots: TBD
+<img width="436" height="149" alt="Image" src="https://github.com/user-attachments/assets/e59fa67b-fa02-499d-bea0-71e20e04c273" />
 
 ## Acceptance Criteria
 
@@ -305,3 +305,4 @@ Paths are relative to the root of the plugin repository from #810.
 - In `@edx/frontend-platform`, `src/react/ErrorBoundary.jsx` shows the logging and fallback behavior that step 7 relies on.
 
 </details>
+
