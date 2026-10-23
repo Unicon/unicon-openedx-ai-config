@@ -54,17 +54,18 @@ def render_overview(
 ) -> str:
     """Return a chapter's overview text; blocks are separated by a blank line and empty ones are omitted.
 
-    A step chapter starts with its Do and Expect lines, plus the author's original wording when
-    the step was sharpened. Both chapter kinds then list the criteria they cover, the findings
+    A step chapter starts with its Do line, its Expect line, and, when the step was sharpened,
+    the author's original wording, each as its own block because Plannotator joins adjacent
+    lines into one paragraph. Both chapter kinds then list the criteria they cover, the findings
     (rendered in the order given), and the code in reading order. A code ref whose file an
     earlier chapter already showed gets a pointer to that chapter.
     """
     blocks = []
     if chapter.kind == "step":
-        lines = [f"**Do:** {one_line(chapter.do)}", f"**Expect:** {one_line(chapter.expect)}"]
+        blocks.append(f"**Do:** {one_line(chapter.do)}")
+        blocks.append(f"**Expect:** {one_line(chapter.expect)}")
         if chapter.original:
-            lines.append(f'Sharpened from the PR. Author\'s wording: "{one_line(chapter.original)}"')
-        blocks.append("\n".join(lines))
+            blocks.append(f'Sharpened from the PR. Author\'s wording: "{one_line(chapter.original)}"')
     if criteria:
         covers = " ".join(f'{c.id} "{one_line(c.text)}".' for c in criteria)
         blocks.append(f"**Covers:** {covers}")

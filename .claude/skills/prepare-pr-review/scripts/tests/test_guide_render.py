@@ -61,13 +61,17 @@ def test_step_overview_order(inputs):
 
 def test_step_overview_exact_blocks(inputs):
     text = render_overview(inputs.chapters[0], criteria=inputs.criteria[:1], findings=[], first_section_by_path={}, this_section=1)
-    assert text.split("\n\n")[0] == "**Do:** Open Studio > Competencies and click Add.\n**Expect:** The new competency appears in the list."
-    assert text.split("\n\n")[1] == '**Covers:** AC1 "An author can add a competency".'
+    assert "**Do:** Open Studio > Competencies and click Add.\n\n**Expect:** The new competency appears in the list." in text
+    assert text.split("\n\n")[:3] == [
+        "**Do:** Open Studio > Competencies and click Add.",
+        "**Expect:** The new competency appears in the list.",
+        '**Covers:** AC1 "An author can add a competency".',
+    ]
 
 
 def test_sharpened_step_and_first_read(inputs):
     text = render_overview(inputs.chapters[1], criteria=[], findings=[], first_section_by_path={"src/data/api.ts": 2, "src/pages/CompetencyPage.tsx": 2}, this_section=3)
-    assert "Sharpened from the PR. Author's wording: \"check editing works\"" in text
+    assert "\n\n**Expect:** The list shows level 3.\n\nSharpened from the PR. Author's wording: \"check editing works\"" in text
     assert "patches the level. First read in chapter 2." in text
     assert "**Covers:**" not in text
 
