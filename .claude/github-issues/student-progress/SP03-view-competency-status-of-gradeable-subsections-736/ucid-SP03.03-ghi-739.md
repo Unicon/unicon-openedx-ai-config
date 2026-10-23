@@ -27,7 +27,7 @@ If the course hides the subsection's score from the learner, or the subsection i
 - [Figma Link](https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=983-3817&t=2Jkl6fnaAmO6aSi1-1)
 - Screenshot:
 
-<img width="799" height="892" alt="Image" src="https://github.com/user-attachments/assets/307c2369-5205-4215-ad58-17a0f48f86c3" />
+<img width="1155" height="1600" alt="Image" src="https://github.com/user-attachments/assets/79386572-f632-4e71-90d4-310c4b93e712" />
 
 
 ## Acceptance Criteria
