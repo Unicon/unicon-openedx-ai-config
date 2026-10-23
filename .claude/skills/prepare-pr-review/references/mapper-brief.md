@@ -45,21 +45,47 @@ Hints from the code review, where it says each AC is implemented. Treat them as 
 
 Changed lines are the lines the PR's diff adds or modifies, plus the lines it removes. To get the diff at `{head_sha}` against its merge base, find the PR's base branch with `gh pr view {pr_url} --json baseRefName`, then run `git -C {repo_clone} fetch {base_repo_url} <baseRefName>`. The next command is `git -C {repo_clone} rev-parse FETCH_HEAD`, which gives `<base>`. Then run `git -C <tmp> diff $(git -C <tmp> merge-base <base> {head_sha}) {head_sha} -- <file>` for one file. Alternatively, run `gh pr diff {pr_url}` and read only the entries for your files.
 
-New-side line numbers are line numbers in the file at `{head_sha}`, counted from 1. Every anchor uses them. Do not anchor unchanged lines.
+New-side line numbers are line numbers in the file at `{head_sha}`, counted from 1. Every anchor uses them. Do not anchor unchanged lines, with one exception: a piece that only removes lines is anchored at the next new-side line, even though that line is unchanged (see item 4).
 
 ## What to do
 
-1. **Cover every changed line.** Label every changed line of every file in your list with exactly one piece. Do not label other files, and leave no changed line of your files unlabeled. Skip nothing because it looks minor: imports, comments, and renamed lines belong to a piece too.
+1. **Cover every changed line.** Label every changed line of every file in your list with exactly one piece. Do not label other files. Imports, comments, renamed lines, and blank added lines all belong to a piece: extend the adjacent piece over blank lines.
 2. **Draw piece boundaries by purpose.** A piece is a contiguous range of changed lines that serves one purpose. Split a hunk when its parts serve different purposes. Keep pieces as large as one purpose allows, so a file gets a few pieces and not one per line. Pieces of one file do not overlap.
 3. **Label each piece.**
    - `kind` is one of: `implements`, `edge case`, `test`, `refactor`, `setup`, `migration`, `docs`, `removal`, `other`.
    - `acs` lists the ids of the ACs the piece serves, and is empty when it serves none.
-   - `purpose` is at most 8 words, says what the piece is for and not how it works, and has no trailing period. Write `patches the level on save`, not `calls PATCH with a JSON body built from the form state`.
+   - `purpose` is at most 8 words, says what the piece is for and not how it works, and has no trailing period. Write `patches the level on save`, not `calls PATCH with a JSON body built from the form state`. Count the words of each purpose before you validate.
    - The `acs` of a test name the ACs it checks.
    - An edge case that is tied to an AC lists that AC.
-4. **Anchor removed code.** A piece of only removed lines is anchored at the first new-side line after the removal, or at line 1 of a deleted file. Its kind is `removal`.
-5. **Mark key pieces.** For each AC that your files serve, put that AC in `key_for` of the one piece a reviewer most needs to read to judge it. Prefer a piece of kind `implements`. `key_for` lists only ids that are also in that piece's `acs`.
-6. **Write summaries.** Write one `summary` per file, at most 15 words, saying what the file's change does.
+4. **Anchor removed code.** Removed lines next to added lines are covered by the piece over the added lines. A piece of only removed lines gets kind `removal`. Anchor it at the next new-side line after the removal, even where that line is unchanged, or at line 1 of a deleted file.
+5. **Handle files with no line-level change.** A pure rename, a mode change, or a binary file gets one piece anchored at line 1 with kind `other` and a purpose such as `renames the file` or `updates the binary asset`.
+6. **Mark exactly one key piece per AC.** Each AC that your files serve appears in `key_for` of exactly one piece across the whole batch, never two. Choose the piece a reviewer most needs to read to judge that AC. Prefer a piece of kind `implements`. When the AC's pieces in your batch are all tests or edge cases, mark the most important of those. `key_for` lists only ids that are also in that piece's `acs`.
+7. **Write summaries.** Write one `summary` per file, at most 15 words, saying what the file's change does.
+8. **Check coverage before validating.** For each file, list the new-side line number of every added (`+`) line in its diff, and confirm each lies inside exactly one piece's anchor of that file. Run this once per file. It prints every line that is in zero or several pieces, and nothing when coverage is right. Fix the pieces until it prints nothing:
+
+```bash
+git -C <tmp> diff -U0 $(git -C <tmp> merge-base <base> {head_sha}) {head_sha} -- <file> | python3 -c '
+import json, re, sys
+path, pieces_file = sys.argv[1:3]
+spans = []
+for p in json.load(open(pieces_file))["pieces"]:
+    name, _, rng = p["anchor"].rpartition(":")
+    a, _, b = rng.partition("-")
+    if name == path:
+        spans.append((int(a), int(b or a)))
+line = None
+for row in sys.stdin:
+    m = re.match(r"@@ -\S+ \+(\d+)", row)
+    if m:
+        line = int(m.group(1))
+    elif line is not None and row.startswith("+"):
+        n = sum(a <= line <= b for a, b in spans)
+        n != 1 and print(path, "line", line, "is in", n, "pieces")
+        line += 1
+' <file> {artifacts}/pieces-{batch}.json
+```
+
+Write no helper files. The only file you write is `{artifacts}/pieces-{batch}.json`.
 
 ## The pieces file
 
@@ -82,7 +108,7 @@ The file is a JSON object with two keys. `files` lists one entry per file of you
 
 ## Check your work
 
-After writing the file, run `python3 {skill_dir}/scripts/guide_inputs.py --check-batch {artifacts} {batch}`. It exits 0 and prints `Batch {batch} OK` when every file in your batch has a summary and at least one piece, and every AC id exists. Otherwise it exits 1 and prints what is missing or invalid. Fix `{artifacts}/pieces-{batch}.json` and run it again until it exits 0, then remove the worktree.
+After writing the file, run `python3 {skill_dir}/scripts/guide_inputs.py --check-batch {artifacts} {batch}`. It exits 0 and prints `Batch {batch} OK` when every file in your batch has a summary and at least one piece, and every AC id exists. Otherwise it exits 1 and prints what is missing or invalid. Fix `{artifacts}/pieces-{batch}.json` and run it again until it exits 0, then remove the worktree. The only file you write is `{artifacts}/pieces-{batch}.json`.
 
 ## What to return
 
