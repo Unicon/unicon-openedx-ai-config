@@ -4,7 +4,7 @@ GitHub: pending
 Cached: 2026-10-23
 
 ## User Story
-As an administrator, I do not want my re-import of a taxonomy to ruin my competency criteria that are configured for any courses in the platform by breaking the competency dominance rule in order to avoid having confusing competency criteria or competency criteria that I would not be able to manage directly in Studio.
+As an administrator, I want a re-import of a competency taxonomy to be rejected when it would re-arrange tags in a way that breaks the competency dominance rule, in order to keep the competency criteria already configured for courses across the platform valid and manageable in Studio.
 
 ## Description
 
