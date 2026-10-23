@@ -18,7 +18,7 @@ an upstream community repo: AI config, local dev setup notes, deployment notes, 
   - `agents/` — `business-analyst` and `software-architect`, expert sub-agents for ticket
     review/authoring and architecture design.
   - `skills/` — `ticket-writer` (interactive ticket drafting, dispatches both agents),
-    `code-review`.
+    `code-review`, `prepare-pr-review` (opens a PR in Plannotator with a guided walkthrough).
   - `*-principles.md`, `architecture-overview.md`, `cbe-project-context.md`,
     `ticket-template.md` — reference docs the agents ground their judgment in.
   - `github-issues/` — local cache of GitHub issue descriptions from `openedx-core`,
