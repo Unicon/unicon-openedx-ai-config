@@ -7,7 +7,7 @@ description: Use when asked to prepare a pull request for a human line-by-line r
 
 Command: `/prepare-pr-review <PR URL> [review file]`. The skill turns an existing code review file and the PR's manual testing steps into a saved Plannotator guide, opens the PR in Plannotator, and ends the turn. Jesper reads every line and posts their own comments. The PR on GitHub never changes.
 
-Paths: `<skill_dir>` is the base directory printed when this skill loads ("Base directory for this skill: ..."). Use it in every script and reference path, because the session may run in any directory. `<artifacts>` is `/Users/jesperhodge/openedx/pr-reviews/<repo>-<n>/`, created with `mkdir -p`.
+Paths: `<skill_dir>` is the base directory printed when this skill loads ("Base directory for this skill: ..."). When no such line is shown, it is the folder that contains this SKILL.md. Use it in every script and reference path, because the session may run in any directory. `<artifacts>` is `/Users/jesperhodge/openedx/pr-reviews/<repo>-<n>/`, created with `mkdir -p`.
 
 ## Steps
 
@@ -22,13 +22,13 @@ Run the second command once per linked issue, taken from `closingIssuesReference
 
 The review file path comes from the command. When none is given, ask Jesper for it and wait. This is the only question the skill asks. Check that the file exists and names this PR (its number, URL, or head SHA), and ask again if not. The skill never runs a code review.
 
-Find the testing instructions in the PR body and choose one outcome. Say in one message what was found, then continue without waiting, except in the first outcome.
+The testing section is the text under the PR body's testing heading, which is any heading that mentions testing instructions, test steps, test plan, or "how to test". It runs up to the next heading of the same or higher level, and the heading line itself is excluded. Find it and choose one outcome. Say in one message what was found, then continue without waiting, except in the first outcome.
 
 - **No usable section.** There is no testing section, or it holds no actionable step (only "run the tests", "see the ticket", "N/A"). Stop before any other work. Tell Jesper, and include a short draft comment asking the author to add manual testing instructions. State that the skill does not post it.
 - **Vague steps.** A step leaves out where to go, what to do, or what should happen. Continue. The mapper sharpens these steps.
 - **Usable steps.** Continue with the steps as written.
 
-**2. Start the mapper, before reading the review file.** The clone is `/Users/jesperhodge/openedx/<repo>`. When it is missing, run `gh repo clone <owner>/<repo> <artifacts>/clone` and use that folder. Read `<skill_dir>/references/mapper-brief.md` and replace every placeholder by plain string replacement, never `str.format`, because the brief's JSON example has literal braces.
+**2. Start the mapper, before reading the rest of the review file.** The clone is `/Users/jesperhodge/openedx/<repo>`. When it is missing, run `gh repo clone <owner>/<repo> <artifacts>/clone` and use that folder. Before dispatching, read only the review file's acceptance-criteria table, which is quick. Then read `<skill_dir>/references/mapper-brief.md` and replace every placeholder by plain string replacement, never `str.format`, because the brief's JSON example has literal braces.
 
 | Placeholder | Value |
 | --- | --- |
@@ -37,11 +37,11 @@ Find the testing instructions in the PR body and choose one outcome. Say in one 
 | `{repo_clone}` | the clone path above |
 | `{artifacts}`, `{skill_dir}` | the two folders defined at the top |
 | `{testing_steps}` | the author's testing section, verbatim |
-| `{criteria_text}` | the acceptance criteria from the linked issues, or the PR description's behavior list, or "No acceptance criteria stated." |
+| `{criteria_text}` | the review file's criteria table. When it has none, the acceptance criteria from the linked issues, then the behavior the PR body describes, then "No acceptance criteria stated." |
 
-Dispatch it with the Agent tool: `subagent_type: general-purpose`, `model: sonnet`, `run_in_background: true`, and the filled brief as the prompt. Do not add placement rules of your own. The brief decides which chapter holds each file, including test files. Go on to step 3 without waiting.
+Dispatch it with the Agent tool: `subagent_type: general-purpose`, `model: sonnet`, `run_in_background: true`, and the filled brief as the prompt. Do not add placement rules of your own. The brief decides which chapter holds each file, including test files. Go on to the rest of step 3 without waiting for it.
 
-**3. Read the review file.** Copy it to `<artifacts>/review.md`, then write two files from it. Include only what the review file contains. Do not add, merge, or reword findings, and do not add findings of your own.
+**3. Read the review file.** Copy it to `<artifacts>/review.md`, then write two files from it. Include only what the review file contains. Do not add, merge, or reword findings, and do not add findings of your own. The only text you write yourself is a missing finding title, below.
 
 `<artifacts>/criteria.json`, from the review's acceptance-criteria table:
 
@@ -55,9 +55,10 @@ Dispatch it with the Agent tool: `subagent_type: general-purpose`, `model: sonne
 {"verdict": "Ready to merge: with fixes. One sentence.", "findings": [{"severity": "Gap", "title": "Short title", "anchor": "src/x.tsx:304-308", "why": "One full sentence ending in a period."}]}
 ```
 
-- Number criteria AC1 to ACn across all linked issues. An anchor is `path:line` or `path:start-end`. Widen a single-line anchor to the enclosing function or block, read at the head SHA.
+- Number criteria AC1 to ACn across all linked issues. Strip the table's surrounding quotes from the criterion text and keep any inner quotes. `tested_by` copies what the review says: `path::test name` when it names a test, otherwise the review's description as given. "none" or an empty cell becomes `[]`. An anchor is `path:line` or `path:start-end`. Widen a single-line anchor to the enclosing function or block, read at the head SHA.
 - `severity` is one of `Bug`, `Gap`, `Question`, `Suggestion`, `Nit`. A finding with no severity word, including one on a file the PR did not change, becomes `Question`.
-- `why` is one full sentence ending in a period. A finding title and a code-ref role carry no trailing period.
+- `why` keeps the review's own sentence and punctuation. Add a period only when the sentence has no closing punctuation at all, so a question keeps its "?".
+- A finding with no title in the review gets a `title` of at most 8 words, taken from the finding's heading or first clause. It may only restate the review's point, and it is the only text the skill writes in its own words. A finding title and a code-ref role carry no trailing period.
 - No criteria table: build the criteria from the linked issues, find each one's anchors by reading the diff at the head SHA, and use the verdict "Not in the review".
 - A finding with no file location stays out of `findings.json`. List it in the summary message under "Findings without a location".
 - No verdict line: use "The review file states no verdict."
@@ -84,7 +85,7 @@ End the turn with a summary message. It holds:
 
 - the guide label to pick under Guide > previous guides;
 - the change map path;
-- the component tree file path, when the review file names one;
+- the component tree file path, when the review file names one. When it names none, leave this line out and say so in the message;
 - the acceptance-criteria gap list, from the composer's "Before you start" chapter;
 - any "Findings without a location";
 - the verdict line.
