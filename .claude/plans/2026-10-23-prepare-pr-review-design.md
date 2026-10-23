@@ -104,7 +104,7 @@ Plannotator's code.
 | --- | --- |
 | 1. The hand-written guide appears in the previous-guides list and renders. | Confirmed in Task 1: it appears and loads. |
 | 1 (links). `code:` and `chapter:` links work. | Failed in Task 1: they render as text and are not clickable in the live review screen. The review editor passes no link handler to the guide renderer. The scripts write line and chapter references as plain text, such as `` `src/x/api.py` L40-L52 `` and "first read in chapter 1". |
-| 2. Which callout kinds render. | Confirmed in Task 1: `[!WARNING]`, `[!IMPORTANT]`, and `[!NOTE]` single-line callouts render as labeled, tinted boxes. Findings can use any of the three kinds. |
+| 2. Which callout kinds render. | Confirmed in Task 1: `[!WARNING]`, `[!IMPORTANT]`, and `[!NOTE]` single-line callouts render as labeled, tinted boxes. Findings map by severity: Bug and Gap use `[!WARNING]`, Question uses `[!IMPORTANT]`, and Suggestion and Nit use `[!NOTE]`. |
 | 3. A section with an empty `diffs` list is allowed. | Confirmed in Task 1: it renders. "Before you start" stays a section, always first, and does not move into `intent`. |
 | 4. `guide.overview` with a Mermaid diagram renders from a saved guide. | Failed in Task 1: the live review screen does not show `guide.overview` at all. `EMBED_CHANGE_MAP` is `False`: the change map is always a separate `.mmd` file, and the summary message and "Before you start" give its path. |
 | 5. Ask AI is answered by the terminal session, and from the VS Code chat panel. | Partly confirmed in Task 1: answers come from Claude. Which session answered was not pinned down, and the VS Code chat panel was not tested. |
@@ -241,9 +241,9 @@ A testing-step chapter's overview, in this order:
 
 **Covers:** AC2 "<full text>". AC3 "<full text>".
 
-> [!NOTE]
-> [!WARNING] Bug, AC2: <one line>. `src/x/api.py` L40-L52
-> [!NOTE] Question: <one line>. `src/x/views.py` L88
+> [!WARNING] Bug: <title>. <why> `src/x/api.py` L40-L52
+
+> [!IMPORTANT] Question: <title>. <why> `src/x/views.py` L88
 
 **Code, in the order it runs:**
 - `src/x/Page.tsx` L12-L30: renders the Add button.
