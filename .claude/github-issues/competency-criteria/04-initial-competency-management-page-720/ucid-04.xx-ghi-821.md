@@ -1,7 +1,7 @@
 # [Bug] Visual polish for the Competency Tree on the Competency Management page
 
-GitHub: https://github.com/openedx/openedx-core/issues/821 (#821, OPEN)
-Cached: 2026-09-25
+GitHub: https://github.com/openedx/openedx-core/issues/821 (#821, CLOSED)
+Cached: 2026-10-22
 
 1. Add a hover effect to a tag row when the cursor is over it. See [mockup](https://www.figma.com/design/VhAdaucNQS49x0Afp9xPZw/Competency-Application?node-id=0-1#1886091068).
 2. Without hover, tag rows should alternate their fill color: white, gray, white, gray, and so on. Example: in the screenshot below, Python Programming should be white and Django Framework should be gray. 

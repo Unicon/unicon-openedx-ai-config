@@ -20,12 +20,16 @@ This endpoint should do the following logic. Steps 1, 3, and 4 skip anything #73
 The response payload will then resemble something to the effect of the following:
 ```json
 {
-    "student_competency_statuses": [{"tag_id": 40, "status": "PartiallyAttempted"},
-                                    {"tag_id": 41, "status": "PartiallyAttempted"}],
+    "student_competency_statuses": [{"tag_id": 40, "status": "PartiallyAttempted", "demonstrated_in_course": null},
+                                    {"tag_id": 41, "status": "Demonstrated",
+                                     "demonstrated_in_course": {"course_key": "course-v1:OpenedX+CT101+2026",
+                                                                "title": "Foundations of Critical Thinking"}}],
     "student_competency_criteria_statuses": [{"criterion_id": 90, "status": "Demonstrated"},
                                              {"criterion_id": 91, "status": "AttemptedNotDemonstrated"}]
 }
 ```
+
+Each competency status also carries `demonstrated_in_course`: the other course run where the learner demonstrated that competency, given by its course key and title so #740 can link to it, or null when there is none.
 
 ## Context
 - The statuses are written by #699 (a criterion's status when a grade is recorded) and #643 (the roll-up from criterion to competency, continuing up through each parent tag to the top of the taxonomy). Neither blocks building this endpoint, but both are needed to see real statuses end to end.
@@ -212,6 +216,23 @@ Scenario: A competency carries the learner's overall recorded status, while crit
   Then "Root Cause Analysis" is reported as "Demonstrated"
   And course run X's "Root Cause Analysis" criterion is reported as "AttemptedNotDemonstrated"
   And no status for any course run Y criterion is returned
+
+Scenario: A competency demonstrated in another course run names that course run
+  Given competency "Root Cause Analysis" has criteria in course run X and in course run Y
+  And L demonstrated "Root Cause Analysis" through course run Y's criteria
+  When a permitted caller requests L's competency statuses for course run X
+  Then the "Root Cause Analysis" status names course run Y, with its course key and title
+
+Scenario Outline: A competency that wasn't demonstrated in another course run names no course run
+  Given competency "Communication" has criteria in course run X and in course run Y
+  And <history>
+  When a permitted caller requests L's competency statuses for course run X
+  Then the "Communication" status names no course run
+
+  Examples:
+    | history                                                                  |
+    | L demonstrated "Communication" only through course run X's criteria      |
+    | L has not demonstrated "Communication" in any course run                 |
 ```
 
 **Archived and disabled records**
@@ -265,7 +286,7 @@ openedx-core adds a learner-facing view that asks a deployer-supplied resolver w
 
 In openedx-core, within `openedx_learning`:
 
-1. `get_learner_competency_statuses(user_id, course_key)` goes in `applets/cbe/api.py`, out of `__all__` like #733's function. It calls `get_course_competency_criteria(course_key)` and collects its criterion ids and every tag id in every lineage (a lineage includes the tag itself). Reusing #733's selection is what limits the result to exactly #733's items, including criteria at any depth below the course-level group, which Description steps 3 and 4 cover only one level deep. When #733's result is empty, return without querying the status tables, so the empty path stays at #733's one query. Otherwise read the learner's criterion-status rows and `StudentCompetencyStatus` rows filtered to those ids, one query each, with the `CompetencyMasteryStatus` string in the same query. Use the model and field names #642 lands; draft PR #802 already differs from ADR 0002's.
+1. `get_learner_competency_statuses(user_id, course_key)` goes in `applets/cbe/api.py`, out of `__all__` like #733's function. It calls `get_course_competency_criteria(course_key)` and collects its criterion ids and every tag id in every lineage (a lineage includes the tag itself). Reusing #733's selection is what limits the result to exactly #733's items, including criteria at any depth below the course-level group, which Description steps 3 and 4 cover only one level deep. When #733's result is empty, return without querying the status tables, so the empty path stays at #733's one query. Otherwise read the learner's criterion-status rows and `StudentCompetencyStatus` rows filtered to those ids, one query each, with the `CompetencyMasteryStatus` string in the same query. Then, if any returned competency status is Demonstrated, run one more query for `demonstrated_in_course`: the learner's Demonstrated `StudentCompetencyCriteriaGroupStatus` rows on those tags' course-level groups in course runs other than the requested one, with the `CourseRun`'s `course_key` and `title`. When there are several, take the earliest `modified`. Every other competency status gets null. Use the model and field names #642 lands; draft PR #802 already differs from ADR 0002's.
 2. `applets/cbe/rest_api/learners.py` defines the resolver contract: a callable `(request, course_key, learner_id) -> User`, where `learner_id` is an `int` or `None`. It raises `django.http.Http404` when the named learner doesn't exist or the requester may not see them, with the same bare 404 for both. It raises `rest_framework.exceptions.PermissionDenied` when the requester may not read learner data for the course run at all. Use DRF's `PermissionDenied`, not Django's, because an exception handler modeled on `openedx_tagging`'s renders Django's as a 500. The module loads the dotted path in the top-level `OPENEDX_LEARNING_LEARNER_RESOLVER` setting at call time. The default resolver returns `request.user` when `learner_id` is `None` or the requester's own id, and raises `Http404` otherwise. The setting name, the signature, and the exceptions are a contract with openedx-platform; document them in the default's docstring. The resolver is not a key in the existing `OPENEDX_LEARNING` dict, because operators supply that dict for `openedx_content` media storage and openedx-platform's YAML loader replaces it whole, which would silently drop the LMS's resolver.
 3. `LearnerCompetencyStatusesView` goes in `applets/cbe/rest_api/v1/views.py`, routed in #733's `learner_urls.py` at `v1/courses/<course_key>/competency-statuses/` with #733's authentication. It returns 400 for a malformed course key. It reads an optional `learner_id` query parameter; a non-integer gets the same 404 as an unknown id, as on the Progress tab. It calls the resolver before step 1, so a refused requester is refused even for a course run with no criteria. It returns the Description's two arrays, ordered by id.
 
@@ -310,6 +331,7 @@ Tests must cover these cases in openedx-platform:
   - The competency status is the learner's overall, cross-course status. Course staff can therefore read status a learner earned in other organizations' courses, for the competencies this course run assesses, including for a user who never enrolled in it.
   - Statuses for criteria on subsections whose results the course hides are returned as stored, and #739 and #740 mask them, so they are readable in the network response. The competency-level status already reflects those results, so masking only the criterion rows on the server wouldn't hide them.
   - The extracted `get_student_user()` keeps `ProgressTabView`'s CCX coach check, so a CCX coach can read statuses for a learner in their CCX, as on the Progress tab.
+  - `demonstrated_in_course` names one course run even when the learner demonstrated the competency in several, and is null for a competency demonstrated only through its sub-competencies. It depends on #643's roll-up writing course-level group statuses.
   - Statuses are returned without recomputation, so they can trail a grade by the asynchronous roll-up in `docs/openedx_learning/decisions/0004-competency-mastery-concurrency.rst`.
 - Out of scope:
   - CCX courses.

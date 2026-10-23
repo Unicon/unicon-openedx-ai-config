@@ -1,7 +1,7 @@
 # [BE] Build Update / Delete (archive) endpoint for a Competency Rule Profile (scoped to user's permissions)
 
 GitHub: https://github.com/openedx/openedx-core/issues/632 (#632, OPEN)
-Cached: 2026-09-21
+Cached: 2026-10-22
 
 **Blocked by:** \#613/\#641 (data model), and \#631's shared scaffolding (`RuleProfileSerializer`, `is_rule_profile_in_use`, the `rest_api/v1/` package) — whichever of \#631/\#632/\#633 lands first creates it. Also the one-time `openedx-platform` wiring from \#664.
 
@@ -15,7 +15,7 @@ As a Platform Administrator, I want to update a Competency Rule Profile's rule (
 
 **Current state**
 
-No `CompetencyRuleProfile` API exists. Per the merged ADR: a profile's scope fields are **immutable after creation** — only `rule_type`/`rule_payload` may be edited. Archiving is **archive-only, never a hard delete**, even pre-use (a carve-out from the general delete-protection rule) via the `archived` column; archived profiles remain queryable so existing criteria and learner history stay resolvable. The **system-default** profile is **not edited through this API at all** (6.7, Django admin only) — this ticket covers **taxonomy-scoped** profiles exclusively.
+No `CompetencyRuleProfile` API exists. Per the merged ADR: a profile's scope fields are **immutable after creation** — only `rule_type`/`rule_payload` may be edited. Retirement is **archive-only, never a hard delete**, even pre-use (a carve-out from the general delete-protection rule) via the `archived` column; archived profiles remain queryable so existing criteria and learner history stay resolvable. The **system-default** profile is **not edited through this API at all** (6.7, Django admin only) — this ticket covers **taxonomy-scoped** profiles exclusively.
 
 **Requested change**
 
@@ -94,7 +94,7 @@ Scenario: Reject update/archive without permission
 
 ### Implementation Notes
 
-Archive is a **dedicated `POST .../archive/` action**, not `PATCH {"archived": true}` — keeps rule-editing and lifecycle archiving on separate code paths, legible from the URL (neither is backend in-use-gated, only frontend in-use-gated). `perform_update`: reject any scope-field key (400); else call `update_rule_profile(...)` unconditionally (never `serializer.save()` directly; no in-use confirmation gate). Resolve the applicable permission via `can_change_taxonomy` on the target row's taxonomy (system-default is out of scope for this endpoint so no platform-admin branch is needed here). `archive_rule_profile` refuses the system-default. `http_method_names` excludes `delete` on the detail view (→ 405).
+Archive is a **dedicated `POST .../archive/` action**, not `PATCH {"archived": true}` — keeps rule-editing and lifecycle retirement on separate code paths, legible from the URL (neither is backend in-use-gated, only frontend in-use-gated). `perform_update`: reject any scope-field key (400); else call `update_rule_profile(...)` unconditionally (never `serializer.save()` directly; no in-use confirmation gate). Resolve the applicable permission via `can_change_taxonomy` on the target row's taxonomy (system-default is out of scope for this endpoint so no platform-admin branch is needed here). `archive_rule_profile` refuses the system-default. `http_method_names` excludes `delete` on the detail view (→ 405).
 
 ### Example Resolution Prompt
 

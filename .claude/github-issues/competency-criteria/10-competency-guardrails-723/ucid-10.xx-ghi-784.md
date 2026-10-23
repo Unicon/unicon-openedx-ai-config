@@ -1,7 +1,7 @@
 # [FE] Hide tag removal and tag adding for competency tags on Course Outline
 
 GitHub: https://github.com/openedx/openedx-core/issues/784 (#784, OPEN)
-Cached: 2026-10-14
+Cached: 2026-10-22
 
 ## User Story
 
@@ -54,7 +54,7 @@ Course Outline show each tag with a remove control, plus an add-tag control for 
 **Two payloads, two gating tickets.** Removing reads the per-object tag payload, gated by \#783. Adding reads the taxonomy list (`useTaxonomyList`), gated by \#618. The two halves are independent. This ticket uses the taxonomy type from the tagging payloads to disallow users from adding or removing tag associations from the Course Outline pages.
 
 Figma Links:
-Add [Course Outline competency tags](https://www.figma.com/design/VhAdaucNQS49x0Afp9xPZw/Competency-Application?node-id=2972-25103).
+[Course Outline competency tags](https://www.figma.com/design/VhAdaucNQS49x0Afp9xPZw/Competency-Application?node-id=2972-25103).
 
 Screenshots:
 

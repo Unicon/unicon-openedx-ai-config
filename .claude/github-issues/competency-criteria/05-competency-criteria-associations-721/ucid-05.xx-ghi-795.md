@@ -1,7 +1,7 @@
 # [BE] Make oel_tagging.can_tag_object's course check authorization-service aware
 
-GitHub: https://github.com/openedx/openedx-core/issues/795 (#795, OPEN)
-Cached: 2026-09-21
+GitHub: https://github.com/openedx/openedx-core/issues/795 (#795, CLOSED)
+Cached: 2026-10-22
 
 **Repo: `openedx-platform` (this fix lives entirely in `openedx/core/djangoapps/content_tagging/`).**
 

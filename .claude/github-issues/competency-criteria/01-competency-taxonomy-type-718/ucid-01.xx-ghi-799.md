@@ -1,7 +1,7 @@
 # [Placeholder] Competency Criteria Deletions
 
 GitHub: https://github.com/openedx/openedx-core/issues/799 (#799, CLOSED)
-Cached: 2026-09-25
+Cached: 2026-10-22
 
 ## Status: superseded, closed
 
@@ -73,12 +73,12 @@ Copied unchanged from #613's "Deletions" section. Expect these to change once #6
 - [ ] Delete protection is implemented via `on_delete=PROTECT` on FKs from `Student*Status` models to definition models; hard deletion is blocked at the ORM layer without requiring instance-level `delete()` overrides, since `QuerySet.delete()` bypasses those.
 - [ ] Every foreign key from one definition table to another uses `on_delete=CASCADE`: criterion to group, group to parent group, group to tag, and criterion to objecttag. The one exception is the criterion's foreign key to `CompetencyRuleProfile`, which uses `PROTECT`, because a rule profile is never hard-deleted at all. These values are what make ADR-0002 Decision 7's delete protection work. That protection is conditional, not a blanket ban: deleting a tag has to succeed when no learner has a status under it, and fail when one does. The `PROTECT` that produces the failure lives on the foreign keys from the three `Student*Status` tables, and two of those point at rows one and two levels below the tag. Django reaches them only by walking down the tree from the tag, and it only walks down a foreign key marked `CASCADE`. Change any link in that chain to `SET_NULL` and deleting the tag succeeds while learner statuses still exist.
 - [ ] The transitive cases are tested, not only the direct ones: deleting an `oel_tagging_tag` with a learner status row anywhere beneath it raises `ProtectedError`, and deleting one with no status rows beneath it succeeds and cascades.
-- [ ] `CompetencyRuleProfile` is never hard-deleted, even before any learner status exists. Archiving is the only way to take it out of use, through its `archived` column, per ADR-0002 Decision 7's exception, because a profile is shared across many criteria rather than tied to one.
+- [ ] `CompetencyRuleProfile` is never hard-deleted, even before any learner status exists. Retirement is archive-only through its `archived` column, per ADR-0002 Decision 7's exception, because a profile is shared across many criteria rather than tied to one.
 
 ## Out of scope
 
 The `archived` column itself. #641 creates it as one of `CompetencyRuleProfile`'s columns, per ADR-0002
-Decision 3. What this issue adds is the rule that archiving goes through it.
+Decision 3. What this issue adds is the rule that retirement goes through it.
 
 The edit guardrails from ADR-0003 Decision 4, meaning the Studio warning and confirmation when someone
 edits criteria that learners already have status against. #655 covers edits as well as deletes, but that
@@ -87,5 +87,4 @@ warning is API and UI work, not model work.
 ## Depends on
 
 #655 for the approach. #641 and #642 for the tables and the foreign keys to change.
-
 

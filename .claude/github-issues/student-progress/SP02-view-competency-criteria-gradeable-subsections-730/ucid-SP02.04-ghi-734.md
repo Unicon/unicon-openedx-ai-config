@@ -70,9 +70,12 @@ If this course has no CompetencyCriteria (if an empty array comes back from #733
 
 - Figma (happy path): https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=983-3817&t=eJLFBvoAFbCnde7b-4
 - Figma (six-level taxonomy): https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=1089-4395&t=eJLFBvoAFbCnde7b-4
+- Figma (Two taxonomies): https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=1562-27227)
+- Figma (Row with no criteria of its own): https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=1559-12397
+
 - Screenshots:
 
-<img width="1155" height="1600" alt="Image" src="https://github.com/user-attachments/assets/c2af9fa4-ffd6-4adb-83e2-12ef5648f94a" />
+<img width="1131" height="1600" alt="Image" src="https://github.com/user-attachments/assets/7364ead7-90a3-4aa7-bae2-846ee44ed242" />
 
 <img width="1135" height="1600" alt="Image" src="https://github.com/user-attachments/assets/e9713d92-f9dd-4198-b636-73f3bf44e7b1" />
 

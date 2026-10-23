@@ -136,6 +136,14 @@ Scenario: A subsection hidden from the course outline still masks its competency
   When the learner opens the course's Progress tab
   Then the "Analysis" tag row and the "Critical Thinking" card heading show "Available"
 
+Scenario: A competency demonstrated in another course shows as Demonstrated and names that course
+  Given the learner demonstrated "Communication" in the course "Foundations of Critical Thinking"
+  And the learner has not demonstrated "Communication" through this course's criteria
+  When the learner opens this course's Progress tab
+  Then the "Communication" card heading shows "Demonstrated"
+  And the card reads "Demonstrated in Foundations of Critical Thinking. You can still complete these assignments, but they aren't required."
+  And "Foundations of Critical Thinking" is a link to that course that opens in a new tab
+
 Scenario: Tags with the same name in two taxonomies each show their own status
   Given two taxonomies, "Workplace Skills" and "Accounting Standards", each have a top-level tag named "Communication", and this course has criteria on both tags
   And the learner's competency status is Demonstrated for the "Communication" tag in the "Workplace Skills" taxonomy, and none recorded for the "Communication" tag in the "Accounting Standards" taxonomy

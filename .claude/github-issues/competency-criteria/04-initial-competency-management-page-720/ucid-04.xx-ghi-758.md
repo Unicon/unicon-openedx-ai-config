@@ -1,7 +1,7 @@
 # [BE] Implement the external_id not nullable constraint as described in openedx_tagging ADR 12
 
-GitHub: https://github.com/openedx/openedx-core/issues/758 (#758, OPEN)
-Cached: 2026-09-21
+GitHub: https://github.com/openedx/openedx-core/issues/758 (#758, CLOSED)
+Cached: 2026-10-22
 
 ## User Story
 

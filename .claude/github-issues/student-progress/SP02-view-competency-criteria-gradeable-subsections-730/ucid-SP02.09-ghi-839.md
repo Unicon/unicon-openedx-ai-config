@@ -28,7 +28,7 @@ Blocked by #733, #734, and #828.
 
 This ticket needs no new design. In the "Replacement" layout, #734's competency criteria panel takes the place of the Course completion and Grades cards, as #734's happy path [Figma already shows](https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=983-3817&t=eJLFBvoAFbCnde7b-4): 
 
-<img width="3790" height="5248" alt="Image" src="https://github.com/user-attachments/assets/71b69a7c-0f63-4cbf-a414-314b6fdb3ac9" />
+<img width="1155" height="1600" alt="Image" src="https://github.com/user-attachments/assets/2760e14c-4af0-4301-aea1-7893a165ef4a" />
 
 ## Acceptance Criteria
 

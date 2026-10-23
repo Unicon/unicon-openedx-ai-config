@@ -1,7 +1,7 @@
 # [BE] Implement CBE core data models (CompetencyTaxonomy, criteria, learner status)
 
-GitHub: https://github.com/openedx/openedx-core/issues/613 (#613, OPEN)
-Cached: 2026-09-21
+GitHub: https://github.com/openedx/openedx-core/issues/613 (#613, CLOSED)
+Cached: 2026-10-22
 
 ## Use Case
 

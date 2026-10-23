@@ -1,7 +1,7 @@
 # [BE] Read the rule profiles an instance defines
 
-GitHub: https://github.com/openedx/openedx-core/issues/773 (#773, OPEN)
-Cached: 2026-09-21
+GitHub: https://github.com/openedx/openedx-core/issues/773 (#773, CLOSED)
+Cached: 2026-10-22
 
 ## User Story
 
