@@ -174,7 +174,8 @@ and from a live check Jesper ran against Plannotator 0.28.27 and PR #3246 of
   for any other form, one AC per top-level list item or paragraph. A `Background:` block is not
   an AC: it is copied once into "Before you start", labeled with its ticket. When a ticket has no
   acceptance-criteria section, its `Scenario:` blocks elsewhere in the body are its ACs. A
-  scenario that appears twice is taken once.
+  scenario that appears twice is taken once. Code-fence lines around the scenarios (tickets
+  often wrap them in a fenced block) and blank lines at the end of an AC are not part of it.
 - Copy each AC exactly, character for character, keeping its keywords, indentation, and line
   breaks. Number them AC1 to ACn in ticket order and then the order within each ticket. Record
   each AC's source ticket.
