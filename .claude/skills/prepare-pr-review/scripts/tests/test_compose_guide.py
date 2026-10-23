@@ -42,10 +42,10 @@ def test_version_warning():
 def test_compose_end_to_end(tmp_path, synthetic):
     art = tmp_path / "art"
     shutil.copytree(synthetic, art)
-    res = compose(art, data_dir=tmp_path / "pn", now_ms=1761200000000, today="2026-10-23", version_output="plannotator 0.28.27")
+    res = compose(art, data_dir=tmp_path / "pn", now_ms=1761200000000, prepared_at="2026-10-23 14:05", version_output="plannotator 0.28.27")
     env = json.loads(res.guide_path.read_text())
     assert res.guide_path.parent == tmp_path / "pn" / "guides" / "github.com__openedx__frontend-app-authoring"
-    assert env["version"] == 1 and env["label"] == "PR #123 prepared 2026-10-23" and env["headSha"] == "abc123"
+    assert env["version"] == 1 and env["label"] == "PR #123 prepared 2026-10-23 14:05" and env["headSha"] == "abc123"
     assert env["prUrl"] == BASE and env["reviewed"] == [False] * len(env["guide"]["sections"])
     placed = [d["file"] for s in env["guide"]["sections"] for d in s["diffs"]]
     assert sorted(placed) == sorted(changed_files(load_pr(art / "pr.json")))
@@ -65,7 +65,7 @@ def test_compose_end_to_end(tmp_path, synthetic):
 def test_compose_reports_version_warning(tmp_path, synthetic):
     art = tmp_path / "art"
     shutil.copytree(synthetic, art)
-    res = compose(art, data_dir=tmp_path / "pn", now_ms=1, today="2026-10-23", version_output=None)
+    res = compose(art, data_dir=tmp_path / "pn", now_ms=1, prepared_at="2026-10-23 14:05", version_output=None)
     assert len(res.warnings) == 1 and "not found" in res.warnings[0]
 
 

@@ -83,7 +83,7 @@ On exit 1, show the error, stop, and offer the fallback below. The output lists 
 
 End the turn with a summary message. It holds:
 
-- the guide label to pick under Guide > previous guides;
+- the guide label to pick under Guide > previous guides (`PR #<n> prepared <YYYY-MM-DD HH:MM>`);
 - the change map path;
 - the component tree file path, when the review file names one. When it names none, leave this line out and say so in the message;
 - the acceptance-criteria gap list, read from the `overview` of the first section ("Before you start") in the JSON file at the printed `Guide:` path;

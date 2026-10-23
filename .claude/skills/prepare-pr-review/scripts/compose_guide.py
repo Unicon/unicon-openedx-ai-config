@@ -122,11 +122,13 @@ def _write_json_atomic(path: Path, data: dict) -> None:
         raise
 
 
-def compose(artifacts: Path, *, data_dir: Path, now_ms: int, today: str, version_output: str | None) -> ComposeResult:
+def compose(artifacts: Path, *, data_dir: Path, now_ms: int, prepared_at: str, version_output: str | None) -> ComposeResult:
     """Build the saved guide from ``artifacts`` and write it under ``data_dir``.
 
     Raises ``PlacementError`` when the chapters do not place every changed file exactly once,
     and ``ValueError`` for malformed inputs or a PR URL that is not a GitHub pull request.
+    ``prepared_at`` is ``YYYY-MM-DD HH:MM`` and ends up in the guide label, so two runs on the same
+    day stay distinguishable in Plannotator's list of saved guides.
     Also writes ``change-map.mmd`` and a copy of the envelope, ``guide-envelope.json``, into
     ``artifacts``.
     """
@@ -172,7 +174,7 @@ def compose(artifacts: Path, *, data_dir: Path, now_ms: int, today: str, version
             "diffs": [{"file": entry.path, "summary": render_file_summary(entry, criteria)} for entry in chapter.files],
         })
 
-    label = f"PR #{number} prepared {today}"
+    label = f"PR #{number} prepared {prepared_at}"
     title = f"PR #{number}: {pr_title}"
     envelope = {
         "version": 1,
@@ -183,7 +185,7 @@ def compose(artifacts: Path, *, data_dir: Path, now_ms: int, today: str, version
         "prUrl": pr_url,
         "guide": {
             "title": title,
-            "intent": f"{pr_title}. Prepared on {today}: {len(chapters)} chapters, {len(findings)} findings.",
+            "intent": f"{pr_title}. Prepared on {prepared_at}: {len(chapters)} chapters, {len(findings)} findings.",
             "sections": sections,
         },
         "reviewed": [False] * len(sections),
@@ -217,7 +219,7 @@ def main(argv: list[str] | None = None) -> int:
             args.artifacts,
             data_dir=args.data_dir or data_dir(),
             now_ms=int(now.timestamp() * 1000),
-            today=now.strftime("%Y-%m-%d"),
+            prepared_at=now.strftime("%Y-%m-%d %H:%M"),
             version_output=_plannotator_version(),
         )
     except (ValueError, FileNotFoundError) as error:
