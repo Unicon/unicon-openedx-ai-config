@@ -10,8 +10,9 @@ the team's forks. Reading the lines is not what makes a review slow. The slow pa
 out where to start, reconstructing what each chunk of the change is for, jumping between files
 and docs for context, and matching the ticket's acceptance criteria to the code.
 
-A new skill, `prepare-pr-review`, prepares a PR for that human review. It runs the existing full
-code review, then writes a Plannotator Guided Review (an ordered walkthrough of the diff, one
+A new skill, `prepare-pr-review`, prepares a PR for that human review. It reads a code review
+that already exists as a markdown file (typically the output of `backend-code-review` or
+`frontend-code-review`, run earlier by Jesper or someone else), then writes a Plannotator Guided Review (an ordered walkthrough of the diff, one
 chapter at a time, each chapter showing the real diff). The chapters follow the PR's manual
 testing instructions, so Jesper can do a testing step in the devstack and then read the code
 that step runs, in the order it runs. Each chapter shows the acceptance criteria it covers and
@@ -24,9 +25,10 @@ without its cost (stacked branches that complicate merging).
 
 ## Goals
 
-1. One command, `/prepare-pr-review <PR URL>`, run from a Claude Code session in
+1. One command, `/prepare-pr-review <PR URL> [review file]`, run from a Claude Code session in
    `/Users/jesperhodge/openedx`, prepares any GitHub PR the `gh` CLI can read: upstream
-   `openedx/*` PRs and PRs on forks.
+   `openedx/*` PRs and PRs on forks. When the command does not name the review markdown file,
+   the skill asks Jesper for its path.
 2. The guide's chapters follow the PR's manual testing steps. Each testing-step chapter lists
    the changed code that step runs, in execution order, with the exact line ranges.
    Changed code that no testing step runs (migrations, refactors, settings, unrelated tests)
@@ -39,8 +41,8 @@ without its cost (stacked branches that complicate merging).
    code that matches no acceptance criterion.
 6. A diagram of the change ("change map") shows the testing steps and the files each one runs
    through. It is a separate `.mmd` file, and the summary message and the "Before you start"
-   chapter give its path. For frontend PRs, the component tree that `frontend-code-review` already produces is
-   also available.
+   chapter give its path. When the review file names a component tree file (which
+   `frontend-code-review` produces), the summary message gives that path too.
 7. Questions Jesper asks on a line in Plannotator (Ask AI) are answered by the Claude Code
    session that ran the skill, which has the full workspace `.claude` config and has already
    read the PR, the tickets, and the review.
@@ -50,6 +52,8 @@ without its cost (stacked branches that complicate merging).
 
 ## Non-goals
 
+- Running the code review. The review exists before the skill runs, and the skill only reads its
+  markdown file.
 - Changing the PR, its commits, or its branches, or creating any new branches or PRs.
 - Changing `code-review-openedx`, `backend-code-review`, `frontend-code-review`, or
   `pr-component-tree`. The new skill consumes their output as they produce it today.
@@ -116,9 +120,9 @@ Plannotator's code.
 ## How a review runs, from Jesper's side
 
 1. In a Claude Code terminal session started in `/Users/jesperhodge/openedx` (the VS Code
-   integrated terminal is fine), Jesper runs `/prepare-pr-review <PR URL>`.
-2. The skill confirms the PR, the linked issues, and the review skill it will use, then runs
-   unattended. Jesper can leave.
+   integrated terminal is fine), Jesper runs `/prepare-pr-review <PR URL> [review file]`.
+2. If the command did not name the review file, the skill asks for its path. It then confirms the
+   PR and the linked issues and runs unattended. Jesper can leave.
 3. When prep finishes, the session has opened the PR in Plannotator and posted a short message:
    the guide's name to pick, the path of the change map, the AC gap list, and the verdict line
    of the review.
@@ -152,12 +156,14 @@ skills are already installed.
 
 **Step 1, pin the PR (top-level session, inline).** From the PR URL: `gh pr view` for title,
 body, base and head SHAs, head repository, and changed files; the linked issues from the body
-and from GitHub's linked-issue field. Pick the review skill: `frontend-code-review` for
-JavaScript and TypeScript MFE repositories, `backend-code-review` otherwise. Find the testing
-instructions section in the PR body and judge whether it is usable:
+and from GitHub's linked-issue field. When the command did not name the review markdown file, ask
+Jesper for its path and wait; this is the only question the skill asks. Check that the file
+exists and reads as a review of this PR (it names the PR number, URL, or head SHA). If it does
+not, say so and ask again. Find the testing instructions section in the PR body and judge
+whether it is usable:
 
 - **No usable section:** there is no testing section, or it holds no actionable step (only "run
-  the tests", "see the ticket", "N/A", or similar). Stop before the review starts and tell
+  the tests", "see the ticket", "N/A", or similar). Stop before any other work and tell
   Jesper, with a short draft comment asking the author to add manual testing instructions.
   Jesper sends it; the skill never posts. Nothing else runs.
 - **Vague steps:** the section has steps, but a step leaves out where to go, what to do, or what
@@ -180,17 +186,26 @@ local clone exists, the skill clones the base repository into the PR's artifact 
 that. It returns a chapter draft
 as JSON: for each testing step, the step text, the expected result, and the changed code that
 step runs in execution order (file, line ranges, one-line role); then the remaining changed
-files grouped by layer. It does not need the review's output, so it runs while the review runs.
+files grouped by layer. It does not need the review, so it runs in the background while the
+session reads the review file.
 Per the Delegation rule, it never dispatches and returns "Needs research" items instead.
 
-**Step 3, run the full review (top-level session).** Run the chosen review skill on the PR,
-exactly as that skill describes, including all of its phases. Jesper asked for the full review,
-so phase D (the explanation for the implementer) runs too; it also gives Jesper text to draw on
-when writing comments. There is no time target; prep runs unattended, and the review skill
-estimates 15 to 20 minutes for a 1,000-line change. Save its complete output to the review
-folder (see "Where files go"). From that output, write two JSON files: the acceptance criteria
-(number, quoted text, implemented-at anchors, tested-by, verdict) and the findings (severity,
-title, anchor, one-line why). An anchor is `path:line` or `path:start-end`. When the review
+**Step 3, read the review file (top-level session).** Copy the review markdown file into the
+artifact folder as `review.md` (see "Where files go"). From it, write two JSON files: the
+acceptance criteria (number, quoted text, implemented-at anchors, tested-by, verdict) and the
+findings (severity, title, anchor, one-line why), plus the review's verdict line. The expected
+format is `code-review-openedx`'s output: an acceptance-criteria table with "implemented at"
+anchors, and findings grouped by severity (`Bug`, `Gap`, `Question`, `Suggestion`, `Nit`) with
+`path:line` anchors. Other review markdown works as long as the criteria and findings can be
+read from it:
+
+- No criteria table: build the criteria from the linked issues, numbered AC1 to ACn across all
+  issues, find each one's implemented-at anchors by reading the diff at the head SHA, and set
+  the verdict to "Not in the review".
+- A finding with no file location: list it in the summary message under "Findings without a
+  location", since the guide places findings by location.
+- No severity word on a finding: use `Question`.
+- No verdict line: use "The review file states no verdict." An anchor is `path:line` or `path:start-end`. When the review
 gives a single line, the session writes the range of the enclosing function or block, read at
 the head SHA; the composer uses anchors as given and does no diff parsing.
 
@@ -224,7 +239,7 @@ the summary message and end the turn. If the session has no `plannotator` tool, 
 in the browser will not have the workspace config, so questions work best in the chat.
 
 **Step 7, answer questions.** While the review is open, Ask AI questions arrive in the session.
-Answer from the PR, the tickets, the review output, and the code at the head SHA, citing
+Answer from the PR, the tickets, the review file, and the code at the head SHA, citing
 `file:line`.
 
 **Step 8, coverage check (script).** On "check coverage", a script reads the review-progress
@@ -271,7 +286,7 @@ Guide button. Findings then live only in the review file, not in the guide.
 
 - Skill: `.claude/skills/prepare-pr-review/` in the config repo
   (`/Users/jesperhodge/workspace/unicon-openedx-ai-config`).
-- Per-PR artifacts: `/Users/jesperhodge/openedx/pr-reviews/<repo>-<number>/` (review output, AC
+- Per-PR artifacts: `/Users/jesperhodge/openedx/pr-reviews/<repo>-<number>/` (a copy of the review file, AC
   and findings JSON, chapter draft, change map). This folder is local and not under version
   control.
 - Saved guide: `~/.plannotator/guides/<repo-key>/<id>.json`.
@@ -340,7 +355,9 @@ What the results change:
 - Plans and this design live in `.claude/plans/`.
 - Per-PR artifacts go to `/Users/jesperhodge/openedx/pr-reviews/`.
 - The scripts themselves use only the standard library, so running them needs no venv; only the tests need `pytest`.
-- The mapper runs in parallel with the review, to shorten prep.
+- The mapper runs in the background while the session reads the review file.
+- A review file without a criteria table, findings without a location or severity, and a
+  missing verdict line are handled as Step 3 describes, without stopping.
 - Findings of every severity appear in the guide, one line each, including nits.
 - Test files go into the testing-step chapter whose criteria they test, after the code.
 - AC and finding anchors are ranges written by the session at the head SHA; the composer does no

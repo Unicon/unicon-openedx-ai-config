@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** A `prepare-pr-review` skill that runs the full code review on a GitHub PR, maps the PR's manual testing steps to the code they run, and opens a self-written Plannotator Guided Review for Jesper's line-by-line review.
+**Goal:** A `prepare-pr-review` skill that reads an existing code review markdown file for a GitHub PR, maps the PR's manual testing steps to the code they run, and opens a self-written Plannotator Guided Review for Jesper's line-by-line review.
 
-**Architecture:** `SKILL.md` drives the workflow in the top-level session: pin the PR, dispatch a Sonnet mapper in the background, run the existing review skill, write criteria and findings JSON. Deterministic standard-library Python scripts compose the saved guide, check coverage, and write fallback instructions. The skill never posts to GitHub and never adds Plannotator annotations.
+**Architecture:** `SKILL.md` drives the workflow in the top-level session: pin the PR, take the path of an existing review markdown file (asking for it when not given), dispatch a Sonnet mapper in the background, and write criteria and findings JSON from the review file. Deterministic standard-library Python scripts compose the saved guide, check coverage, and write fallback instructions. The skill never posts to GitHub and never adds Plannotator annotations.
 
 **Tech Stack:** Python 3.12+ standard library (scripts), pytest 9 from `~/.virtualenvs/tutor` (tests), `gh` CLI, Plannotator 0.28.27 with its Claude Code plugin.
 
@@ -678,6 +678,7 @@ git commit -m "ai: add prepare-pr-review mapper brief and placement check CLI"
 
 **Files:**
 - Create: `SKILL_DIR/SKILL.md`
+- Create: `SKILL_DIR/testdata/real/sample-review-3246.md`: a short review file for Task 1's PR in `code-review-openedx`'s output format (verdict, an acceptance-criteria table with "implemented at" anchors, findings by severity with `path:line` anchors), whose first line says it is a sample written to test this skill and not a real review. The orchestrator's scenarios use it.
 - Modify: `CFG/README.md` (the skills list near line 20: add one line for `prepare-pr-review`)
 
 **Interfaces:**
@@ -685,17 +686,17 @@ git commit -m "ai: add prepare-pr-review mapper brief and placement check CLI"
 
 Write it with `superpowers:writing-skills`. Its baseline (without the skill) and verification (with the skill) scenarios are dispatches, so they are orchestrator steps.
 
-The frontmatter `description` is: "Use when asked to prepare a pull request for a human line-by-line review in Plannotator, or when the user runs /prepare-pr-review with a PR URL. Runs the full code review, maps the PR's manual testing steps to the code they run, and opens a guided walkthrough in Plannotator. Never posts to GitHub."
+The frontmatter `description` is: "Use when asked to prepare a pull request for a human line-by-line review in Plannotator, or when the user runs /prepare-pr-review with a PR URL. Reads an existing code review markdown file (asking for its path when none is given), maps the PR's manual testing steps to the code they run, and opens a guided walkthrough in Plannotator. Never posts to GitHub."
 
 The body covers the design's workflow Steps 1 to 8 and the fallback, with these exact decisions:
 - **Artifacts:** `/Users/jesperhodge/openedx/pr-reviews/<repo>-<n>/`. Step 1 writes `pr.json` with the `gh pr view` command from Task 1, and one `issue-<n>.json` per linked issue (`gh issue view <n> --repo <owner/repo> --json number,title,body,updatedAt`).
 - **Testing section:** the three outcomes from the design. The stop message includes a draft comment for the author and states that the skill does not post it.
-- **Review skill:** `frontend-code-review` when the repository name starts with `frontend-`, otherwise `backend-code-review`.
+- **Review file:** the skill never runs a code review. It takes the review markdown file's path from the command (`/prepare-pr-review <PR URL> [review file]`). When none is given, it asks Jesper for the path and waits, which is the skill's only question. It checks that the file exists and names this PR (its number, URL, or head SHA), and asks again if not.
 - **Clone:** `/Users/jesperhodge/openedx/<repo-name>`. When it is missing, run `gh repo clone <base repo> <artifacts>/clone`.
-- **Mapper:** dispatch it with `run_in_background: true` before starting the review, as `general-purpose` with `model: sonnet`, filling in the brief's placeholders.
-- **After the review:** save the complete output to `review.md`. Write `criteria.json`, numbering criteria AC1 to ACn across all linked issues and widening single-line anchors to the enclosing function or block at the head SHA, and `findings.json` with the review's verdict line.
+- **Mapper:** dispatch it with `run_in_background: true` before reading the review file, as `general-purpose` with `model: sonnet`. Fill in every placeholder of `references/mapper-brief.md`, including `{skill_dir}`, with plain string replacement, never `str.format`, because the brief's JSON example has literal braces. `{base_repo_url}` is `https://github.com/<owner>/<repo>.git` of the PR's base repository.
+- **Reading the review file:** copy it to `review.md` in the artifacts folder. Write `criteria.json` from its acceptance-criteria table, numbering criteria AC1 to ACn across all linked issues and widening single-line anchors to the enclosing function or block at the head SHA. Write `findings.json` with its findings and its verdict line. Handle a file without a criteria table, findings without a location or severity, and a missing verdict as the design's Step 3 says. Each finding's `why` is one full sentence ending in a period. Code-ref roles and finding titles carry no trailing period.
 - **Compose:** `python3 SKILL_DIR/scripts/compose_guide.py --artifacts <dir>`. On exit 1, show the error and stop. Show any version warning and offer the fallback.
-- **Launch:** call the `plannotator` tool with `{"action": "review", "target": "<canonical PR URL>"}` and end the turn after the summary message. The message holds: the guide label to pick, the change map path, the component tree file path when `frontend-code-review` produced one, the AC gap list, and the verdict line. Without the tool, run `plannotator review <url>` with `run_in_background: true` and `timeout: 7200000`, and say that Ask AI in the browser lacks the workspace config.
+- **Launch:** call the `plannotator` tool with `{"action": "review", "target": "<canonical PR URL>"}` and end the turn after the summary message. The message holds: the guide label to pick, the change map path, the component tree file path when the review file names one, the AC gap list, any "Findings without a location", and the verdict line. Without the tool, run `plannotator review <url>` with `run_in_background: true` and `timeout: 7200000`, and say that Ask AI in the browser lacks the workspace config.
 - **Ask AI questions:** answer from `review.md`, the issues, and the code at the head SHA, citing `file:line`.
 - **"check coverage":** `python3 SKILL_DIR/scripts/coverage_check.py --artifacts <dir>`, and relay its output.
 - **Fallback:** `python3 SKILL_DIR/scripts/fallback_instructions.py --artifacts <dir>`, then tell Jesper to click Guide and generate.
@@ -703,7 +704,7 @@ The body covers the design's workflow Steps 1 to 8 and the fallback, with these 
 
 - [ ] **Step 1 (orchestrator): Baseline**
 
-Dispatch a `general-purpose` Sonnet sub-agent without the skill, with: "Prepare <Task 1 PR URL> for my line-by-line review in Plannotator, with chapters following the manual testing steps." Record where it goes wrong, for example: it posts, it uses annotations, it skips the review, or it misplaces files.
+Dispatch a `general-purpose` Sonnet sub-agent without the skill, with: "Prepare <Task 1 PR URL> for my line-by-line review in Plannotator, with chapters following the manual testing steps." Give it the path of a review file for that PR. Record where it goes wrong, for example: it posts, it uses annotations, it runs its own review, it misplaces files, or it ignores the review file.
 
 - [ ] **Step 2: Write `SKILL.md` and the README line**
 - [ ] **Step 3 (orchestrator): Verification scenario**
@@ -727,7 +728,7 @@ git commit -m "ai: add prepare-pr-review skill"
 
 - [ ] **Step 1 (orchestrator): Ask Jesper to run the skill on a real PR**
 
-Jesper runs `/prepare-pr-review <url>` from a terminal Claude Code session in `/Users/jesperhodge/openedx`, on a PR of their choice with testing instructions, and works through Task 1's checklist items 1 to 9 against the real guide.
+Jesper runs `/prepare-pr-review <url> <review file>` from a terminal Claude Code session in `/Users/jesperhodge/openedx`, on a PR of their choice that has testing instructions and an existing review markdown file, and works through Task 1's checklist items 1 to 9 against the real guide.
 
 - [ ] **Step 2: Fix what the run shows**, going through `superpowers:systematic-debugging` for any failure, with a regression test in the owning script's test file.
 - [ ] **Step 3: Set the design's status to "Implemented"**, then commit.
