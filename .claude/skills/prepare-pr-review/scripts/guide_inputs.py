@@ -208,8 +208,19 @@ def load_findings(path) -> tuple[str, list[Finding]]:
 
 
 def load_pr(path) -> dict:
-    """Load the ``gh pr view --json`` output as a dict."""
-    return _read_json(path)
+    """Load the ``gh pr view --json`` output as a dict.
+
+    Raises ``ValueError`` unless ``url``, ``title`` and ``headRefOid`` are non-empty strings and
+    ``number`` is an integer, because the composer builds the guide's identity from them.
+    """
+    pr = _read_json(path)
+    if not isinstance(pr, dict):
+        raise ValueError("pr.json: must be a JSON object")
+    for field in ("url", "title", "headRefOid"):
+        _require_str(pr, field, "pr.json")
+    if not isinstance(pr.get("number"), int) or isinstance(pr["number"], bool):
+        raise ValueError("pr.json: field 'number' must be an integer")
+    return pr
 
 
 def changed_files(pr: dict) -> list[str]:

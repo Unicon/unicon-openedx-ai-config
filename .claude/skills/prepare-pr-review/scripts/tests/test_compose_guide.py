@@ -85,3 +85,29 @@ def test_main_fails_on_unplaced_file(tmp_path, synthetic, capsys):
     (art / "chapters.json").write_text(json.dumps(data))
     assert main(["--artifacts", str(art), "--data-dir", str(tmp_path / "pn")]) == 1
     assert "src/old/Legacy.tsx" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("field", ["url", "number", "title", "headRefOid"])
+@pytest.mark.parametrize("corrupt", ["missing", "wrong_type"])
+def test_main_fails_on_malformed_pr_field(tmp_path, synthetic, capsys, field, corrupt):
+    art = tmp_path / "art"
+    shutil.copytree(synthetic, art)
+    pr = json.loads((art / "pr.json").read_text())
+    if corrupt == "missing":
+        del pr[field]
+    else:
+        pr[field] = ["not", "valid"]
+    (art / "pr.json").write_text(json.dumps(pr))
+    assert main(["--artifacts", str(art), "--data-dir", str(tmp_path / "pn")]) == 1
+    err = capsys.readouterr().err
+    assert "pr.json" in err and field in err
+
+
+def test_main_fails_on_bool_pr_number(tmp_path, synthetic, capsys):
+    art = tmp_path / "art"
+    shutil.copytree(synthetic, art)
+    pr = json.loads((art / "pr.json").read_text())
+    pr["number"] = True
+    (art / "pr.json").write_text(json.dumps(pr))
+    assert main(["--artifacts", str(art), "--data-dir", str(tmp_path / "pn")]) == 1
+    assert "number" in capsys.readouterr().err
