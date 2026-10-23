@@ -87,7 +87,7 @@ def test_main_fails_on_unplaced_file(tmp_path, synthetic, capsys):
     assert "src/old/Legacy.tsx" in capsys.readouterr().err
 
 
-@pytest.mark.parametrize("field", ["url", "number", "title", "headRefOid"])
+@pytest.mark.parametrize("field", ["url", "number", "title", "headRefOid", "changedFiles"])
 @pytest.mark.parametrize("corrupt", ["missing", "wrong_type"])
 def test_main_fails_on_malformed_pr_field(tmp_path, synthetic, capsys, field, corrupt):
     art = tmp_path / "art"

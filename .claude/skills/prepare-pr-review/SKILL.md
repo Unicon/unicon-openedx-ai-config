@@ -14,11 +14,11 @@ Paths: `<skill_dir>` is the base directory printed when this skill loads ("Base 
 **1. Pin the PR.** Parse the URL into `<owner>`, `<repo>`, and `<n>`, then run:
 
 ```bash
-gh pr view <url> --json url,number,title,body,headRefOid,baseRefOid,headRepository,files,closingIssuesReferences > <artifacts>/pr.json
+python3 <skill_dir>/scripts/fetch_pr.py <url> --out <artifacts>/pr.json
 gh issue view <issue> --repo <issue owner/repo> --json number,title,body,updatedAt > <artifacts>/issue-<issue>.json
 ```
 
-Run the second command once per linked issue, taken from `closingIssuesReferences` and from issue references in the PR body. Use `url` from `pr.json` as the canonical PR URL below.
+`fetch_pr.py` lists every changed file, including past the 100 files that `gh pr view` returns. Run `gh issue view` once per linked issue, taken from `closingIssuesReferences` and from issue references in the PR body. Use `url` from `pr.json` as the canonical PR URL below.
 
 The review file path comes from the command. When none is given, ask Jesper for it and wait. This is the only question the skill asks. Check that the file exists and names this PR (its number, URL, or head SHA), and ask again if not. The skill never runs a code review.
 

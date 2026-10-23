@@ -35,7 +35,7 @@ Changed lines are the lines the PR's diff adds or modifies. Read the diff with `
 
 ## What to do
 
-1. List the changed files with `gh pr view {pr_url} --json files`. Every one of them must end up in your output exactly once.
+1. Read the changed files from `{artifacts}/pr.json` (`files[].path`). It is the complete list, and `gh pr view --json files` stops at 100 files, so do not call it. Every one of them must end up in your output exactly once.
 2. For each testing step, trace the changed code that step runs, in execution order: the entry point, then the UI, the data layer, the API, the view, the model. Add one code ref per changed region, with an anchor (`path:start-end`, or `path:start` for one line) and a role of under 10 words. The role is a short phrase with no trailing period, such as `posts the new competency`. Skip lines that only add imports; the code that uses them is what the reviewer reads. A step that only sets up data or the environment and runs no changed code gets no code refs.
 3. If a step is vague (it leaves out where to go, what to do, or what should happen), sharpen it from the code into a concrete step: the page or URL, the action, and the expected result. Put the author's exact wording in `original`, but only when you add information the author's step lacks: a page or URL, a click path, or an expected result. If a step is already usable, keep it as written and set `original` to `null`. Splitting the author's text into `do` and `expect`, or tidying its formatting, is not sharpening and keeps `original` as `null`.
 4. Place every changed file in exactly one chapter, in that chapter's `files` list, with a one-sentence summary of what the PR changes in it.

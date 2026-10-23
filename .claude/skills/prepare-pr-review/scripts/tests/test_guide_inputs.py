@@ -89,6 +89,27 @@ def test_changed_files_keeps_gh_order(synthetic):
     assert len(changed_files(load_pr(synthetic / "pr.json"))) == 5
 
 
+def test_load_pr_requires_integer_changed_files(tmp_path, synthetic):
+    base = json.loads((synthetic / "pr.json").read_text())
+    for bad in ("missing", True, "5", None):
+        pr = dict(base)
+        if bad == "missing":
+            del pr["changedFiles"]
+        else:
+            pr["changedFiles"] = bad
+        p = tmp_path / "pr.json"
+        p.write_text(json.dumps(pr))
+        with pytest.raises(ValueError, match="changedFiles"):
+            load_pr(p)
+
+
+def test_changed_files_rejects_truncated_file_list(synthetic):
+    pr = load_pr(synthetic / "pr.json")
+    pr["changedFiles"] = 115
+    with pytest.raises(ValueError, match=r"pr\.json.*5.*115"):
+        changed_files(pr)
+
+
 def test_check_placement_passes_for_synthetic(synthetic):
     check_placement(changed_files(load_pr(synthetic / "pr.json")), load_chapters(synthetic / "chapters.json"))
 

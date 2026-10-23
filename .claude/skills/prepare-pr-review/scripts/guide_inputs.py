@@ -213,21 +213,33 @@ def load_pr(path) -> dict:
     """Load the ``gh pr view --json`` output as a dict.
 
     Raises ``ValueError`` unless ``url``, ``title`` and ``headRefOid`` are non-empty strings and
-    ``number`` is an integer, because the composer builds the guide's identity from them.
+    ``number`` and ``changedFiles`` are integers. The composer builds the guide's identity from the
+    first four, and ``changedFiles`` lets ``changed_files`` detect a truncated file list.
     """
     pr = _read_json(path)
     if not isinstance(pr, dict):
         raise ValueError("pr.json: must be a JSON object")
     for field in ("url", "title", "headRefOid"):
         _require_str(pr, field, "pr.json")
-    if not isinstance(pr.get("number"), int) or isinstance(pr["number"], bool):
-        raise ValueError("pr.json: field 'number' must be an integer")
+    for field in ("number", "changedFiles"):
+        if not isinstance(pr.get(field), int) or isinstance(pr[field], bool):
+            raise ValueError(f"pr.json: field {field!r} must be an integer")
     return pr
 
 
 def changed_files(pr: dict) -> list[str]:
-    """Return the PR's changed file paths in the order gh lists them, deleted files included."""
-    return [_require_str(row, "path", f"pr.json files[{i}]") for i, row in enumerate(_require_rows(pr, "files", "pr.json"))]
+    """Return the PR's changed file paths in the order gh lists them, deleted files included.
+
+    Raises ``ValueError`` when the number of listed files differs from ``changedFiles``, which
+    means ``pr.json`` holds a truncated list (``gh pr view`` stops at 100 files).
+    """
+    paths = [_require_str(row, "path", f"pr.json files[{i}]") for i, row in enumerate(_require_rows(pr, "files", "pr.json"))]
+    if len(paths) != pr["changedFiles"]:
+        raise ValueError(
+            f"pr.json lists {len(paths)} files but changedFiles is {pr['changedFiles']}; "
+            "rebuild it with fetch_pr.py"
+        )
+    return paths
 
 
 def check_placement(changed: list[str], chapters: list[Chapter]) -> None:
