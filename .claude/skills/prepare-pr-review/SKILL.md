@@ -103,13 +103,13 @@ Relay its output. Exit 2 means Plannotator has no progress for this PR yet.
 
 ## Fallback
 
-Run this only after Jesper says yes to the offer in step 5, whether composing failed or a version warning came up, because it writes the user-level `~/.plannotator/guide-instructions.md`:
+Run this only after Jesper says yes to the offer in step 5, whether composing failed or a version warning came up. When you make the offer, tell Jesper that the script writes the user-level file `~/.plannotator/guide-instructions.md`, which stays in effect for every later Plannotator guide in any repo until it is deleted, and that an existing file is copied to a `.bak-<timestamp>` backup first.
 
 ```bash
 python3 <skill_dir>/scripts/fallback_instructions.py --artifacts <artifacts>
 ```
 
-Then tell Jesper to click Guide in Plannotator and generate the guide. In this route the findings live only in the review file.
+The script prints `Backup: <path>` when it replaced an existing file. Then tell Jesper to click Guide in Plannotator and generate the guide. In this route the findings live only in the review file. After the guide is generated, offer to delete `~/.plannotator/guide-instructions.md`, or, when a backup was made, to restore it over that file.
 
 ## Rules
 

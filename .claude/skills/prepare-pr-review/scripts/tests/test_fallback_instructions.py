@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 
 from fallback_instructions import LIMIT, compose_instructions, main
@@ -79,3 +80,20 @@ def test_main_writes_file(tmp_path, synthetic, capsys):
 def test_main_reports_missing_input(tmp_path, capsys):
     assert main(["--artifacts", str(tmp_path), "--data-dir", str(tmp_path)]) == 1
     assert capsys.readouterr().err
+
+
+def test_main_backs_up_an_existing_file(tmp_path, synthetic, capsys):
+    target = tmp_path / "guide-instructions.md"
+    target.write_text("my own instructions")
+    assert main(["--artifacts", str(synthetic), "--data-dir", str(tmp_path)]) == 0
+    backups = list(tmp_path.glob("guide-instructions.md.bak-*"))
+    assert len(backups) == 1
+    assert re.fullmatch(r"guide-instructions\.md\.bak-\d{8}-\d{6}", backups[0].name)
+    assert backups[0].read_text() == "my own instructions"
+    assert target.read_text() != "my own instructions"
+    assert capsys.readouterr().out.splitlines() == [f"Backup: {backups[0]}", str(target)]
+
+
+def test_main_makes_no_backup_without_an_existing_file(tmp_path, synthetic):
+    assert main(["--artifacts", str(synthetic), "--data-dir", str(tmp_path)]) == 0
+    assert not list(tmp_path.glob("*.bak-*"))

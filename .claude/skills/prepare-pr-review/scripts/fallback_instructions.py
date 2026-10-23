@@ -10,7 +10,9 @@ steps and criteria when the result would be too long. Standard library only.
 Usage: ``python3 fallback_instructions.py --artifacts DIR [--data-dir DIR]``
 """
 import argparse
+import shutil
 import sys
+from datetime import datetime
 from pathlib import Path
 
 from compose_guide import data_dir
@@ -62,6 +64,10 @@ def compose_instructions(
 def main(argv: list[str] | None = None) -> int:
     """Run the CLI; write ``guide-instructions.md`` into the data directory and print its path.
 
+    The file applies to every later Plannotator guide, so an existing one is first copied to
+    ``guide-instructions.md.bak-<YYYYmmdd-HHMMSS>`` in the same folder, and ``Backup: <path>`` is
+    printed before the target path.
+
     Returns 0 on success and 1 (with a message on stderr) for invalid or missing inputs.
     """
     parser = argparse.ArgumentParser(description="Write guide-instructions.md for Plannotator's built-in guide generator.")
@@ -79,6 +85,10 @@ def main(argv: list[str] | None = None) -> int:
     text = compose_instructions(base, steps, [(c.id, c.text) for c in criteria])
     target = (args.data_dir or data_dir()) / "guide-instructions.md"
     target.parent.mkdir(parents=True, exist_ok=True)
+    if target.exists():
+        backup = target.with_name(f"{target.name}.bak-{datetime.now():%Y%m%d-%H%M%S}")
+        shutil.copy2(target, backup)
+        print(f"Backup: {backup}")
     target.write_text(text, encoding="utf-8")
     print(target)
     return 0
