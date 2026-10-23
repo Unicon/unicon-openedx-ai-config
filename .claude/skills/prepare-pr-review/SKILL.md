@@ -55,7 +55,7 @@ Dispatch it with the Agent tool: `subagent_type: general-purpose`, `model: sonne
 {"verdict": "Ready to merge: with fixes. One sentence.", "findings": [{"severity": "Gap", "title": "Short title", "anchor": "src/x.tsx:304-308", "why": "One full sentence ending in a period."}]}
 ```
 
-- Number criteria AC1 to ACn across all linked issues. Strip the table's surrounding quotes from the criterion text and keep any inner quotes. `tested_by` copies what the review says: `path::test name` when it names a test, otherwise the review's description as given. "none" or an empty cell becomes `[]`. An anchor is `path:line` or `path:start-end`. Widen a single-line anchor to the enclosing function or block, read at the head SHA.
+- Number criteria AC1 to ACn across all linked issues. Strip the table's surrounding quotes from the criterion text and keep any inner quotes. `tested_by` copies what the review says: `path::test name` when it names a test, otherwise the review's description as given. "none" or an empty cell becomes `[]`. `verdict` is copied from the review's Verdict cell. An anchor has its backticks stripped and is `path:line` or `path:start-end`. An empty, "none", or "-" Implemented-at cell becomes `[]`, never `["none"]`, because the composer rejects anything that is not an anchor. A row whose In scope cell starts with "no" stays out of `criteria.json`. List it in the summary message under "Criteria the review set aside", with the review's reason. Widen a single-line anchor to the enclosing function or block, read at the head SHA.
 - `severity` is one of `Bug`, `Gap`, `Question`, `Suggestion`, `Nit`. A finding with no severity word, including one on a file the PR did not change, becomes `Question`.
 - `why` keeps the review's own sentence and punctuation. Add a period only when the sentence has no closing punctuation at all, so a question keeps its "?".
 - A finding with no title in the review gets a `title` of at most 8 words, taken from the finding's heading or first clause. It may only restate the review's point, and it is the only text the skill writes in its own words. A finding title and a code-ref role carry no trailing period.
@@ -77,7 +77,7 @@ Exit 0 prints `Placement OK`. On exit 1, send the error text to the mapper with 
 python3 <skill_dir>/scripts/compose_guide.py --artifacts <artifacts>
 ```
 
-On exit 1, show the error and stop. The output lists `Guide:`, `Label:`, and `Change map:`. A `Warning:` line means the installed Plannotator version differs from the tested one. Show the warning to Jesper and offer the fallback.
+On exit 1, show the error, stop, and offer the fallback below. The output lists `Guide:`, `Label:`, and `Change map:`. A `Warning:` line means the installed Plannotator version differs from the tested one. Show the warning to Jesper and offer the fallback.
 
 **6. Launch.** Call the `plannotator` tool with `{"action": "review", "target": "<canonical PR URL>"}`. Open the PR by URL so Plannotator's PR mode can post comments to GitHub. Without the tool, run `plannotator review <url>` with `run_in_background: true` and `timeout: 7200000`, and tell Jesper that Ask AI in the browser lacks the workspace config, so questions work best in this chat.
 
@@ -86,11 +86,12 @@ End the turn with a summary message. It holds:
 - the guide label to pick under Guide > previous guides;
 - the change map path;
 - the component tree file path, when the review file names one. When it names none, leave this line out and say so in the message;
-- the acceptance-criteria gap list, from the composer's "Before you start" chapter;
+- the acceptance-criteria gap list, read from the `overview` of the first section ("Before you start") in the JSON file at the printed `Guide:` path;
 - any "Findings without a location";
+- any "Criteria the review set aside";
 - the verdict line.
 
-**7. Ask AI questions.** While the review is open, questions arrive as messages in this session. Answer from `review.md`, the issue files, and the code at the head SHA, citing `file:line`.
+**7. Ask AI questions.** While the review is open, questions arrive as messages in this session. Answer from `review.md`, the issue files, and the code at the head SHA, citing `file:line`. If Ask AI or "check coverage" gets no answer while the review is open, tell Jesper to start a second Claude Code session in the same folder and ask there.
 
 **8. "check coverage".**
 
@@ -102,7 +103,7 @@ Relay its output. Exit 2 means Plannotator has no progress for this PR yet.
 
 ## Fallback
 
-When composing fails, or Jesper chooses it after a version warning:
+Run this only after Jesper says yes to the offer in step 5, whether composing failed or a version warning came up, because it writes the user-level `~/.plannotator/guide-instructions.md`:
 
 ```bash
 python3 <skill_dir>/scripts/fallback_instructions.py --artifacts <artifacts>
