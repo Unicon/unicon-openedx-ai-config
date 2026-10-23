@@ -6,7 +6,7 @@ shows links as plain text, so line references are written as plain text too. Eve
 free text goes through ``one_line``, so a stray newline cannot break a callout or a bullet.
 Standard library only.
 """
-from guide_inputs import Anchor, Chapter, Criterion, FileEntry, Finding
+from guide_inputs import Anchor, Chapter, Criterion, FileEntry, Finding, one_line
 from guide_mapping import Gaps, ac_tags_for_file
 
 CALLOUT_BY_SEVERITY = {
@@ -16,11 +16,6 @@ CALLOUT_BY_SEVERITY = {
     "Suggestion": "NOTE",
     "Nit": "NOTE",
 }
-
-
-def one_line(text: str) -> str:
-    """Collapse every whitespace run, newlines included, to one space and strip the ends."""
-    return " ".join(text.split())
 
 
 def code_ref(anchor: Anchor) -> str:

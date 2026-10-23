@@ -1,12 +1,14 @@
 import pytest
 
-from guide_inputs import Anchor, Criterion, Finding
+from guide_inputs import Anchor, MapperOutput, Piece
 from guide_mapping import (
-    ac_tags_for_file,
-    assign_findings,
-    criteria_by_chapter,
-    find_gaps,
+    acs_without_code,
+    ac_name,
+    build_chapters,
     is_test_path,
+    key_pieces,
+    place_findings,
+    section_of_file,
 )
 
 
@@ -20,57 +22,66 @@ def test_is_test_path(path, expected):
     assert is_test_path(path) is expected
 
 
-def test_assign_findings_by_overlap(inputs):
-    placed = assign_findings(inputs.findings, inputs.chapters, inputs.changed)
-    assert [f.severity for f in placed.by_chapter[0]] == ["Nit"]
-    assert [f.severity for f in placed.by_chapter[1]] == ["Bug"]
-    assert placed.by_chapter[2] == []
+def test_chapter_order_and_titles(inputs):
+    chapters = build_chapters(inputs.criteria, inputs.mapper, inputs.changed)
+    assert [c.title for c in chapters] == [
+        "AC1: Author adds a competency", "AC2: Author changes the level",
+        "AC3: Deleting asks for confirmation", "Refactoring and setup"]
+    assert [c.kind for c in chapters] == ["ac", "ac", "ac", "purpose"]
 
 
-def test_assign_findings_fall_back_to_file_placement(inputs):
-    f = Finding("Gap", "No down migration", Anchor("migrations/0002_add_level.py", 1, 1), "w")
-    placed = assign_findings([f], inputs.chapters, inputs.changed)
-    assert placed.by_chapter[2] == [f]
+def test_file_placement(inputs):
+    chapters = build_chapters(inputs.criteria, inputs.mapper, inputs.changed)
+    assert [c.files for c in chapters] == [
+        ("src/pages/CompetencyPage.tsx", "src/data/api.ts", "src/data/api.test.ts"), (), (),
+        ("migrations/0002_add_level.py", "src/old/Legacy.tsx")]
 
 
-def test_findings_outside_changed_files(inputs):
-    placed = assign_findings(inputs.findings, inputs.chapters, inputs.changed)
+def test_shared_piece_serves_both_acs(inputs):
+    chapters = build_chapters(inputs.criteria, inputs.mapper, inputs.changed)
+    shared = inputs.mapper.pieces[5]
+    assert shared in chapters[0].pieces and shared in chapters[1].pieces
+    assert [c.id for c in acs_without_code(inputs.criteria, chapters)] == ["AC3"]
+
+
+def test_key_pieces(inputs):
+    keys = key_pieces(inputs.criteria, inputs.mapper, inputs.changed)
+    assert keys["AC1"].anchor == Anchor("src/pages/CompetencyPage.tsx", 12, 30)
+    assert keys["AC2"].anchor == Anchor("src/data/api.ts", 22, 30)
+    assert "AC3" not in keys
+
+
+def test_key_piece_falls_back_to_first_piece(inputs):
+    only_tests = MapperOutput(inputs.mapper.files, (
+        Piece(Anchor("src/data/api.test.ts", 50, 60), ("AC2",), "test", "covers b", ()),
+        Piece(Anchor("src/data/api.test.ts", 10, 20), ("AC2",), "test", "covers a", ())))
+    assert key_pieces(inputs.criteria, only_tests, inputs.changed)["AC2"].purpose == "covers a"
+
+
+def test_key_piece_prefers_implements_when_several_are_marked(inputs):
+    marked = MapperOutput(inputs.mapper.files, (
+        Piece(Anchor("src/data/api.ts", 1, 2), ("AC2",), "edge case", "e", ("AC2",)),
+        Piece(Anchor("src/data/api.ts", 9, 9), ("AC2",), "implements", "i", ("AC2",))))
+    assert key_pieces(inputs.criteria, marked, inputs.changed)["AC2"].purpose == "i"
+
+
+def test_place_findings(inputs):
+    placed = place_findings(inputs.findings, inputs.changed)
+    assert [f.severity for f in placed.by_path["src/data/api.ts"]] == ["Bug"]
+    assert [f.severity for f in placed.by_path["src/pages/CompetencyPage.tsx"]] == ["Nit"]
     assert [f.anchor.path for f in placed.outside] == ["src/unchanged/Caller.tsx"]
 
 
-def test_findings_sorted_by_severity_then_path_then_line(inputs):
-    path = "src/pages/CompetencyPage.tsx"
-    findings = [
-        Finding("Nit", "b", Anchor(path, 20, 20), "w"),
-        Finding("Nit", "a", Anchor(path, 13, 13), "w"),
-        Finding("Bug", "c", Anchor(path, 25, 25), "w"),
-    ]
-    placed = assign_findings(findings, inputs.chapters, inputs.changed)
-    assert [f.title for f in placed.by_chapter[0]] == ["c", "a", "b"]
+@pytest.mark.parametrize("text,name", [
+    ("Scenario: Author adds\n  Given x", "Author adds"),
+    ("Scenario Outline: Many levels\n  Examples:", "Many levels"),
+    ("\n- [ ] The migration is additive", "- [ ] The migration is additive"),
+    ("x" * 100, "x" * 79 + "…"),
+])
+def test_ac_name(text, name):
+    assert ac_name(text) == name
 
 
-def test_criteria_by_overlap(inputs):
-    ids = [[c.id for c in row] for row in criteria_by_chapter(inputs.criteria, inputs.chapters)]
-    assert ids == [["AC1"], ["AC2"], []]
-
-
-def test_criteria_fall_back_to_file_placement(inputs):
-    lone = Criterion("AC9", "t", (Anchor("migrations/0002_add_level.py", 3, 9),), (), "Covered")
-    ids = [[c.id for c in row] for row in criteria_by_chapter([lone], inputs.chapters)]
-    assert ids == [[], [], ["AC9"]]
-
-
-def test_ac_tags_for_file(inputs):
-    assert ac_tags_for_file(inputs.criteria, "src/data/api.ts") == "AC1 L5-L20, AC2 L22-L30"
-    assert ac_tags_for_file(inputs.criteria, "src/old/Legacy.tsx") == ""
-
-
-def test_ac_tags_render_single_line_as_one_number():
-    c = Criterion("AC1", "t", (Anchor("a.py", 15, 15),), (), "Covered")
-    assert ac_tags_for_file([c], "a.py") == "AC1 L15"
-
-
-def test_find_gaps(inputs):
-    gaps = find_gaps(inputs.criteria, inputs.changed)
-    assert [c.id for c in gaps.unimplemented] == ["AC3"]
-    assert gaps.unmatched_files == ["migrations/0002_add_level.py", "src/old/Legacy.tsx"]
+def test_section_of_file(inputs):
+    sections = section_of_file(build_chapters(inputs.criteria, inputs.mapper, inputs.changed))
+    assert sections["src/data/api.ts"] == 2 and sections["src/old/Legacy.tsx"] == 5

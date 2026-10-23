@@ -101,6 +101,11 @@ class MapperCheckError(ValueError):
         super().__init__("; ".join(parts))
 
 
+def one_line(text: str) -> str:
+    """Collapse every whitespace run, newlines included, to one space and strip the ends."""
+    return " ".join(text.split())
+
+
 def parse_anchor(text: str) -> Anchor:
     """Parse ``path:LINE`` or ``path:START-END`` into an Anchor; lines are 1-based and start <= end."""
     match = _ANCHOR_RE.match(text)

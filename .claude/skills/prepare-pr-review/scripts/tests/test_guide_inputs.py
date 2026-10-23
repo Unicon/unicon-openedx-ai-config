@@ -18,8 +18,13 @@ from guide_inputs import (
     load_mapper_outputs,
     load_pr,
     main,
+    one_line,
     parse_anchor,
 )
+
+
+def test_one_line_collapses_whitespace():
+    assert one_line("  a \n\n b\t c  ") == "a b c"
 
 
 def test_parse_anchor_single_line():
