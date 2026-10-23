@@ -59,10 +59,6 @@ def _overlaps(a: Anchor, b: Anchor) -> bool:
     return a.path == b.path and a.start <= b.end and b.start <= a.end
 
 
-def _overlaps(a: Anchor, b: Anchor) -> bool:
-    return a.path == b.path and a.start <= b.end and b.start <= a.end
-
-
 def ac_name(text: str) -> str:
     """Return a short chapter name for criterion text.
 
