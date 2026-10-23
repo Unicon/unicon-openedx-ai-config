@@ -1,7 +1,9 @@
 import json
+import shutil
 
 import pytest
 
+import guide_inputs
 from guide_inputs import (
     Anchor,
     Chapter,
@@ -156,3 +158,20 @@ def test_load_chapters_rejects_non_string_original(tmp_path):
 def test_changed_files_rejects_malformed_pr(pr, match):
     with pytest.raises(ValueError, match=match):
         changed_files(pr)
+
+
+def test_check_cli(tmp_path, synthetic, capsys):
+    art = tmp_path / "a"
+    shutil.copytree(synthetic, art)
+    assert guide_inputs.main(["--check", str(art)]) == 0
+    assert capsys.readouterr().out.strip() == "Placement OK: 5 files in 3 chapters."
+    data = json.loads((art / "chapters.json").read_text())
+    data["chapters"][2]["files"] = []
+    (art / "chapters.json").write_text(json.dumps(data))
+    assert guide_inputs.main(["--check", str(art)]) == 1
+    assert "changed files placed in no chapter" in capsys.readouterr().err
+
+
+def test_check_cli_reports_missing_file(tmp_path, capsys):
+    assert guide_inputs.main(["--check", str(tmp_path)]) == 1
+    assert "pr.json" in capsys.readouterr().err

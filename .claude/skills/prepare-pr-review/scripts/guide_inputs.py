@@ -6,7 +6,9 @@ from JSON, validates them, and exposes them as frozen dataclasses. Also checks t
 every changed file is placed in exactly one chapter. Standard library only.
 """
 import json
+import os
 import re
+import sys
 from collections import Counter
 from dataclasses import dataclass
 
@@ -237,3 +239,30 @@ def check_placement(changed: list[str], chapters: list[Chapter]) -> None:
     unknown = sorted(placed.keys() - changed_set)
     if missing or duplicated or unknown:
         raise PlacementError(missing, duplicated, unknown)
+
+
+def main(argv=None) -> int:
+    """Run the command line. ``--check DIR`` verifies the placement in ``DIR/chapters.json`` against ``DIR/pr.json``.
+
+    Prints ``Placement OK: <files> files in <chapters> chapters.`` and returns 0 when every changed
+    file is placed exactly once. Prints the problem to stderr and returns 1 when a file is missing
+    or unreadable, a JSON file is invalid, or the placement is wrong.
+    """
+    args = sys.argv[1:] if argv is None else list(argv)
+    if len(args) != 2 or args[0] != "--check":
+        print("usage: guide_inputs.py --check ARTIFACT_DIR", file=sys.stderr)
+        return 2
+    folder = args[1]
+    try:
+        changed = changed_files(load_pr(os.path.join(folder, "pr.json")))
+        chapters = load_chapters(os.path.join(folder, "chapters.json"))
+        check_placement(changed, chapters)
+    except (ValueError, FileNotFoundError) as error:
+        print(error, file=sys.stderr)
+        return 1
+    print(f"Placement OK: {len(changed)} files in {len(chapters)} chapters.")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
