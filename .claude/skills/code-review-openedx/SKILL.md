@@ -464,16 +464,21 @@ grep to confirm that the names in the text exist; and that it writes the rewrite
 next to the source. The skill's own length check applies: the body of the rewrite does not grow
 past the source.
 
-Also give it the layout of the rewrite. The layout lets a reader see the verdict, every finding,
-and the action list at a glance, and open only the detail they need. It uses HTML `<details>`
-blocks, which GitHub and Markdown previews render collapsed, with a blank line after `<details>`
-and before `</details>` so the Markdown inside them still renders:
+Also give it the layout of the rewrite. The layout lets a reader see every finding at a glance
+and open only the detail they need. It uses HTML `<details>` blocks, which GitHub and Markdown
+previews render collapsed, with a blank line after `<details>` and before `</details>` so the
+Markdown inside them still renders:
 
-- The lead paragraph, the four group headings of the findings, and the action list sit outside
-  any `<details>` block.
-- The prerequisites section, "Things the review looked at and is leaving to other tickets",
-  "What passed", and every other section a reader can skip and still act on the review, keep
-  their heading outside and put their body inside one `<details>` block.
+- The title names the pull request and what it changes.
+- The D1 lead paragraph is removed, including its statement of whether the change is ready to
+  merge, which the "Must fix before merge" group already conveys. A sentence of the lead stays,
+  as a short paragraph under the title, only when it carries information the implementer
+  critically needs and no other part of the review states.
+- The first section is "Review Details". Its heading sits outside, and one `<details>` block
+  holds the rest of it: the prerequisites section, "Things the review looked at and is leaving
+  to other tickets", "What passed", and the action list, in that order, each under its own
+  subheading, followed by any other section a reader can skip and still act on the review.
+- The four group headings of the findings follow, outside any `<details>` block.
 - Each finding is one sentence followed by a `<details>` block that holds the whole finding. The
   sentence says what the finding is, in plain words a reader new to the codebase understands,
   and leaves out every detail: file and function names, the mechanism, the evidence, and the
@@ -493,7 +498,7 @@ apply the fixes. The gate flags the definitions the rewrite added and cannot con
 that list travels with the delivery and the reader is told nobody has confirmed it.
 
 **Deliver.** The cleaned file is the review the user receives, and it holds everything the user
-needs from the review. Append to it, after the action list:
+needs from the review. Append to it, at the end of the file:
 
 1. One sentence with the gate's verdict and the number of definitions the cleanup added that
    nobody has confirmed, followed by a `<details>` block that lists those definitions.
