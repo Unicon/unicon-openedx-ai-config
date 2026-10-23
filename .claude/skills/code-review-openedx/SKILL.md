@@ -413,9 +413,6 @@ catches; issues on lines the change did not modify, unless the change exposes th
 10. **Dropped.** One line per candidate whose evidence did not hold, with the fact that
     disproved it.
 11. **Open questions** for the developer.
-12. **Explanation for the implementer.** The cleaned Phase D text, in full, under a heading that
-    names its reader, with the accuracy gate's verdict in one line and the list of definitions
-    nobody has confirmed.
 
 Lead each finding with the point, then the mechanism, in one to three sentences. Keep the tone
 of one engineer to another: direct, specific, no praise padding and no "strengths" section. A
@@ -467,15 +464,51 @@ grep to confirm that the names in the text exist; and that it writes the rewrite
 next to the source. The skill's own length check applies: the body of the rewrite does not grow
 past the source.
 
+Also give it the layout of the rewrite. The layout lets a reader see every finding at a glance
+and open only the detail they need. It uses HTML `<details>` blocks, which GitHub and Markdown
+previews render collapsed, with a blank line after `<details>` and before `</details>` so the
+Markdown inside them still renders:
+
+- The title names the pull request and what it changes.
+- The D1 lead paragraph is removed, including its statement of whether the change is ready to
+  merge, which the "Must fix before merge" group already conveys. A sentence of the lead stays,
+  as a short paragraph under the title, only when it carries information the implementer
+  critically needs and no other part of the review states.
+- The first section is "Review Details". Its heading sits outside, and one `<details>` block
+  holds the rest of it: the prerequisites section, "Things the review looked at and is leaving
+  to other tickets", "What passed", and the action list, in that order, each under its own
+  subheading, followed by any other section a reader can skip and still act on the review.
+- The four group headings of the findings follow, outside any `<details>` block.
+- Each finding is one sentence followed by a `<details>` block that holds the whole finding. The
+  sentence says what the finding is, in plain words a reader new to the codebase understands,
+  and leaves out every detail: file and function names, the mechanism, the evidence, and the
+  fix. A reader who reads only these sentences knows what every finding is about.
+- Before it returns, it checks each sentence against the finding in the source: the sentence
+  says only what the finding establishes, is exactly as certain and as severe as the finding,
+  and names the finding's problem rather than a symptom of it or its fix. Its changelog lists
+  the sentences as added text, so the D3 gate checks each one against its finding as well.
+- The length check counts the summary sentences as allowed growth, like the prerequisites
+  section: the rewrite minus the prerequisites section and the summary sentences comes in at or
+  under the source.
+
 **D3. Gate (`doc-accuracy-reviewer`, Sonnet, high, budget 15).** Dispatch the gate yourself, as
 `clean-up-text` step 6 describes, with the source path, the rewrite path, and D2's changelog.
 Nothing ships past a FAIL: correct the text and dispatch the gate again. On PASS WITH FIXES,
 apply the fixes. The gate flags the definitions the rewrite added and cannot confirm them, so
 that list travels with the delivery and the reader is told nobody has confirmed it.
 
-**Deliver.** The cleaned text is the twelfth part of the C6 output. Put it in the response in
-full, after the structured parts, under one heading that names its reader, with the gate's
-verdict in one line and the list of unconfirmed definitions.
+**Deliver.** The cleaned file is the review the user receives, and it holds everything the user
+needs from the review. Append to it, at the end of the file:
+
+1. One sentence with the gate's verdict and the number of definitions the cleanup added that
+   nobody has confirmed, followed by a `<details>` block that lists those definitions.
+2. A heading that names the reviewer as its reader, followed by a `<details>` block that holds
+   the C6 output.
+
+When the user asked questions that are an integral part of the review, the answers are part of
+the review in that file: write them into the D1 draft, in their own section before the action
+list, so the cleanup and the gate cover them. Your response in chat is only a link to the cleaned
+file, nothing more.
 
 ## Red flags
 

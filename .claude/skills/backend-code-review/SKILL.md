@@ -59,3 +59,9 @@ Additional Notes:
    acceptance-criteria table when a behavior test sets and reads the new column or constraint, alongside the
    repository's standard migration check when it has one. A new column that no test touches is a `Gap`, even when
    the migration applies cleanly.
+
+## Delivering the review
+
+When the review is done, your response in chat is only a link to the cleaned-up file that the
+parent's phase D produces, nothing more. When the user asked questions that are an integral part
+of the review, the answers are part of the review in that file.
