@@ -10,6 +10,7 @@ from guide_inputs import Anchor, Background, Criterion, Finding, Piece, one_line
 from guide_mapping import Chapter, _overlaps, ac_name
 
 _ZWSP = "\u200b"
+_CLOSERS = (".", "?", "!")
 
 
 def lines(anchor: Anchor) -> str:
@@ -41,7 +42,7 @@ def ac_block(text: str) -> str:
 
 def _finding_text(finding: Finding) -> str:
     title = one_line(finding.title)
-    if not title.endswith("."):
+    if not title.endswith(_CLOSERS):
         title += "."
     return f"{finding.severity}: {title} {one_line(finding.why)}"
 
@@ -62,7 +63,7 @@ def _file_group(path, keys, pieces_by_path, findings_by_path, criteria_by_id) ->
     return "\n".join(out)
 
 
-def _also_groups(chapter, section, keys, findings_by_path, sections) -> list[str]:
+def _also_groups(chapter, section, keys, findings_by_path, sections, titles_by_section) -> list[str]:
     by_section: dict[int, list[str]] = {}
     for piece in chapter.pieces:
         shown_in = sections.get(piece.anchor.path)
@@ -78,7 +79,7 @@ def _also_groups(chapter, section, keys, findings_by_path, sections) -> list[str
         by_section.setdefault(shown_in, []).append(
             f"- {piece.anchor.path} {lines(piece.anchor)} {piece_label(piece)}: {one_line(piece.purpose)}{suffix}")
     return [
-        "\n".join([f"### Also in this chapter, diff shown in chapter {n}", *bullets])
+        "\n".join([f"### Also in this chapter, diff shown in chapter {n}: {one_line(titles_by_section[n])}", *bullets])
         for n, bullets in sorted(by_section.items())
     ]
 
@@ -92,6 +93,7 @@ def render_overview(
     pieces_by_path: dict[str, list[Piece]],
     findings_by_path: dict[str, tuple[Finding, ...]],
     sections: dict[str, int],
+    titles_by_section: dict[int, str],
 ) -> str:
     """Return a chapter's left-column text; blocks are joined by one blank line.
 
@@ -101,7 +103,8 @@ def render_overview(
     finding in that file, interleaved by line number (every piece of the file, whichever criterion
     it serves). A key piece's bullet is followed by the exact text of each criterion it is the key
     piece for. Pieces of this chapter whose file is shown in another section are listed last, by
-    section, with no criterion text.
+    section, with no criterion text. Each such group's heading names the section number and the
+    title that ``titles_by_section`` gives for it.
     """
     blocks = []
     key = keys.get(chapter.ac) if chapter.ac is not None else None
@@ -118,18 +121,18 @@ def render_overview(
         _file_group(path, keys, pieces_by_path, findings_by_path, criteria_by_id)
         for path in chapter.files
     )
-    blocks.extend(_also_groups(chapter, section, keys, findings_by_path, sections))
+    blocks.extend(_also_groups(chapter, section, keys, findings_by_path, sections, titles_by_section))
     return "\n\n".join(blocks)
 
 
 def render_file_summary(summary: str, path: str, pieces_by_path: dict[str, list[Piece]], finding_count: int) -> str:
     """Return a file's one-line summary, then the criteria its pieces serve and its finding count.
 
-    The summary ends with one period. Criteria are listed in numeric order of their ids, and the finding count
+    The summary ends with a period unless it already ends in ``.``, ``?`` or ``!``. Criteria are listed in numeric order of their ids, and the finding count
     is omitted when it is zero.
     """
     text = one_line(summary)
-    if not text.endswith("."):
+    if not text.endswith(_CLOSERS):
         text += "."
     acs = {ac for piece in pieces_by_path.get(path, ()) for ac in piece.acs}
     if acs:

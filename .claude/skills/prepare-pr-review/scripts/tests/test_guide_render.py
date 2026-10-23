@@ -34,6 +34,7 @@ def ctx(inputs):
     for piece in ordered:
         pieces_by_path.setdefault(piece.anchor.path, []).append(piece)
     sections = section_of_file(chapters)
+    titles_by_section = {i + 2: chapter.title for i, chapter in enumerate(chapters)}
 
     def render(i):
         return render_overview(
@@ -44,11 +45,12 @@ def ctx(inputs):
             pieces_by_path=pieces_by_path,
             findings_by_path=placed.by_path,
             sections=sections,
+            titles_by_section=titles_by_section,
         )
 
     return SimpleNamespace(
         chapters=chapters, keys=keys, placed=placed, criteria_by_id=criteria_by_id,
-        pieces_by_path=pieces_by_path, sections=sections, render=render,
+        pieces_by_path=pieces_by_path, sections=sections, titles_by_section=titles_by_section, render=render,
     )
 
 
@@ -86,7 +88,7 @@ def test_notes_interleave_by_line(ctx):
 def test_also_section_lists_shared_piece(ctx):
     text = ctx.render(1)
     assert text.startswith("Review verdict: Implemented, untested.\n\n```\nScenario: Author changes the level\n")
-    assert "### Also in this chapter, diff shown in chapter 2" in text
+    assert "### Also in this chapter, diff shown in chapter 2: AC1: Author adds a competency\n" in text
     assert "- src/data/api.ts L22-L30 AC2: patches the level (key piece, 1 finding)" in text
     assert "- src/data/api.test.ts L1-L40 AC1, AC2 test: covers the POST and PATCH calls" in text
     assert text.count("Scenario: Author changes the level") == 1
@@ -117,8 +119,25 @@ def test_finding_text_is_one_line_and_title_period_is_not_doubled(ctx):
         Finding("Nit", "Already ends.", Anchor("migrations/0002_add_level.py", 1, 1), "Why\nnow"),)}
     text = render_overview(
         ctx.chapters[3], section=5, criteria_by_id=ctx.criteria_by_id, keys=ctx.keys,
-        pieces_by_path=ctx.pieces_by_path, findings_by_path=findings, sections=ctx.sections)
+        pieces_by_path=ctx.pieces_by_path, findings_by_path=findings, sections=ctx.sections,
+        titles_by_section=ctx.titles_by_section)
     assert "- L1 Nit: Already ends. Why now" in text
+
+
+@pytest.mark.parametrize("title", ["Why is this null?", "Remove this!", "Done."])
+def test_finding_text_adds_no_period_after_closing_punctuation(ctx, title):
+    findings = {"migrations/0002_add_level.py": (
+        Finding("Question", title, Anchor("migrations/0002_add_level.py", 1, 1), "Because."),)}
+    text = render_overview(
+        ctx.chapters[3], section=5, criteria_by_id=ctx.criteria_by_id, keys=ctx.keys,
+        pieces_by_path=ctx.pieces_by_path, findings_by_path=findings, sections=ctx.sections,
+        titles_by_section=ctx.titles_by_section)
+    assert f"- L1 Question: {title} Because." in text
+
+
+def test_file_summary_adds_no_period_after_closing_punctuation(ctx):
+    assert render_file_summary("Does it work?", "src/old/Legacy.tsx", ctx.pieces_by_path, 0) == "Does it work?"
+    assert render_file_summary("Drops it!", "src/old/Legacy.tsx", ctx.pieces_by_path, 1) == "Drops it! 1 finding."
 
 
 def test_file_summary(ctx):

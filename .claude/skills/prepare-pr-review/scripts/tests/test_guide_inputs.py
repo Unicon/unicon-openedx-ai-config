@@ -182,6 +182,15 @@ def test_load_mapper_outputs_rejects_duplicate_summary(tmp_path, synthetic):
         load_mapper_outputs(tmp_path)
 
 
+def test_load_mapper_outputs_names_the_file_of_a_bad_piece(tmp_path, synthetic):
+    data = json.loads((synthetic / "pieces-1.json").read_text())
+    (tmp_path / "pieces-1.json").write_text(json.dumps({"files": data["files"][:2], "pieces": data["pieces"][:5]}))
+    bad = {"files": data["files"][2:], "pieces": [dict(data["pieces"][5], kind="rewrite")]}
+    (tmp_path / "pieces-2.json").write_text(json.dumps(bad))
+    with pytest.raises(ValueError, match=r"pieces-2\.json piece 1: kind"):
+        load_mapper_outputs(tmp_path)
+
+
 def test_load_mapper_outputs_rejects_no_files(tmp_path):
     with pytest.raises(ValueError, match="pieces-"):
         load_mapper_outputs(tmp_path)

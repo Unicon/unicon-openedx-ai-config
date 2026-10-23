@@ -67,6 +67,9 @@ def test_compose_end_to_end(tmp_path, synthetic):
     assert len(placed) == len(set(placed))
     assert sections[2]["diffs"] == [] and sections[3]["diffs"] == []
     assert len(env["reviewed"]) == 5
+    overviews = "\n".join(s["overview"] for s in sections)
+    for criterion in json.loads((art / "criteria.json").read_text())["criteria"]:
+        assert f"```\n{criterion['text']}\n```" in overviews
     assert "(key piece for AC1)" in sections[1]["overview"]
     api = next(d for s in sections for d in s["diffs"] if d["file"] == "src/data/api.ts")
     assert api["summary"].endswith("AC1, AC2. 1 finding.")

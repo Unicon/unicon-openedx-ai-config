@@ -202,8 +202,8 @@ def load_criteria(path) -> tuple[list[Criterion], list[Background]]:
     return criteria, backgrounds
 
 
-def _piece(row: dict, index: int) -> Piece:
-    where = f"piece {index + 1}"
+def _piece(row: dict, index: int, source: str) -> Piece:
+    where = f"{source} piece {index + 1}"
     anchor = parse_anchor(_require_str(row, "anchor", where))
     acs = tuple(_require_str_list(row, "acs", where))
     kind = row.get("kind")
@@ -234,7 +234,7 @@ def load_mapper_file(path) -> MapperOutput:
         for i, row in enumerate(_require_rows(data, "files", where))
     )
     _require_unique_summaries(files, where)
-    pieces = tuple(_piece(row, i) for i, row in enumerate(_require_rows(data, "pieces", where)))
+    pieces = tuple(_piece(row, i, where) for i, row in enumerate(_require_rows(data, "pieces", where)))
     return MapperOutput(files, pieces)
 
 

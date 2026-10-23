@@ -148,6 +148,7 @@ def compose(artifacts: Path, *, data_dir: Path, now_ms: int, prepared_at: str, v
     keys = key_pieces(criteria, mapper, changed)
     placement = place_findings(findings, changed)
     sections_of = section_of_file(chapters)
+    titles_by_section = {i + 2: chapter.title for i, chapter in enumerate(chapters)}
     criteria_by_id = {c.id: c for c in criteria}
     file_order = {path: i for i, path in enumerate(changed)}
     pieces_by_path: dict[str, list] = {}
@@ -181,6 +182,7 @@ def compose(artifacts: Path, *, data_dir: Path, now_ms: int, prepared_at: str, v
                 pieces_by_path=pieces_by_path,
                 findings_by_path=placement.by_path,
                 sections=sections_of,
+                titles_by_section=titles_by_section,
             ),
             "diffs": [
                 {
