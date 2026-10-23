@@ -36,8 +36,8 @@ Changed lines are the lines the PR's diff adds or modifies. Read the diff with `
 ## What to do
 
 1. List the changed files with `gh pr view {pr_url} --json files`. Every one of them must end up in your output exactly once.
-2. For each testing step, trace the changed code that step runs, in execution order: the entry point, then the UI, the data layer, the API, the view, the model. Add one code ref per changed region, with an anchor (`path:start-end`, or `path:start` for one line) and a role of under 10 words. The role is a short phrase with no trailing period, such as `posts the new competency`.
-3. If a step is vague (it leaves out where to go, what to do, or what should happen), sharpen it from the code into a concrete step: the page or URL, the action, and the expected result. Put the author's exact wording in `original`. If a step is already usable, keep it as written and set `original` to `null`.
+2. For each testing step, trace the changed code that step runs, in execution order: the entry point, then the UI, the data layer, the API, the view, the model. Add one code ref per changed region, with an anchor (`path:start-end`, or `path:start` for one line) and a role of under 10 words. The role is a short phrase with no trailing period, such as `posts the new competency`. Skip lines that only add imports; the code that uses them is what the reviewer reads. A step that only sets up data or the environment and runs no changed code gets no code refs.
+3. If a step is vague (it leaves out where to go, what to do, or what should happen), sharpen it from the code into a concrete step: the page or URL, the action, and the expected result. Put the author's exact wording in `original`, but only when you add information the author's step lacks: a page or URL, a click path, or an expected result. If a step is already usable, keep it as written and set `original` to `null`. Splitting the author's text into `do` and `expect`, or tidying its formatting, is not sharpening and keeps `original` as `null`.
 4. Place every changed file in exactly one chapter, in that chapter's `files` list, with a one-sentence summary of what the PR changes in it.
    - A file goes in the first step that runs it, even if later steps run it too. A later step may still list code refs into that file.
    - A test file goes in the step chapter whose behavior it tests, listed after the code files of that chapter.
@@ -48,7 +48,7 @@ Changed lines are the lines the PR's diff adds or modifies. Read the diff with `
 
 The file is a JSON object with one key, `chapters`, a list. Step chapters come first, one per testing step, in the author's order, then the layer chapters.
 
-A step chapter has `kind` set to `"step"`, a `title` such as `Step 1: Add a competency`, non-empty `do` and `expect` text, `original` (the author's wording, or `null`), `code`, and `files`. Every step chapter needs at least one code ref.
+A step chapter has `kind` set to `"step"`, a `title` such as `Step 1: Add a competency`, non-empty `do` and `expect` text, `original` (the author's wording, or `null`), `code`, and `files`. A step that only sets up data or the environment and runs no changed code has an empty `code` list. Every other step chapter has at least one code ref.
 
 A layer chapter has `kind` set to `"layer"`, a `title`, `code` as an empty list, and `files`. It must not have `do`, `expect`, or `original`.
 
