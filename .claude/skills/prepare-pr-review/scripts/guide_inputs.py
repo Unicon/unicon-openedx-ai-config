@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
 """Input models and loaders for the prepare-pr-review scripts.
 
-Reads the PR metadata, chapter draft, acceptance-criteria rows, and review findings
-from JSON, validates them, and exposes them as frozen dataclasses. Also checks that
-every changed file is placed in exactly one chapter. Standard library only.
+Reads the PR metadata, acceptance criteria, the mapper's labeled code pieces, and review
+findings from JSON, validates them, and exposes them as frozen dataclasses. Also checks that
+the mapper summarized every changed file and labeled at least one piece in it. Standard
+library only.
 """
 import json
-import os
 import re
 import sys
-from collections import Counter
 from dataclasses import dataclass
+from pathlib import Path
 
 SEVERITIES = ("Bug", "Gap", "Question", "Suggestion", "Nit")
-CHAPTER_KINDS = ("step", "layer")
+KINDS = ("implements", "edge case", "test", "refactor", "setup", "migration", "docs", "removal", "other")
+
+_AC_ID_RE = re.compile(r"^AC[1-9][0-9]*$")
+_PIECES_FILE_RE = re.compile(r"^pieces-([1-9][0-9]*)\.json$")
 
 _ANCHOR_RE = re.compile(r"^(.+):(\d+)(?:-(\d+))?$")
 
@@ -26,35 +29,42 @@ class Anchor:
 
 
 @dataclass(frozen=True)
-class CodeRef:
-    anchor: Anchor
-    role: str
+class Criterion:
+    """One acceptance criterion; ``text`` is the exact source text with LF line endings."""
+    id: str
+    text: str
+    source: str
+    verdict: str | None
+    tested_by: tuple[str, ...]
 
 
 @dataclass(frozen=True)
-class FileEntry:
+class Background:
+    """A Gherkin ``Background:`` block shared by the scenarios of one ticket."""
+    source: str
+    text: str
+
+
+@dataclass(frozen=True)
+class Piece:
+    """A labeled stretch of changed code: the criteria it serves, what kind of change it is, and why."""
+    anchor: Anchor
+    acs: tuple[str, ...]
+    kind: str
+    purpose: str
+    key_for: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class FileSummary:
     path: str
     summary: str
 
 
 @dataclass(frozen=True)
-class Chapter:
-    kind: str
-    title: str
-    do: str | None
-    expect: str | None
-    original: str | None
-    code: tuple[CodeRef, ...]
-    files: tuple[FileEntry, ...]
-
-
-@dataclass(frozen=True)
-class Criterion:
-    id: str
-    text: str
-    implemented_at: tuple[Anchor, ...]
-    tested_by: tuple[str, ...]
-    verdict: str
+class MapperOutput:
+    files: tuple[FileSummary, ...]
+    pieces: tuple[Piece, ...]
 
 
 @dataclass(frozen=True)
@@ -65,25 +75,29 @@ class Finding:
     why: str
 
 
-class PlacementError(ValueError):
-    """Raised when changed files and chapter placement disagree.
+class MapperCheckError(ValueError):
+    """Raised when the mapper's output and the PR's changed files or criteria disagree.
 
-    ``missing`` lists changed files no chapter places, ``duplicated`` lists files placed
-    in more than one chapter entry, and ``unknown`` lists placed files the PR did not
-    change. All three are sorted lists of paths.
+    ``missing_pieces`` lists changed files with no piece, ``missing_summaries`` lists changed
+    files with no summary, ``unknown_files`` lists files the mapper mentioned that the PR did not
+    change, and ``unknown_acs`` lists criterion ids the mapper used that do not exist. All four are
+    sorted lists.
     """
 
-    def __init__(self, missing, duplicated, unknown):
-        self.missing = missing
-        self.duplicated = duplicated
-        self.unknown = unknown
+    def __init__(self, missing_pieces, missing_summaries, unknown_files, unknown_acs):
+        self.missing_pieces = missing_pieces
+        self.missing_summaries = missing_summaries
+        self.unknown_files = unknown_files
+        self.unknown_acs = unknown_acs
         parts = []
-        if missing:
-            parts.append("changed files placed in no chapter: " + ", ".join(missing))
-        if duplicated:
-            parts.append("files placed more than once: " + ", ".join(duplicated))
-        if unknown:
-            parts.append("placed files the PR did not change: " + ", ".join(unknown))
+        if missing_pieces:
+            parts.append("changed files with no piece: " + ", ".join(missing_pieces))
+        if missing_summaries:
+            parts.append("changed files with no summary: " + ", ".join(missing_summaries))
+        if unknown_files:
+            parts.append("files the PR did not change: " + ", ".join(unknown_files))
+        if unknown_acs:
+            parts.append("unknown criterion ids: " + ", ".join(unknown_acs))
         super().__init__("; ".join(parts))
 
 
@@ -139,56 +153,106 @@ def _require_str_list(row: dict, field: str, where: str) -> list[str]:
     return values
 
 
-def _chapter(row: dict, index: int) -> Chapter:
-    where = f"chapter {index + 1}"
-    kind = row.get("kind")
-    if kind not in CHAPTER_KINDS:
-        raise ValueError(f"{where}: kind {kind!r} must be one of {CHAPTER_KINDS}")
-    title = _require_str(row, "title", where)
-    if kind == "step":
-        do = _require_str(row, "do", where)
-        expect = _require_str(row, "expect", where)
-        original = _optional_str(row, "original", where)
-    else:
-        extra = [f for f in ("do", "expect", "original") if row.get(f) is not None]
-        if extra:
-            raise ValueError(f"{where}: a layer chapter cannot have {', '.join(extra)}")
-        do = expect = original = None
-    code = tuple(
-        CodeRef(parse_anchor(_require_str(ref, "anchor", where)), _require_str(ref, "role", where))
-        for ref in _require_rows(row, "code", where)
+def _criterion(row: dict, index: int) -> Criterion:
+    where = f"criteria.json criteria[{index}]"
+    criterion_id = _require_str(row, "id", where)
+    if not _AC_ID_RE.match(criterion_id):
+        raise ValueError(f"{where}: field 'id' {criterion_id!r} must look like AC1, AC2, ...")
+    where = f"criterion {criterion_id}"
+    text = _require_str(row, "text", where).replace("\r\n", "\n")
+    if not text.strip():
+        raise ValueError(f"{where}: field 'text' must not be blank")
+    return Criterion(
+        criterion_id,
+        text,
+        _require_str(row, "source", where),
+        _optional_str(row, "verdict", where),
+        tuple(_require_str_list(row, "tested_by", where)),
     )
-    files = tuple(
-        FileEntry(_require_str(entry, "path", where), _require_str(entry, "summary", where))
-        for entry in _require_rows(row, "files", where)
-    )
-    return Chapter(kind, title, do, expect, original, code, files)
 
 
-def load_chapters(path) -> list[Chapter]:
-    """Load and validate chapters.json. Step chapters need do and expect; layer chapters must not have them."""
-    rows = _require_rows(_read_json(path), "chapters", "chapters.json")
-    return [_chapter(row, i) for i, row in enumerate(rows)]
+def load_criteria(path) -> tuple[list[Criterion], list[Background]]:
+    """Load and validate criteria.json; return the criteria and the (possibly empty) backgrounds.
 
-
-def load_criteria(path) -> list[Criterion]:
-    """Load and validate criteria.json. Criterion ids must be unique."""
+    Criterion ids must match ``AC<n>`` and be unique. CRLF line endings in text become LF; the text
+    is otherwise kept exactly as written.
+    """
+    data = _read_json(path)
     criteria = []
     seen = set()
-    for row in _require_rows(_read_json(path), "criteria", "criteria.json"):
-        criterion_id = _require_str(row, "id", "criterion")
-        if criterion_id in seen:
-            raise ValueError(f"duplicate criterion id {criterion_id!r}")
-        seen.add(criterion_id)
-        where = f"criterion {criterion_id}"
-        criteria.append(Criterion(
-            criterion_id,
-            _require_str(row, "text", where),
-            tuple(parse_anchor(a) for a in _require_str_list(row, "implemented_at", where)),
-            tuple(_require_str_list(row, "tested_by", where)),
-            _require_str(row, "verdict", where),
-        ))
-    return criteria
+    for i, row in enumerate(_require_rows(data, "criteria", "criteria.json")):
+        criterion = _criterion(row, i)
+        if criterion.id in seen:
+            raise ValueError(f"duplicate criterion id {criterion.id!r}")
+        seen.add(criterion.id)
+        criteria.append(criterion)
+    backgrounds = []
+    if "backgrounds" in data:
+        for i, row in enumerate(_require_rows(data, "backgrounds", "criteria.json")):
+            where = f"criteria.json backgrounds[{i}]"
+            backgrounds.append(Background(
+                _require_str(row, "source", where),
+                _require_str(row, "text", where).replace("\r\n", "\n"),
+            ))
+    return criteria, backgrounds
+
+
+def _piece(row: dict, index: int) -> Piece:
+    where = f"piece {index + 1}"
+    anchor = parse_anchor(_require_str(row, "anchor", where))
+    acs = tuple(_require_str_list(row, "acs", where))
+    kind = row.get("kind")
+    if kind not in KINDS:
+        raise ValueError(f"{where}: kind {kind!r} must be one of {KINDS}")
+    purpose = _require_str(row, "purpose", where)
+    key_for = tuple(_require_str_list(row, "key_for", where))
+    outside = [a for a in key_for if a not in acs]
+    if outside:
+        raise ValueError(f"{where}: field 'key_for' lists {', '.join(outside)}, which are not in acs")
+    return Piece(anchor, acs, kind, purpose, key_for)
+
+
+def _require_unique_summaries(files, where: str) -> None:
+    seen = set()
+    for entry in files:
+        if entry.path in seen:
+            raise ValueError(f"{where}: {entry.path} is summarized more than once")
+        seen.add(entry.path)
+
+
+def load_mapper_file(path) -> MapperOutput:
+    """Load and validate one ``pieces-<k>.json``. A piece's ``key_for`` must be a subset of its ``acs``."""
+    data = _read_json(path)
+    where = Path(path).name
+    files = tuple(
+        FileSummary(_require_str(row, "path", f"{where} files[{i}]"), _require_str(row, "summary", f"{where} files[{i}]"))
+        for i, row in enumerate(_require_rows(data, "files", where))
+    )
+    _require_unique_summaries(files, where)
+    pieces = tuple(_piece(row, i) for i, row in enumerate(_require_rows(data, "pieces", where)))
+    return MapperOutput(files, pieces)
+
+
+def load_mapper_outputs(artifacts: Path) -> MapperOutput:
+    """Merge every ``pieces-<k>.json`` in ``artifacts`` (k a positive integer) in numeric order of k.
+
+    Raises ``ValueError`` when no such file exists or when a path is summarized more than once
+    across the files.
+    """
+    found = sorted(
+        (int(m.group(1)), entry)
+        for entry in Path(artifacts).iterdir()
+        if (m := _PIECES_FILE_RE.match(entry.name))
+    )
+    if not found:
+        raise ValueError(f"no pieces-<k>.json file in {artifacts}")
+    files, pieces = [], []
+    for _, entry in found:
+        output = load_mapper_file(entry)
+        files.extend(output.files)
+        pieces.extend(output.pieces)
+    _require_unique_summaries(files, "pieces-*.json")
+    return MapperOutput(tuple(files), tuple(pieces))
 
 
 def load_findings(path) -> tuple[str, list[Finding]]:
@@ -242,37 +306,63 @@ def changed_files(pr: dict) -> list[str]:
     return paths
 
 
-def check_placement(changed: list[str], chapters: list[Chapter]) -> None:
-    """Raise PlacementError unless every changed file is placed in exactly one chapter file entry."""
-    placed = Counter(entry.path for chapter in chapters for entry in chapter.files)
-    changed_set = set(changed)
-    missing = sorted(changed_set - placed.keys())
-    duplicated = sorted(p for p, n in placed.items() if n > 1)
-    unknown = sorted(placed.keys() - changed_set)
-    if missing or duplicated or unknown:
-        raise PlacementError(missing, duplicated, unknown)
+def check_mapper_output(expected: list[str], mapper: MapperOutput, criteria: list[Criterion]) -> None:
+    """Raise MapperCheckError unless the mapper summarized and labeled every expected file, and only those.
+
+    ``expected`` is the list of changed file paths (or a batch of them). Every expected file needs a
+    summary and at least one piece. Pieces and summaries may name only expected files, and pieces may
+    cite only the ids in ``criteria``.
+    """
+    expected_set = set(expected)
+    with_pieces = {p.anchor.path for p in mapper.pieces}
+    with_summary = {f.path for f in mapper.files}
+    known_acs = {c.id for c in criteria}
+    used_acs = {a for p in mapper.pieces for a in p.acs + p.key_for}
+    missing_pieces = sorted(expected_set - with_pieces)
+    missing_summaries = sorted(expected_set - with_summary)
+    unknown_files = sorted((with_pieces | with_summary) - expected_set)
+    unknown_acs = sorted(used_acs - known_acs)
+    if missing_pieces or missing_summaries or unknown_files or unknown_acs:
+        raise MapperCheckError(missing_pieces, missing_summaries, unknown_files, unknown_acs)
 
 
 def main(argv=None) -> int:
-    """Run the command line. ``--check DIR`` verifies the placement in ``DIR/chapters.json`` against ``DIR/pr.json``.
+    """Run the command line.
 
-    Prints ``Placement OK: <files> files in <chapters> chapters.`` and returns 0 when every changed
-    file is placed exactly once. Prints the problem to stderr and returns 1 when a file is missing
-    or unreadable, a JSON file is invalid, or the placement is wrong.
+    ``--check DIR`` checks ``DIR/pr.json``, ``DIR/criteria.json`` and every ``DIR/pieces-<k>.json``
+    together and prints ``Mapper output OK: <n> files, <p> pieces.``. ``--check-batch DIR K`` checks
+    ``DIR/pieces-K.json`` against the path list in ``DIR/batch-K.json`` and prints
+    ``Batch K OK: <n> files, <p> pieces.``. Returns 0 when the check passes, 1 with the problem on
+    stderr when a file is missing or invalid or the check fails, and 2 on a usage error.
     """
     args = sys.argv[1:] if argv is None else list(argv)
-    if len(args) != 2 or args[0] != "--check":
-        print("usage: guide_inputs.py --check ARTIFACT_DIR", file=sys.stderr)
+    usage = "usage: guide_inputs.py --check ARTIFACT_DIR | --check-batch ARTIFACT_DIR K"
+    if len(args) == 2 and args[0] == "--check":
+        mode = "all"
+    elif len(args) == 3 and args[0] == "--check-batch" and _PIECES_FILE_RE.match(f"pieces-{args[2]}.json"):
+        mode = "batch"
+    else:
+        print(usage, file=sys.stderr)
         return 2
-    folder = args[1]
+    folder = Path(args[1])
     try:
-        changed = changed_files(load_pr(os.path.join(folder, "pr.json")))
-        chapters = load_chapters(os.path.join(folder, "chapters.json"))
-        check_placement(changed, chapters)
+        if mode == "all":
+            expected = changed_files(load_pr(folder / "pr.json"))
+            criteria, _ = load_criteria(folder / "criteria.json")
+            mapper = load_mapper_outputs(folder)
+            label = "Mapper output"
+        else:
+            criteria, _ = load_criteria(folder / "criteria.json")
+            expected = _read_json(folder / f"batch-{args[2]}.json")
+            if not isinstance(expected, list) or not all(isinstance(p, str) for p in expected):
+                raise ValueError(f"batch-{args[2]}.json: must be a list of path strings")
+            mapper = load_mapper_file(folder / f"pieces-{args[2]}.json")
+            label = f"Batch {args[2]}"
+        check_mapper_output(expected, mapper, criteria)
     except (ValueError, FileNotFoundError) as error:
         print(error, file=sys.stderr)
         return 1
-    print(f"Placement OK: {len(changed)} files in {len(chapters)} chapters.")
+    print(f"{label} OK: {len(mapper.files)} files, {len(mapper.pieces)} pieces.")
     return 0
 
 

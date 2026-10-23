@@ -22,11 +22,13 @@ def inputs(synthetic):
 
     pr = guide_inputs.load_pr(synthetic / "pr.json")
     verdict, findings = guide_inputs.load_findings(synthetic / "findings.json")
+    criteria, backgrounds = guide_inputs.load_criteria(synthetic / "criteria.json")
     return SimpleNamespace(
         pr=pr,
         changed=guide_inputs.changed_files(pr),
-        chapters=guide_inputs.load_chapters(synthetic / "chapters.json"),
-        criteria=guide_inputs.load_criteria(synthetic / "criteria.json"),
+        criteria=criteria,
+        backgrounds=backgrounds,
+        mapper=guide_inputs.load_mapper_file(synthetic / "pieces-1.json"),
         verdict=verdict,
         findings=findings,
     )

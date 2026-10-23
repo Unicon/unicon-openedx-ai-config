@@ -2,31 +2,32 @@
   "criteria": [
     {
       "id": "AC1",
-      "text": "An author can add a competency",
-      "implemented_at": [
-        "src/pages/CompetencyPage.tsx:12-30",
-        "src/data/api.ts:5-20"
-      ],
+      "text": "Scenario: Author adds a competency\n  Given the competency list\n  When the author clicks Add\n  Then the new competency appears",
+      "source": "openedx/frontend-app-authoring#99",
+      "verdict": "Covered",
       "tested_by": [
         "src/data/api.test.ts::adds a competency"
-      ],
-      "verdict": "Covered"
+      ]
     },
     {
       "id": "AC2",
-      "text": "An author can change the level",
-      "implemented_at": [
-        "src/data/api.ts:22-30"
-      ],
-      "tested_by": [],
-      "verdict": "Implemented, untested"
+      "text": "Scenario: Author changes the level\n  Given a competency at level 2\n  When the author picks level 3\n  Then the list shows level 3",
+      "source": "openedx/frontend-app-authoring#99",
+      "verdict": "Implemented, untested",
+      "tested_by": []
     },
     {
       "id": "AC3",
-      "text": "Deleting a competency asks for confirmation",
-      "implemented_at": [],
-      "tested_by": [],
-      "verdict": "Not implemented"
+      "text": "Scenario: Deleting asks for confirmation\n  When the author deletes a competency\n  Then a confirmation dialog appears",
+      "source": "openedx/frontend-app-authoring#99",
+      "verdict": null,
+      "tested_by": []
+    }
+  ],
+  "backgrounds": [
+    {
+      "source": "openedx/frontend-app-authoring#99",
+      "text": "Background:\n  Given an author is logged in"
     }
   ]
 }

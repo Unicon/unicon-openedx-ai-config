@@ -1,0 +1,99 @@
+{
+  "files": [
+    {
+      "path": "src/pages/CompetencyPage.tsx",
+      "summary": "Adds the Add button and the edit form."
+    },
+    {
+      "path": "src/data/api.ts",
+      "summary": "Adds the create and patch calls."
+    },
+    {
+      "path": "src/data/api.test.ts",
+      "summary": "Tests both calls."
+    },
+    {
+      "path": "migrations/0002_add_level.py",
+      "summary": "Adds the level column."
+    },
+    {
+      "path": "src/old/Legacy.tsx",
+      "summary": "Deletes the old page."
+    }
+  ],
+  "pieces": [
+    {
+      "anchor": "src/pages/CompetencyPage.tsx:12-30",
+      "acs": [
+        "AC1"
+      ],
+      "kind": "implements",
+      "purpose": "renders the Add button",
+      "key_for": [
+        "AC1"
+      ]
+    },
+    {
+      "anchor": "src/pages/CompetencyPage.tsx:40-44",
+      "acs": [
+        "AC2"
+      ],
+      "kind": "implements",
+      "purpose": "opens the edit form",
+      "key_for": []
+    },
+    {
+      "anchor": "src/data/api.ts:5-20",
+      "acs": [
+        "AC1"
+      ],
+      "kind": "implements",
+      "purpose": "posts the new competency",
+      "key_for": []
+    },
+    {
+      "anchor": "src/data/api.ts:22-30",
+      "acs": [
+        "AC2"
+      ],
+      "kind": "implements",
+      "purpose": "patches the level",
+      "key_for": [
+        "AC2"
+      ]
+    },
+    {
+      "anchor": "src/data/api.ts:31-35",
+      "acs": [
+        "AC2"
+      ],
+      "kind": "edge case",
+      "purpose": "rejects an empty level",
+      "key_for": []
+    },
+    {
+      "anchor": "src/data/api.test.ts:1-40",
+      "acs": [
+        "AC1",
+        "AC2"
+      ],
+      "kind": "test",
+      "purpose": "covers the POST and PATCH calls",
+      "key_for": []
+    },
+    {
+      "anchor": "migrations/0002_add_level.py:1-20",
+      "acs": [],
+      "kind": "migration",
+      "purpose": "adds the level column",
+      "key_for": []
+    },
+    {
+      "anchor": "src/old/Legacy.tsx:1",
+      "acs": [],
+      "kind": "removal",
+      "purpose": "drops the old page",
+      "key_for": []
+    }
+  ]
+}
