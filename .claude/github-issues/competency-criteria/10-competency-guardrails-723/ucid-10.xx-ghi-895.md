@@ -137,12 +137,6 @@ Scenario: One deletion cleans up the groups of every competency with a rule on t
     And competency B's course-level group and shared root group are unchanged
     And the application log identifies competency A's three removed groups, and records no group cleanup for competency B
 
-Scenario: Deleting content that no rule applies to changes no group
-  Given subsection S is tagged with a competency, and no rule applies to S because the author has not created one
-  When an author deletes S in Studio
-  Then every rule and group of that competency is unchanged
-    And the application log records no group cleanup
-
 Scenario: Removing an emptied group lets a learner demonstrate a competency whose course-level group requires all of its groups
   Given the group rollup from #870 is in place
     And a course is the only course with rules for a competency, and its course-level group requires all of its bottom-tier groups
