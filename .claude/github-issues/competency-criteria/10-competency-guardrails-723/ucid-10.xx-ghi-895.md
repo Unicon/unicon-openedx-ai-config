@@ -1,4 +1,4 @@
-# [BE] Ensure course, section, subsection, & tag deletions apply to competency criteria
+# [BE] Finish competency criteria hierarchy cleanup on course, section, subsection, & tag deletion
 
 GitHub: https://github.com/openedx/openedx-core/issues/895 (#895, OPEN)
 Cached: 2026-10-20
@@ -50,23 +50,21 @@ A taxonomy re-import with no learner status needs nothing of its own: the existi
 
 ## Acceptance Criteria
 
-In these scenarios, a rule is a competency criterion. Each rule measures one subsection through a tag association, which is the link between that subsection and the competency's tag. A competency's rules sit in bottom-tier groups. A course's bottom-tier groups for a competency sit under that course's one course-level group, and every course-level group for a competency sits under the competency's one shared root group. A rule is alone in its bottom-tier group when that group holds nothing else. An empty group is a group with no rule and no group beneath it.
+In these scenarios, a rule is a competency criterion. Each rule applies to one subsection through a tag association, which is the link between that subsection and the competency's tag. A competency's rules sit in bottom-tier groups. A course's bottom-tier groups for a competency sit under that course's one course-level group, and every course-level group for a competency sits under the competency's one shared root group. A rule is alone in its bottom-tier group when that group holds nothing else. An empty group is a group with no rule and no group beneath it.
 
-Learner progress decides whether something is deleted or archived. When no learner progress has been recorded against a rule, removing the tag association that the rule measures through deletes the association, and the rule is deleted with it. When learner progress has been recorded against a rule, #782 has locked its tag association, so #779 archives the association in place instead of deleting it. An archived rule or group keeps all of its learner progress, is not shown as in use on the Competency Management page, and does not count toward a learner's status (#815, #816).
+Learner progress decides whether something is deleted or archived. When no learner progress has been recorded against a rule, removing the rule's tag association deletes the association, and the rule is deleted with it. When learner progress has been recorded against a rule, #782 has locked its tag association, so #779 archives the association in place instead of deleting it. An archived rule or group keeps all of its learner progress, is not shown as in use on the Competency Management page, and does not count toward a learner's status (#815, #816).
 
-"Group cleanup" is what this ticket does after one of those changes. It removes the groups that a deleted rule leaves empty. It archives a rule whose tag association was archived, along with each group above that rule that is left with no unarchived rule or group beneath it. It archives every rule and group of a competency whose tag, or whose whole taxonomy, is archived. Group cleanup follows #674's rules: a group that learner progress has been recorded against, or that holds an archived rule, is archived instead of removed, and a course-level group left holding only archived groups is archived too. Nothing that this ticket archives is restored later, not even when the same tag is applied to the subsection again. The application log identifies each group that group cleanup removes or archives, one line for each change, and records nothing when group cleanup changes no group. If group cleanup fails, the deletion or import that triggered it still completes, the group stays as it was, and the application log records a warning naming that group. Only a test can force that failure, so the Technical Details test list covers it, together with data states that no product path can produce.
+"Group cleanup" is what this ticket does after one of those changes. It removes the groups that a deleted rule leaves empty. It archives a rule whose tag association was archived, along with each group above that rule that is left with no unarchived rule or group beneath it. It archives every rule and group of a competency whose tag, or whose whole taxonomy, is archived. Group cleanup follows #674's rules: a group that learner progress has been recorded against, or that holds an archived rule, is archived instead of removed, and a course-level group left holding only archived groups is archived too. Nothing that this ticket archives is restored later, not even when the same tag is applied to the subsection again and #779 revives the archived association. The application log identifies each group that group cleanup removes or archives, one line for each change, and records nothing when group cleanup changes no group. If group cleanup fails, the deletion or import that triggered it still completes, the group stays as it was, and the application log records a warning naming that group. Only a test can force that failure, so the Technical Details test list covers it, together with data states that no product path can produce.
 
-A course re-import applies only the differences between the export's tags and the course's tags. A tag that the export keeps for a subsection keeps its association and its rule, and a tag that the export drops for a subsection is removed from it like any other removal. A subsection that the export's tag file does not list at all keeps its tags.
+A course re-import applies only the differences between the export's tags and the course's tags. A tag that the export keeps for a subsection keeps its association and its rule, and a tag that the export drops for a subsection is removed from it like any other removal. A subsection that the export's tag file does not list at all is treated as untagged, so its competency tags are removed like any other dropped tag. An export with no tag file changes no tags.
 
-The scenarios are grouped by what triggers the change. Deleting content in Studio exercises the section-delete handler and the course-delete handler, and through them the criterion-deleted listener and the association-archived listener, plus the group-deleted listener when a course with no learner progress is deleted. Re-importing a course exercises the course tag import change, and through it the criterion-deleted listener and the association-archived listener. Removing a competency's tag or a whole taxonomy exercises the tag-archived listener, and checks that the criterion-deleted listener does nothing when the deletion of a tag or a taxonomy removes the competency's rules and groups on its own. Deleting a course run exercises the group-deleted listener. The scenarios use the behavior of #779, #780, #782, #815, #816, #817, and #826 only as a Given and assert nothing further about it.
+The scenarios are grouped by what triggers the change.
 
 ### Deleting content in Studio
 
-The first outline's examples leave out combinations whose outcome follows from a row that is present. Deleting a section cleans up each tagged subsection inside it exactly as deleting that subsection alone would, and so does deleting a course in which learner progress has been recorded, so each arrangement of groups appears under only one kind of deletion. Deleting a course with no learner progress also removes the course run record, and has its own scenario.
-
 ```
 Scenario Outline: Deleting tagged content in Studio cleans up the groups behind each tagged subsection inside it
-  Given a rule for a competency measures subsection S, and no group of that competency is empty
+  Given a rule for a competency applies to subsection S, and no group of that competency is empty
     And <groups around S's rule>
     And <learner progress>
   When an author deletes <deleted content> in Studio
@@ -76,21 +74,21 @@ Scenario Outline: Deleting tagged content in Studio cleans up the groups behind 
     And the application log identifies each group that group cleanup removed or archived, one line per change, and records no group cleanup for any other group
 
   Examples:
-    | deleted content | groups around S's rule | learner progress | outcome |
-    | S | S's bottom-tier group also holds a rule that measures subsection T | no learner progress has been recorded for that competency | S's rule no longer exists, S's bottom-tier group still exists and holds only T's rule, and every group above it is unchanged |
-    | the section that contains S | S's bottom-tier group also holds a rule that measures subsection T, which is in a different section | learner progress has been recorded against T's rule and the groups above it, and against no other rule | S's rule no longer exists, and T's rule, S's bottom-tier group, and every group above it are unchanged |
-    | S | S's rule is alone in its bottom-tier group, and the course-level group above it requires all of its bottom-tier groups and holds one other bottom-tier group | no learner progress has been recorded for that competency | S's bottom-tier group no longer exists, and the course-level group still exists and holds only the other bottom-tier group |
-    | S | S's rule is alone in its bottom-tier group, that group is the only group in its course-level group, and another course has rules for the competency | no learner progress has been recorded for that competency | S's bottom-tier group and its course-level group no longer exist, and the shared root group and the other course's rules and groups are unchanged |
-    | S | S's bottom-tier group holds S's rule and one rule that was archived earlier, and nothing else, and the course-level group above it also holds another bottom-tier group whose rule is unarchived | learner progress has been recorded against the archived rule and the groups above it, and against no other rule | S's rule no longer exists, S's bottom-tier group is archived, and the course-level group and the shared root group are unchanged |
-    | the section that contains S | S's bottom-tier group holds S's rule and one rule that was archived earlier, and nothing else, that group is the only group in its course-level group, and another course has rules for the competency | learner progress has been recorded against the archived rule and the groups above it, and against no other rule | S's rule no longer exists, S's bottom-tier group and its course-level group are archived, and the shared root group and the other course's rules and groups are unchanged |
-    | S | S's bottom-tier group also holds a rule that measures subsection T | learner progress has been recorded against S's rule and the groups above it, and against no other rule | S's rule is archived, and T's rule, S's bottom-tier group, and every group above it are unchanged |
-    | S | S's rule is alone in its bottom-tier group, and the course-level group above it requires all of its bottom-tier groups and holds one other bottom-tier group | learner progress has been recorded against S's rule and the groups above it, and against no other rule | S's rule and S's bottom-tier group are archived, and the course-level group is unchanged and still holds the other bottom-tier group, unarchived |
-    | the course that contains S | S's rule is the competency's only rule in any course | learner progress has been recorded against S's rule and the groups above it | S's rule and every group of that competency, including the shared root group, are archived, and none of them is removed |
+    | groups around S's rule | learner progress | deleted content | outcome |
+    | S's bottom-tier group also holds a rule that applies to subsection T | no learner progress has been recorded for that competency | S | S's rule no longer exists, S's bottom-tier group still exists and holds only T's rule, and every group above it is unchanged |
+    | S's bottom-tier group also holds a rule that applies to subsection T, which is in a different section | learner progress has been recorded against T's rule and the groups above it, and against no other rule | the section that contains S | S's rule no longer exists, and T's rule, S's bottom-tier group, and every group above it are unchanged |
+    | S's rule is alone in its bottom-tier group, and the course-level group above it requires all of its bottom-tier groups and holds one other bottom-tier group | no learner progress has been recorded for that competency | S | S's bottom-tier group no longer exists, and the course-level group still exists and holds only the other bottom-tier group |
+    | S's rule is alone in its bottom-tier group, that group is the only group in its course-level group, and another course has rules for the competency | no learner progress has been recorded for that competency | S | S's bottom-tier group and its course-level group no longer exist, and the shared root group and the other course's rules and groups are unchanged |
+    | S's bottom-tier group holds S's rule and one rule that was archived earlier, and nothing else, and the course-level group above it also holds another bottom-tier group whose rule is unarchived | learner progress has been recorded against the archived rule and the groups above it, and against no other rule | S | S's rule no longer exists, S's bottom-tier group is archived, and the course-level group and the shared root group are unchanged |
+    | S's bottom-tier group holds S's rule and one rule that was archived earlier, and nothing else, that group is the only group in its course-level group, and another course has rules for the competency | learner progress has been recorded against the archived rule and the groups above it, and against no other rule | the section that contains S | S's rule no longer exists, S's bottom-tier group and its course-level group are archived, and the shared root group and the other course's rules and groups are unchanged |
+    | S's bottom-tier group also holds a rule that applies to subsection T | learner progress has been recorded against S's rule and the groups above it, and against no other rule | S | S's rule is archived, and T's rule, S's bottom-tier group, and every group above it are unchanged |
+    | S's rule is alone in its bottom-tier group, and the course-level group above it requires all of its bottom-tier groups and holds one other bottom-tier group | learner progress has been recorded against S's rule and the groups above it, and against no other rule | S | S's rule and S's bottom-tier group are archived, and the course-level group is unchanged and still holds the other bottom-tier group, unarchived |
+    | S's rule is the competency's only rule in any course | learner progress has been recorded against S's rule and the groups above it | the course that contains S | S's rule and every group of that competency, including the shared root group, are archived, and none of them is removed |
 
 Scenario: Deleting a section cleans up each subsection inside it according to that subsection's own rule
   Given a section contains subsections S, T, and U, and a rule for one competency applies to each of them
     And S's rule is alone in its bottom-tier group
-    And T's rule shares its bottom-tier group with a rule that measures subsection V, which is in a different section
+    And T's rule shares its bottom-tier group with a rule that applies to subsection V, which is in a different section
     And U's rule is alone in its bottom-tier group, and learner progress has been recorded against U's rule and the groups above it, and against no other rule
     And all three bottom-tier groups sit under the same course-level group
   When an author deletes the section in Studio
@@ -119,7 +117,7 @@ Scenario Outline: Deleting a course with no learner progress in Studio removes i
     And no learner progress has been recorded for that competency
     And <other courses>
   When an author deletes the course in Studio
-  Then the rules that measured S and T, their bottom-tier groups, and the course's course-level group no longer exist
+  Then the rules that applied to S and T, their bottom-tier groups, and the course's course-level group no longer exist
     And the course's course run record no longer exists
     And <shared root group outcome>
 
@@ -128,10 +126,10 @@ Scenario Outline: Deleting a course with no learner progress in Studio removes i
     | no other course has rules for that competency | the competency's shared root group no longer exists |
     | another course has rules for that competency | the competency's shared root group and the other course's rules and groups are unchanged |
 
-Scenario: One deletion cleans up the groups of every competency that measured the subsection
-  Given subsection S is measured by one rule for competency A and one rule for competency B
+Scenario: One deletion cleans up the groups of every competency with a rule on the subsection
+  Given subsection S has one rule for competency A and one rule for competency B
     And S's rule for competency A is competency A's only rule in any course
-    And S's rule for competency B shares its bottom-tier group with a rule that measures a different subsection
+    And S's rule for competency B shares its bottom-tier group with a rule that applies to a different subsection
     And no learner progress has been recorded for either competency
   When an author deletes S in Studio
   Then competency A has no rules or groups left
@@ -139,8 +137,8 @@ Scenario: One deletion cleans up the groups of every competency that measured th
     And competency B's course-level group and shared root group are unchanged
     And the application log identifies competency A's three removed groups, and records no group cleanup for competency B
 
-Scenario: Deleting content that no rule measures changes no group
-  Given subsection S is tagged with a competency, and no rule measures S because the author has not created one
+Scenario: Deleting content that no rule applies to changes no group
+  Given subsection S is tagged with a competency, and no rule applies to S because the author has not created one
   When an author deletes S in Studio
   Then every rule and group of that competency is unchanged
     And the application log records no group cleanup
@@ -148,20 +146,18 @@ Scenario: Deleting content that no rule measures changes no group
 Scenario: Removing an emptied group lets a learner demonstrate a competency whose course-level group requires all of its groups
   Given the group rollup from #870 is in place
     And a course is the only course with rules for a competency, and its course-level group requires all of its bottom-tier groups
-    And that course-level group holds two bottom-tier groups, one whose only rule measures subsection S and one whose only rule measures subsection T
+    And that course-level group holds two bottom-tier groups, one whose only rule applies to subsection S and one whose only rule applies to subsection T
     And no learner progress has been recorded for that competency
   When an author deletes S in Studio
-    And a learner then demonstrates the rule that measures T
+    And a learner then demonstrates the rule that applies to T
   Then the learner's status for the competency is Demonstrated
 ```
 
 ### Re-importing a course, or tagging content again
 
-A tag that a re-import drops is cleaned up exactly as deleting that subsection in Studio would clean it up, so the outline repeats only the main arrangements from the Studio outline.
-
 ```
 Scenario Outline: Re-importing a course from an export that drops a competency tag from a subsection cleans up the groups behind that subsection's rule
-  Given a rule for a competency measures subsection S in a course, and no group of that competency is empty
+  Given a rule for a competency applies to subsection S in a course, and no group of that competency is empty
     And <groups around S's rule>
     And <learner progress>
   When the course is re-imported from an export that matches the course except that it no longer tags S with that competency
@@ -172,7 +168,7 @@ Scenario Outline: Re-importing a course from an export that drops a competency t
 
   Examples:
     | groups around S's rule | learner progress | outcome |
-    | S's bottom-tier group also holds a rule that measures subsection T in the same course | no learner progress has been recorded for that competency | S's rule no longer exists, S's bottom-tier group still exists and holds only T's rule, and every group above it is unchanged |
+    | S's bottom-tier group also holds a rule that applies to subsection T in the same course | no learner progress has been recorded for that competency | S's rule no longer exists, S's bottom-tier group still exists and holds only T's rule, and every group above it is unchanged |
     | S's rule is alone in its bottom-tier group, and the course-level group above it requires all of its bottom-tier groups and holds one other bottom-tier group | no learner progress has been recorded for that competency | S's bottom-tier group no longer exists, and the course-level group still exists and holds only the other bottom-tier group |
     | S's rule is the competency's only rule in any course | no learner progress has been recorded for that competency | the competency has no rules or groups left, including its shared root group |
     | S's bottom-tier group holds S's rule and one rule that was archived earlier, and nothing else, and the course-level group above it also holds another bottom-tier group whose rule is unarchived | learner progress has been recorded against the archived rule and the groups above it, and against no other rule | S's rule no longer exists, S's bottom-tier group is archived, and the course-level group and the shared root group are unchanged |
@@ -180,8 +176,8 @@ Scenario Outline: Re-importing a course from an export that drops a competency t
 
 Scenario: An unchanged course re-import changes no tag, rule, or group
   Given a course's course-level group for a competency holds three bottom-tier groups
-    And the first bottom-tier group holds only the rule that measures subsection S, and learner progress has been recorded against that rule and the groups above it
-    And the second bottom-tier group holds only the rule that measures subsection T, and no learner progress has been recorded against that rule or that group
+    And the first bottom-tier group holds only the rule that applies to subsection S, and learner progress has been recorded against that rule and the groups above it
+    And the second bottom-tier group holds only the rule that applies to subsection T, and no learner progress has been recorded against that rule or that group
     And the third bottom-tier group holds only a rule that was archived earlier, and that group is archived too
   When the course is re-imported from an export that tags the same content with the same competencies
   Then S and T are still tagged with that competency
@@ -190,14 +186,15 @@ Scenario: An unchanged course re-import changes no tag, rule, or group
     And all learner progress recorded for that competency is unchanged
     And the application log records no group cleanup
 
-Scenario: A subsection that the export's tag file does not list keeps its tag and its rule
-  Given a rule for a competency measures subsection S in a course, and no learner progress has been recorded for that competency
+Scenario: A subsection that the export's tag file does not list loses its tag and its rule
+  Given a rule for a competency applies to subsection S in a course, and that rule is alone in its bottom-tier group
+    And no learner progress has been recorded for that competency
   When the course is re-imported from an export whose tag file lists other subsections of the course but not S
-  Then S is still tagged with that competency, and S's rule and every group above it are unchanged
-    And the application log records no group cleanup
+  Then S is no longer tagged with that competency, and S's rule and S's bottom-tier group no longer exist
+    And the application log identifies S's bottom-tier group as removed
 
 Scenario Outline: A rule that was archived stays archived when its subsection is tagged with the same competency again
-  Given learner progress has been recorded against the only rule that measures subsection S for a competency
+  Given learner progress has been recorded against the only rule that applies to subsection S for a competency
   When <the rule is archived>
     And <S is tagged again>
   Then the rule is still archived, and its learner progress is unchanged
@@ -212,11 +209,9 @@ Scenario Outline: A rule that was archived stays archived when its subsection is
 
 ### Removing a competency's tag or a whole taxonomy
 
-These outlines do not vary the arrangement of groups, because removing a competency's tag removes or archives the competency's whole group tree at once.
-
 ```
 Scenario Outline: Removing a competency's tag from its taxonomy removes or archives all of that competency's rules and groups
-  Given a competency has rules and groups in two courses, and one of its rules measures subsection S
+  Given a competency has rules and groups in two courses, and one of its rules applies to subsection S
     And another competency in the same taxonomy has its own rules and groups
     And <learner progress>
   When <removal>
@@ -229,8 +224,8 @@ Scenario Outline: Removing a competency's tag from its taxonomy removes or archi
     | removal | learner progress | outcome | application log |
     | an administrator deletes the competency's tag | no learner progress has been recorded for that competency | the deletion completes, and the competency has no rules or groups left | the application log records no group cleanup and no warning about group cleanup |
     | the taxonomy is re-imported from a file that omits the competency's tag | no learner progress has been recorded for that competency | the import completes, and the competency has no rules or groups left | the application log records no group cleanup and no warning about group cleanup |
-    | an administrator deletes the competency's tag | learner progress has been recorded against S's rule and the groups above it, and against no other rule | every rule and group of the competency in both courses, including the shared root group, is archived, and none of them is removed | the application log identifies each group that group cleanup archived, one line per group |
-    | the taxonomy is re-imported from a file that omits the competency's tag | learner progress has been recorded against S's rule and the groups above it, and against no other rule | the import completes, the competency's tag still exists in an archived state, and every rule and group of the competency in both courses, including the shared root group, is archived, and none of them is removed | the application log identifies each group that group cleanup archived, one line per group |
+    | an administrator deletes the competency's tag | learner progress has been recorded against S's rule and the groups above it, and against no other rule | the competency's tag still exists in an archived state, and every rule and group of the competency in both courses, including rules with no learner progress of their own and the shared root group, is archived, and none of them is removed | the application log identifies each group that group cleanup archived, one line per group |
+    | the taxonomy is re-imported from a file that omits the competency's tag | learner progress has been recorded against S's rule and the groups above it, and against no other rule | the import completes, the competency's tag still exists in an archived state, and every rule and group of the competency in both courses, including rules with no learner progress of their own and the shared root group, is archived, and none of them is removed | the application log identifies each group that group cleanup archived, one line per group |
 
 Scenario Outline: Deleting a taxonomy removes or archives the rules and groups of every competency in it
   Given a taxonomy has two competencies, and each of them has rules and groups in a course
@@ -245,7 +240,7 @@ Scenario Outline: Deleting a taxonomy removes or archives the rules and groups o
   Examples:
     | learner progress | outcome | application log |
     | no learner progress has been recorded for either competency in the first taxonomy | the deletion completes, and neither competency has any rules or groups left | the application log records no group cleanup and no warning about group cleanup |
-    | learner progress has been recorded against one rule of the first competency and the groups above it, and against no other rule | every rule and group of both competencies, including both shared root groups, is archived, and none of them is removed | the application log identifies each group that group cleanup archived, one line per group |
+    | learner progress has been recorded against one rule of the first competency and the groups above it, and against no other rule | every rule and group of both competencies, including rules with no learner progress of their own and both shared root groups, is archived, and none of them is removed | the application log identifies each group that group cleanup archived, one line per group |
 ```
 
 ### Deleting a course run
@@ -253,13 +248,11 @@ Scenario Outline: Deleting a taxonomy removes or archives the rules and groups o
 ```
 Scenario Outline: Deleting a course run removes the shared root group and the competency tags that it leaves without a rule
   Given a competency has rules and groups in course run R, and no learner progress has been recorded for that competency in R
-    And one of R's rules measures subsection S of R's course, and no other rule measures S for that competency
-    And subsection T of R's course is tagged with that competency, and no rule measures T
+    And one of R's rules applies to subsection S of R's course, and no other rule applies to S for that competency
     And <other courses>
   When an administrator deletes course run R
   Then R's rules and groups for that competency no longer exist
     And S still exists in Studio and is no longer tagged with that competency
-    And subsection T, which no rule measured, is no longer tagged with that competency
     And <shared root group outcome>
 
   Examples:
@@ -279,7 +272,7 @@ Scenario: A course run with learner progress beneath it cannot be deleted
 
 ```
 Scenario Outline: Group cleanup does not depend on who caused the change
-  Given a rule for a competency measures subsection S and is alone in its bottom-tier group, and that group is the only group in its course-level group
+  Given a rule for a competency applies to subsection S and is alone in its bottom-tier group, and that group is the only group in its course-level group
     And another course has rules for that competency
     And no learner progress has been recorded for that competency
   When <who causes it>
@@ -357,7 +350,7 @@ PR B, openedx-platform: the section-delete handler, the course-delete handler, a
 8. **The course tag import change.** `set_exported_object_tags()` in `api.py`, which course import calls once per tags.csv row, applies only the differences instead of deleting every tag on the block and re-applying them.
    - **What changes.** Drop its opening `oel_tagging.delete_object_tags(content_key_str)`. The loop after it already calls `oel_tagging.tag_object()` once per taxonomy in the row. `tag_object()` keeps the associations whose values are listed, adds new ones, and removes only the omitted ones through #779's archive-or-delete branch.
    - **Taxonomies the row no longer carries.** For each taxonomy the block still has tags in that the row does not list, call `oel_tagging.tag_object(object_id, taxonomy, [], taxonomy_export_id=...)`. Find those taxonomies with `oel_tagging.get_object_tags()`, matched by export id. This keeps today's rule that an import replaces a block's tags. The tagging API has no taxonomy-scoped `delete_object_tags()`, and `tag_object()` with an empty list does that job.
-   - **Result.** An unchanged re-import deletes and archives nothing, so no rule or group changes. A re-import still removes the associations the export no longer carries, and the criterion-deleted and association-archived listeners follow those removals. Blocks absent from tags.csv are left untouched, as today.
+   - **Result.** An unchanged re-import deletes and archives nothing, so no rule or group changes. A re-import still removes the associations the export no longer carries, and the criterion-deleted and association-archived listeners follow those removals. Blocks that tags.csv does not list are treated as untagged: after the rows are processed, the import finds the course's remaining tagged objects with the same prefix query the course-delete handler uses, and calls `oel_tagging.delete_object_tags()` for each one the file did not list. An export with no tags.csv keeps today's behavior and changes nothing.
    - **Why.** Without this change, every re-import would delete every rule without learner status and permanently archive every rule with it. #779 revives the association when the tag is re-applied, but nothing un-archives a rule.
 
 PR C, openedx-core: the association-archived and tag-archived listeners, after #779 and #780. The tagging hooks below land in `openedx_tagging` code, but they are this ticket's work.
@@ -386,10 +379,10 @@ PR C, openedx-core: the association-archived and tag-archived listeners, after #
 Tests in openedx-core for PR A, in `tests/openedx_learning/applets/cbe/test_signal_handlers.py`, on a tree of a root, a course-level group, and leaf groups:
 
 - **Instance origin.** Removing a tag through `tag_object()` removes the leaf, the course-level group, and the root, and logs one line for each of the three. A sibling leaf that keeps a criterion stops the walk, and then nothing is logged.
-- **Queryset origin.** `delete_object_tags()` is used by Studio deletion. On an ObjectTag measured by criteria in two leaves under one course-level group, it removes both leaves, the course-level group, and the root, and logs one line per removed group.
-- **Two criteria, one leaf.** One ObjectTag measured by two criteria in the same leaf removes and logs that leaf once.
+- **Queryset origin.** `delete_object_tags()` is used by Studio deletion. On an ObjectTag that has criteria in two leaves under one course-level group, it removes both leaves, the course-level group, and the root, and logs one line per removed group.
+- **Two criteria, one leaf.** One ObjectTag that has two criteria in the same leaf removes and logs that leaf once.
 - **Archive instead of remove.** A leaf that also holds a criterion archived earlier is archived instead of removed. So is a leaf with its own `StudentCompetencyCriteriaGroupStatus` row. A course-level group left holding only archived groups is archived too.
-- **Two competencies, one ObjectTag.** The ObjectTag is measured by a criterion for competency A, alone in its leaf and course-level group, and by one for competency B that shares its leaf. Deleting it removes and logs A's leaf and course-level group. B's leaf keeps its other criterion and is not logged.
+- **Two competencies, one ObjectTag.** The ObjectTag has a criterion for competency A, alone in its leaf and course-level group, and one for competency B that shares its leaf. Deleting it removes and logs A's leaf and course-level group. B's leaf keeps its other criterion and is not logged.
 - **Course run delete.** Delete a `CourseRun`, as an instance and as a queryset, whose course-level group is the root's only child. The root is removed and logged.
   - The root is unchanged and not logged when another course's group remains under it.
   - The root is archived and logged when it has its own status row.
@@ -412,7 +405,7 @@ Tests in openedx-platform for PR B. They assert on ObjectTags only.
   - Importing a course's own tags.csv back into it leaves every ObjectTag row in place, with the same ids.
   - A tag the row no longer carries is removed from that block.
   - A taxonomy the row no longer carries is removed from that block.
-  - A block absent from the file keeps its tags.
+  - A block absent from the file loses its tags, and an export with no tags.csv changes nothing.
 - **Once #779 is released:** a locked association inside a deleted section or course, or dropped by an import, is archived, not deleted.
 
 Tests in openedx-core for PR C, in the same CBE module and in `tests/openedx_tagging/`:
@@ -468,6 +461,5 @@ Out of scope:
 - **For #696.** #696's rule import runs after the tag import. With the course tag import change, an unchanged re-import leaves every association, rule, and group in place, so #696 finds each group and skips each rule it already has. A rule this ticket archived stays archived. When its association is live again, #696 creates a new rule beside it.
 - **For #675 and #817.** Both can hard-delete ObjectTags inside their own flows, and the criterion-deleted listener treats those deletes as starting on an ObjectTag. They should delete criteria before ObjectTags, and can then expect the listener to do nothing.
 - **For #781.** It can connect to `tags_archived` and `taxonomies_archived` for its search-index update instead of adding its own hooks.
-- **For #826.** Course import leaves the associations, and therefore the rules, on blocks that are missing from tags.csv.
 
 </details>
