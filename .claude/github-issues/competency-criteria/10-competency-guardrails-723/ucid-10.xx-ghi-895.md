@@ -1,17 +1,24 @@
-# [BE] Delete Orphan CompetencyCriteriaGroups on ObjectTag Hard Delete
+# [BE] Delete Orphan CompetencyCriteriaGroups When Tagged Content, a Course, or a Course Run Is Deleted
 
 GitHub: https://github.com/openedx/openedx-core/issues/895 (#895, OPEN)
 Cached: 2026-10-20
 
 ## User Story
-As a course author, when I delete a subsection or re-import a course that results in the deletion of a tag association, I want the competency criteria group that held the rule for that content to be cleaned up the same way it would if I had removed the rule on the Competency Management page, in order to never be left with an empty group on the page that I cannot explain or remove, and that can block learners from being able to demonstrate the related competency in my course.
+As a course author, when I delete a subsection, a section, or a whole course in Studio, or re-import a course, and that deletes a tag association, I want the competency criteria group that held the rule for that content to be cleaned up the same way it would if I had removed the rule on the Competency Management page, in order to never be left with an empty group on the page that I cannot explain or remove, and that can block learners from being able to demonstrate the related competency in my course.
 
 ## Description
-Add a listener to the CBE applet for Django's built-in post_delete signal that fires when an ObjectTag hard deletes a criterion and use the code written for #674 to walk up the hierarchy from the deleted criterion to also delete any CompetencyCriteriaGroups that would have been orphaned. This will prevent these orphans from existing for the cases of a block being deleted or a course re-import causing deletions.
+Add a listener to the CBE applet for Django's built-in post_delete signal that fires when an ObjectTag hard delete cascades to a CompetencyCriterion, and use the code written for #674 to walk up the hierarchy from the deleted criterion's group and delete, or archive per #674's rules, any CompetencyCriteriaGroups that would be left empty. Add a second listener that removes a competency's shared root group when deleting a CourseRun takes away the root's last course-level group.
+
+In openedx-platform, make deleting a block in Studio also delete the tag associations of every block inside it, and make deleting a course in Studio delete every tag association in that course, so that deleting a section or a course reaches the openedx-core listener the same way deleting one tagged subsection does. Course re-import needs no platform change: the import already deletes and recreates every tagged block's association, which is what deletes the rules.
+
+Deleting the competency's own tag, whether an administrator deletes it or a taxonomy re-import omits it, already removes the competency's groups and rules through the groups' foreign key to the tag, so there is nothing left for this ticket to clean up on that path. This ticket only proves the listener stays out of the way there.
 
 ## Context
 - Blocked by #674, which implements the upward pruning for a criterion removed on the Competency Management page.
-- #779 makes every tagging-layer delete path archive an association that learner mastery depends on and hard-delete the rest. This ticket covers what the hard-delete branch does to the criteria on that association.
+- #779 and #782 make every tagging-layer delete path archive an association that learner mastery depends on and hard-delete the rest. This ticket covers what the hard-delete branch does to the criteria on that association. What the archive branch does to them, archiving the rule and the groups it leaves without live content, is out of scope here and goes in a separate ticket.
+- #780 archives a tag or taxonomy instead of deleting it when an association beneath it is locked. What happens to a competency's groups and rules when its tag is archived is likewise out of scope here.
+- Lands after #779 and #782, in the same release.
+- #870's group rollup is needed to verify the scenario where removing an emptied group lets a learner demonstrate the competency.
 
 ## Acceptance Criteria
 
