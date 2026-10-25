@@ -1,4 +1,4 @@
-# [BE] Finish competency criteria hierarchy cleanup on course, section, subsection, & tag deletion
+# [BE] Extend competency criteria cleanup to course, section, subsection, & tag deletion/archiving
 
 GitHub: https://github.com/openedx/openedx-core/issues/895 (#895, OPEN)
 Cached: 2026-10-20
