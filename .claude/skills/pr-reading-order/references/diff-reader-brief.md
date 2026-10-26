@@ -32,12 +32,10 @@ compact):
    line numbers) that exercise that thread most directly. Order the threads by importance, with
    the thread whose output the others read first.
 4. Changed code that fits no thread, with file:lines and one sentence each.
-5. A blast-radius score from 0 to 100 for each changed source piece, with a one-phrase reason.
-   Blast radius is how much breaks, and how widely, if the piece is wrong: shared hooks, cache
-   keys and context used by many consumers score high; a leaf presentational component or a
-   message string scores low; tests score low. Base it on how many consumers the piece has
-   (search the head for importers when needed) and on whether it affects data or caching rather
-   than display only.
+5. A blast-radius score from 0 to 100 for each changed source piece, with a one-phrase reason
+   naming the worst plausible failure. Score it with this rubric:
+
+   [Paste the "Scoring blast radius" section of SKILL.md here, without its heading.]
 6. Anything surprising in the diff, or anything that contradicts the claims above.
 
 Mark anything you inferred rather than read in the diff as INFERRED.
