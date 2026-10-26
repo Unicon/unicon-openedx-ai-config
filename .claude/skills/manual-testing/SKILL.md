@@ -63,7 +63,7 @@ Write the list as a table for the person: repo, PR, state, branch, local clone. 
 
 1. Run `git -C <clone> status --porcelain --untracked-files=no` and `git -C <clone> branch --show-current`. Untracked files do not block a checkout and are left alone. When any clone has tracked changes, stop. Show the changed files and current branch per clone and wait for the person to say stash, commit, or abort.
 2. When the clone's `HEAD` already equals the PR's `headRefOid`, keep it as is.
-3. Otherwise record the clone's current branch in `<artifacts>/original-branches.txt`, then run `gh pr checkout <pr url> --branch manual-test/<repo>-<n>`. When `manual-test/<repo>-<n>` already exists, add `--force` only if `git log <pr head>..manual-test/<repo>-<n>` is empty. Otherwise the branch holds the person's own commits, so ask.
+3. Otherwise record one line `<pr headRefOid> manual-test/<repo>-<n> <original branch> <clone path>` in `<artifacts>/original-branches.txt`, with the clone path last because it may contain spaces, then run `gh pr checkout <pr url> --branch manual-test/<repo>-<n>`. When `manual-test/<repo>-<n>` already exists, add `--force` only if `git log <pr head>..manual-test/<repo>-<n>` is empty. Otherwise the branch holds the person's own commits, so ask. For a detached HEAD, where `git branch --show-current` prints nothing, record the output of `git -C <clone> rev-parse HEAD` in place of the original branch. When the clone is already on `manual-test/<repo>-<n>`, keep the line already recorded for that clone and record no new one.
 
 **5. Make the devstack run the checked-out code.** Start any stopped container with `~/.virtualenvs/tutor/bin/tutor dev start -d`. Then do what the changed files call for, and record each action for the handover:
 
@@ -85,6 +85,19 @@ Then confirm each app answers: `curl -s -o /dev/null -w '%{http_code}' <url>` fo
 - Ends by printing each object's ID and the exact URLs the plan uses.
 
 When a frontend PR depends on a backend endpoint that has no PR to check out, write `<artifacts>/mock-browser.js`: a Playwright script that opens a headed (visible) Chromium, logs in as the seeded user, answers only the endpoints whose code is not checked out with `page.route`, opens the first page of the plan, and stays open for the person to test in. Install Playwright in `<artifacts>`, never in the repo.
+
+Write `<artifacts>/cleanup.py` together with `seed.py`; it runs in the CMS with the same command. It deletes every seeded object, with one `delete()` per model, filtered by `startswith` on `<prefix>` against the same name, key, or username field the seed sets, in reverse creation order with users last. It prints one line per model with the deleted count, so a second run deletes nothing and prints zeros.
+
+Also write `<artifacts>/cleanup.sh`, the one command the person runs afterward. It does the following, in this order:
+
+- Runs `cleanup.py` in the CMS.
+- Reads each line of `original-branches.txt`, when the file exists. A missing file means no git work. The first three fields of a line are the PR head, the `manual-test/<repo>-<n>` branch, and the original branch or commit, and the rest of the line is the clone path. For each clone:
+  - When `git -C <clone> status --porcelain --untracked-files=no` prints anything, or `git -C <clone> branch --show-current` does not print the recorded `manual-test/<repo>-<n>` branch, the script prints the clone's path and skips the clone.
+  - Otherwise it checks out the recorded original branch or commit.
+  - It then runs `git -C <clone> branch -D manual-test/<repo>-<n>` when `git -C <clone> rev-parse manual-test/<repo>-<n>` equals the recorded PR head, because a tip still at the PR head holds only commits that are on GitHub, or when `git -C <clone> log manual-test/<repo>-<n> --not --remotes` prints nothing, because an empty log means every commit is on a remote ref this clone knows. The `-D` is needed because the branch is not merged into the original branch, and those two checks are what make it safe.
+  - Otherwise the script names the branch and leaves it, because it holds commits that are on no remote this clone knows.
+- Ends with `rm -rf <artifacts>/node_modules <artifacts>/package.json <artifacts>/package-lock.json`, which does nothing without a Playwright install.
+- Leaves the artifacts directory itself, so the test plan and demo output survive.
 
 **7. Write the test plan** in `<artifacts>/test-plan.md`. First match each acceptance criterion to the manual steps that prove it. One criterion can match several steps, and one step several criteria. Sharpen vague steps from the issue and the diff: the exact URL, user, button or request, and the exact status code, text, or row that proves it. Add a step only when an acceptance criterion has no step. Each step in the plan is this block, in this order:
 
@@ -141,13 +154,14 @@ Run the seed, then the demo, with the command from Local setup. The rerun comman
 
 **9. Hand over.** End with one message that holds:
 
-- the branch table from step 3, and the path to `original-branches.txt`, with an offer to switch every clone back;
+- the branch table from step 3, and the path to `original-branches.txt`, which lists the branch `cleanup.sh` switches each clone back to;
 - what step 5 changed (installs, migrations, restarts) and the health check results;
 - the seeded logins, objects, and URLs;
 - the test plan path and the plan itself, including any acceptance criteria no step covers;
 - for backend PRs, the demo output pasted verbatim and the one-line rerun command;
 - the skipped automated steps;
-- anything that failed or that the plan cannot cover, stated plainly. When a step failed, the handover still goes out, with the failing command and its error.
+- anything that failed or that the plan cannot cover, stated plainly. When a step failed, the handover still goes out, with the failing command and its error;
+- one sentence saying `cleanup.sh` removes the seeded `<prefix>` rows, switches the clones back and deletes the `manual-test/<repo>-<n>` branches where its guards allow, removes the Playwright install, and leaves the artifacts directory, followed by the one-line command `bash <artifacts>/cleanup.sh` as the last line of the handover.
 
 ## Rules
 
