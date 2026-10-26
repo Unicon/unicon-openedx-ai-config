@@ -1,0 +1,271 @@
+{
+  "title": "Reading order for PR #6: scope competency associations to the listed courses (#683)",
+  "subtitle": "AShatsila/frontend-app-authoring PR #6, live head 6edf976a (the review file was written against the earlier head aa5b441f, so its line numbers are older). All paths are under src/taxonomy/competency-management/. Read each thread top to bottom: the source boxes first, then the test box that ends the thread.",
+  "threads": [
+    {
+      "title": "Thread 1: the course list reports its keys, and the groups fetch is scoped to them",
+      "summary": "The course list query succeeds, CourseSearchBrowse reports the listed course keys to the context, the context passes them to the groups hook, and the hook sends them as course_keys. Everything else in the PR reads the data this thread produces.",
+      "steps": [
+        {
+          "name": "CourseSearchBrowse: listedCourseKeys and the notify effect",
+          "where": "course-search/CourseSearchBrowse.tsx:168-187",
+          "kind": "source",
+          "does": "Once the course list query succeeds, it reports the listed courses' keys, in list order, to the context through notifyCoursesDisplayed.",
+          "blast": 60,
+          "blastWhy": "the only producer of the key list, so a wrong list scopes the whole panel wrongly",
+          "acs": [
+            "The associations panel opens scoped to the courses first listed",
+            "Searching or changing the date filter re-scopes the associations panel"
+          ]
+        },
+        {
+          "name": "CompetencyAssociationsProvider: displayedCourseKeys and notifyCoursesDisplayed",
+          "where": "CompetencyAssociationsContext.tsx:254-280",
+          "kind": "source",
+          "does": "It stores the reported keys (undefined until the first report), ignores a report equal to the current keys, and passes them to useCompetencyCriteriaGroups.",
+          "blast": 80,
+          "blastWhy": "the context has nine consumer files and decides the query scope and focus state",
+          "acs": [
+            "Switching competencies re-scopes and re-counts"
+          ],
+          "notInAcs": [
+            "The render-phase block at lines 267-274 clears a focused unsaved placeholder whenever the reported keys change, even when the placeholder's course stays listed."
+          ]
+        },
+        {
+          "name": "competencyQueryKeys.competencyCriteriaGroups and useCompetencyCriteriaGroups",
+          "where": "data/apiHooks.ts:34-59",
+          "kind": "source",
+          "does": "The query key gains the key array as its last segment, so every page, search and date range is its own cache entry, and the query uses skipToken until both the competency and the keys are known.",
+          "blast": 80,
+          "blastWhy": "the key shape is shared by the hook, all four mutations, removeQueries and the delete-focus cache read",
+          "acs": [
+            "Turning to another page of courses re-scopes the associations panel",
+            "An association outside the listed courses comes back when its course is listed again"
+          ]
+        },
+        {
+          "name": "getCompetencyCriteriaGroups",
+          "where": "data/api.ts:60-69",
+          "kind": "source",
+          "does": "It always sends course_keys as a comma-joined string, so an empty page sends course_keys= rather than dropping the parameter.",
+          "blast": 65,
+          "blastWhy": "one caller, but a wrong parameter means wrong data on the whole page"
+        },
+        {
+          "name": "CompetencyCriteriaTree and CompetencyCriteriaGroupsResponse",
+          "where": "data/types.ts:91-105",
+          "kind": "source",
+          "does": "The response type now adds criteriaCount (scoped to the requested keys) and totalCriteriaCount (instance-wide) to the renamed groups-and-criteria tree type.",
+          "blast": 30,
+          "blastWhy": "compile-time only"
+        },
+        {
+          "name": "Page-level scoping tests",
+          "where": "course-search/CourseSearchBrowse.test.tsx:800, 823, 866, 894, 921",
+          "kind": "test",
+          "does": "They pin that no groups request goes out before the course list loads, that each page, empty page, search, start date and competency change sends the right course_keys.",
+          "blast": 10
+        },
+        {
+          "name": "Hook, API and context unit tests",
+          "where": "data/apiHooks.test.tsx:51, 75, 95; data/api.test.ts:45, 58; CompetencyAssociationsContext.test.tsx:739-766",
+          "kind": "test",
+          "does": "They pin the scoped fetch, the pending state before keys arrive, the empty course_keys= parameter, and when a placeholder is discarded or kept.",
+          "blast": 10
+        }
+      ]
+    },
+    {
+      "title": "Thread 2: the summary line, \"Showing X of Y Courses, and A of B Competency Criteria Associations\"",
+      "summary": "X is the listed course count, Y comes from a second course-list request with pageSize 1, and A and B come from the scoped groups response, shown only when the response belongs to the keys currently listed.",
+      "steps": [
+        {
+          "name": "CourseSearchBrowse: accessible total, associationCounts, showSummary",
+          "where": "course-search/CourseSearchBrowse.tsx:49, 176, 191-192, 286-295",
+          "kind": "source",
+          "does": "It fetches the unfiltered accessible course total once and renders the summary only when the list, that total, and groups data for the same keys are all resolved.",
+          "blast": 60,
+          "blastWhy": "the same component as step 1.1; adds one request per mount",
+          "acs": [
+            "The summary states how many associations are in view and how many exist in total",
+            "The two association numbers match when nothing is out of view",
+            "Neither total moves as I narrow the course list",
+            "A search that matches no course"
+          ]
+        },
+        {
+          "name": "CourseListSummary, truncateSearchTerm, formatSummaryDate",
+          "where": "course-search/CourseListSummary.tsx:21-76 (new file)",
+          "kind": "source",
+          "does": "It picks one of six messages from the search and date-range combination, truncates the shown search term to 50 code points, and formats dates as MM-DD-YYYY.",
+          "blast": 12,
+          "blastWhy": "presentational leaf with one consumer",
+          "acs": [
+            "The summary states how many courses are listed out of all I can reach",
+            "The summary names whichever filters narrowed the course list",
+            "A very long search term is shown truncated in the summary"
+          ]
+        },
+        {
+          "name": "Summary tests",
+          "where": "course-search/CourseSearchBrowse.test.tsx:384-583, and the association-clause block 593-666",
+          "kind": "test",
+          "does": "They pin each filter wording, the steady totals across paging and search, the one-time total request, truncation, and the summary staying hidden while anything is loading.",
+          "blast": 10
+        }
+      ]
+    },
+    {
+      "title": "Thread 3: loading, empty and error states while the panel re-scopes",
+      "summary": "The course list status decides whether the associations section mounts its group list at all; inside it, pending queries and still-loading outlines show a spinner instead of an empty message.",
+      "steps": [
+        {
+          "name": "CriteriaAssociationsSection (courseListStatus from CourseSearchBrowse:297)",
+          "where": "course-search/CriteriaAssociationsSection.tsx:27-45",
+          "kind": "source",
+          "does": "It shows a spinner while the course list is pending, mounts CourseGroupList only on success, and renders no group list when the course list errors.",
+          "blast": 40,
+          "blastWhy": "gates mounting of the whole group list",
+          "acs": [
+            "The course list fails to load"
+          ]
+        },
+        {
+          "name": "CourseGroupList: isPending gate, outlines spinner, empty state",
+          "where": "criteria-groups/CourseGroupList.tsx:44-70",
+          "kind": "source",
+          "does": "It shows a spinner while the groups or profile query is pending or while an empty list still waits on course outlines, and otherwise shows the error alert, the groups, or the single \"No content associated.\" message.",
+          "blast": 45,
+          "blastWhy": "the main display's loading and empty logic",
+          "acs": [
+            "The panel does not look empty while it re-scopes",
+            "The associations fail to load for the courses now listed",
+            "A competency with no associations anywhere"
+          ],
+          "notInAcs": [
+            "Accessible groups now render without waiting for other courses' outlines; only an empty list waits (line 70)."
+          ]
+        },
+        {
+          "name": "isLoadingAssociations and SubsectionRow disabled",
+          "where": "CompetencyAssociationsContext.tsx:302; course-search/CourseOutlineSubtree.tsx:56, 121",
+          "kind": "source",
+          "does": "The context exposes whether the groups or profile query is pending, and subsection rows are disabled while it is true.",
+          "blast": 35,
+          "blastWhy": "display and disabled state only",
+          "notInAcs": [
+            "Subsection rows cannot be clicked while the associations are loading."
+          ]
+        },
+        {
+          "name": "State tests",
+          "where": "course-search/CriteriaAssociationsSection.test.tsx:83-109; criteria-groups/CourseGroupList.test.tsx:94-254; course-search/CourseSearchBrowse.test.tsx:834, 999, 1056-1137",
+          "kind": "test",
+          "does": "They pin the spinners, the error branches and the empty message; CourseGroupList.test.tsx:254 and CourseSearchBrowse.test.tsx:834 pin one message for every count, which contradicts #683.",
+          "blast": 15
+        }
+      ]
+    },
+    {
+      "title": "Thread 4: every write refreshes the scoped cache",
+      "summary": "Each mutation calls one helper that drops cached pages nobody is viewing and refetches the page on screen, so a scoped entry is never served after a write.",
+      "steps": [
+        {
+          "name": "refreshCompetencyCriteriaGroups and the four mutation hooks",
+          "where": "data/apiHooks.ts:78-82, 90-165",
+          "kind": "source",
+          "does": "The helper removes inactive entries under the competency prefix and invalidates the rest, and each mutation returns that promise so it settles only after the refetch.",
+          "blast": 75,
+          "blastWhy": "every write path goes through it, and it deletes cache entries",
+          "acs": [
+            "Adding an association in a listed course still appears, and both association numbers rise"
+          ],
+          "notInAcs": [
+            "Inactive cached pages are removed on every write, and mutateAsync callers now wait for the refetch before continuing."
+          ]
+        },
+        {
+          "name": "resolveFocusAfterDelete",
+          "where": "CompetencyAssociationsContext.tsx:636, 667",
+          "kind": "source",
+          "does": "After a delete, it reads the refreshed groups from the scoped cache key to decide where focus goes.",
+          "blast": 40,
+          "blastWhy": "limited to focus after delete"
+        },
+        {
+          "name": "Refresh tests",
+          "where": "data/apiHooks.test.tsx:194-349",
+          "kind": "test",
+          "does": "They pin that inactive scoped pages are dropped, the active page refetches, and delete refetches even on failure and stays pending until the refetch lands.",
+          "blast": 10
+        }
+      ]
+    }
+  ],
+  "elsewhere": [
+    {
+      "ac": "Associations exist, but none in the courses currently listed",
+      "where": "criteria-groups/CourseGroupList.tsx (not implemented)",
+      "note": "The panel shows the same single message for every count, and CourseGroupList.test.tsx:254 and CourseSearchBrowse.test.tsx:834 pin that.",
+      "missing": true
+    },
+    {
+      "ac": "A listed course with no associations still gets no course-level group",
+      "where": "backend response; unchanged map in criteria-groups/CourseGroupList.tsx",
+      "note": "Implemented by the backend returning no group for that course; no test."
+    },
+    {
+      "ac": "No competency selected yet",
+      "where": "associations/CompetencyAssociationsPanel.tsx:49-58 (unchanged)",
+      "note": "CourseSearchBrowse, and so the summary, mounts only while a competency is selected."
+    },
+    {
+      "ac": "Subsections already associated are still marked in the course list",
+      "where": "CompetencyAssociationsContext.tsx associatedObjectIds; utils.ts:234",
+      "note": "Unchanged logic with a type-only change; covered at unit level by CourseOutlineSubtree.test.tsx:224."
+    },
+    {
+      "ac": "The summary line on a small screen",
+      "where": "course-search/CourseSearchBrowse.scss:44-46",
+      "note": "One overflow-wrap rule; jsdom cannot test layout.",
+      "blast": 3
+    }
+  ],
+  "leftovers": [
+    {
+      "where": "course-search/messages.ts:78-157",
+      "does": "Six coursesSummary messages with ICU plurals, one per search and date-range combination, read by CourseListSummary.",
+      "blast": 8
+    },
+    {
+      "where": "utils.ts:4, 40, 234",
+      "does": "Two helpers now take the renamed CompetencyCriteriaTree type; no runtime change.",
+      "blast": 5
+    },
+    {
+      "where": "data/types.ts:~20",
+      "does": "A doc comment now points at CompetencyCriteriaTree.",
+      "blast": 2
+    },
+    {
+      "where": "course-search/CourseSearchBrowse.tsx:29-30",
+      "does": "Two imports switch from relative paths to the @src alias.",
+      "blast": 3
+    },
+    {
+      "where": "testHelpers.tsx:42-58",
+      "does": "The mocked context gains the counts, isLoadingAssociations, notifyCoursesDisplayed and displayedCourseKeys.",
+      "blast": 5
+    },
+    {
+      "where": "CourseGroupSection.test.tsx, CriteriaGroupBox.edit.test.tsx, CriteriaGroupBox.test.tsx, RuleBoxList.test.tsx, utils.test.ts",
+      "does": "Mock shapes and the renamed type are updated; no new assertions.",
+      "blast": 3
+    }
+  ],
+  "footnotes": [
+    "Blast radius: how much breaks, and how widely, if the piece is wrong. Shared hooks, cache keys and context score high; leaf components, strings and tests score low.",
+    "Findings, verdicts and test-break results are in review-ashatsila-frontend-app-authoring-pr6-683.md; this map covers reading order only."
+  ]
+}
