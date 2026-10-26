@@ -152,7 +152,18 @@ the PR body or the ticket names as siblings, consumers, or design sources, and s
 
 Record: repository, target, base and head SHAs, merge-base, ticket number and `updated_at`.
 
-**A2. Diff and delta.** Pull request: `gh pr diff` at the recorded base and head. Branch:
+**The review folder.** Every review writes the files a human would keep to one folder per
+review: `<repo-root>/reviews/<repository>-pr<number>/`, or `<repository>-<branch>/` when the
+target is a branch or the working tree. `<repo-root>` is the parent of the directory that the
+`.claude` symlink in the working directory resolves to (`dirname "$(realpath .claude)"`), which
+is the root of the AI config repository and not the project under review. The `reviews/`
+folder is listed in that repository's `.gitignore`. Create the review folder before the first file is
+written, which is Step 0 of the frontend skill or phase A. The shared brief, the diff copy, the D1 draft, the D2 rewrite, and the files that
+sub-skills produce for the review (such as the component tree) go there; worktrees, probe
+scripts, and raw tool output stay in the scratchpad. Every sub-agent prompt that names a file
+carries its absolute path.
+
+**A2. Diff and delta.** Save the diff to `diff.patch` in the review folder. Pull request: `gh pr diff` at the recorded base and head. Branch:
 three-dot diff against the intended base (`git diff <base>...<head>`); ask for the base if it
 is not clear. Working tree: status plus staged and unstaged diffs, untracked files only when
 clearly part of the change. Confirm the diff is complete. Then list what landed on `main` after
@@ -168,8 +179,8 @@ and docstrings the diff adds or changes: default settings, transaction isolation
 validation order, what a cited precedent does, what a cited ADR or ticket says, which constraints
 exist, which tests cover what. You only list them here; B3 verifies them.
 
-**A4. The shared brief.** One file, at most 150 lines, that every B agent reads first: the facts
-from A1 and A2 with the diff's path, the commits on `main` with their SHAs, the criteria, the
+**A4. The shared brief.** One file in the review folder, at most 150 lines, that every B agent reads first: the facts
+from A1 and A2 with the path of the diff copy (also in the review folder), the commits on `main` with their SHAs, the criteria, the
 claims, the repository's rule locations from the table below, the sibling-ticket files with one
 line each, the environment (venv, `PYTHONPATH` to the worktree's `src/`, test command, the
 module `__file__` check), the read-only and no-dispatch rules, the budget, and the output format:
@@ -429,7 +440,7 @@ change, and anyone else who did not sit in the review, cannot follow it without 
 Phase D produces the text they can follow. It is part of the deliverable, not an optional
 summary: a review without it is not finished.
 
-**D1. Draft (orchestrator, inline, one file in the scratchpad).** Write the findings out for one
+**D1. Draft (orchestrator, inline, one file in the review folder).** Write the findings out for one
 reader: the engineer who implemented the change, who knows the framework but not this
 codebase's history, the ticket thread, or the sibling tickets. The draft has these parts, in
 this order:
@@ -461,7 +472,7 @@ first; the source path; the intended reader; that it cannot dispatch, so it runs
 and 7 and returns step 6 as a "Needs verification" item carrying the source path, the rewrite
 path, its changelog, and the definitions it added; that the repository is read-only and it may
 grep to confirm that the names in the text exist; and that it writes the rewrite to a new file
-next to the source. The skill's own length check applies: the body of the rewrite does not grow
+next to the source, in the review folder. The skill's own length check applies: the body of the rewrite does not grow
 past the source.
 
 Also give it the layout of the rewrite. The layout lets a reader see every finding at a glance

@@ -20,7 +20,8 @@ reading the parent skill and before the parent's phase A. It does not count agai
 tool-call budget. When the target is a branch or the working tree, skip this step and tell the
 developer why.
 
-1. Run `pr-component-tree` for the PR. It produces a Markdown file with the component tree as an
+1. Run `pr-component-tree` for the PR, with its output files written to the review folder that
+   the parent skill defines. It produces a Markdown file with the component tree as an
    inline SVG, and a plain-text outline of the same tree and notes.
 2. Give the developer the result right away, in its own message and before the review starts:
    the absolute path of the Markdown file and the short summary the skill prescribes. The

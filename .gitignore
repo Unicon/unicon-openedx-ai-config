@@ -1,3 +1,4 @@
 .claude/settings.local.json
 .claude/my-todo*.md
 .claude/agent-status*
+reviews/

@@ -73,7 +73,8 @@ heading ending in "none" and lines stating what was searched, so the claim is ch
 python3 scripts/render_component_tree.py SPEC.json --md component-tree-pr-<N>.md --outline component-tree-pr-<N>-context.txt
 ```
 
-Write both files to the session scratchpad directory when one is listed, otherwise the current
+Write both files to the review folder when the caller names one (as `frontend-code-review` does),
+otherwise to the session scratchpad directory when one is listed, otherwise the current
 directory, never inside the repository under review. Then map every changed source file in the PR
 to the node or nodes that define it (by the components and modules the file defines, not by
 file name) or to the "not drawn" footnote, and confirm none is unmapped.
