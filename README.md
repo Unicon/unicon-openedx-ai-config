@@ -144,6 +144,8 @@ the other various tasks.
 - **Reviewing a diff or PR:** the `frontend-code-review` or `backend-code-review` skill as appropriate.
   For a frontend PR, `frontend-code-review` first hands you a Markdown file with the PR's component
   tree (edited and new components in red, notes on what changed), made by the `pr-component-tree`
-  skill, which you can also run on its own.
+  skill, which you can also run on its own. To know where to start reading a long PR, the
+  `pr-reading-order` skill draws an SVG of its main threads of execution, top to bottom, with the
+  acceptance criteria each piece implements beside it and each box colored by blast radius.
 - **Everything else** (`CLAUDE.md`, the principles docs) loads as background context
   automatically. You never invoke it directly, it's just informing every response.
