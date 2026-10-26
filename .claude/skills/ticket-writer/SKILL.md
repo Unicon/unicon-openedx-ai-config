@@ -34,7 +34,7 @@ for before doing anything else, and ask if it isn't clear.
 | Pass | Run by | What Claude does | Section |
 | --- | --- | --- | --- |
 | Scaffold | Architect | Writes empty human-authored headings into the named cache files | "Scaffold" below |
-| Pre-handoff check | Architect | Checks the human-written sections and asks every question it can answer now | "Pre-handoff check" below |
+| Pre-handoff check | Architect | Verifies the premises of the human-written sections against the code and sibling tickets, checks those sections, and asks every question it can answer now | "Pre-handoff check" below |
 | Draft | BA | Drafts the Acceptance Criteria, Technical Details, and UX Design placeholder | Steps 1-8 below |
 | Pre-post check | Architect (final review), then BA before posting | Confirms the ticket is ready to post | "Pre-post check" below |
 
@@ -74,29 +74,59 @@ question the draft pass would otherwise raise, while the architect is here to an
 
 1. Read the cache file. If the User Story or Description is empty, or the title is still
    a placeholder, say so and stop.
-2. Dispatch `business-analyst` and `software-architect` in parallel. Give each one the
+2. **Verify the premises before anyone designs against them.** The human-written sections
+   rest on claims about what the code does today and what sibling tickets cover. Those
+   claims are the cheapest thing to get wrong and the most expensive to discover late: a
+   premise that turns out false during the final review reopens the human sections, re-runs
+   both experts, and makes the architect re-read sections that were already settled.
+   - List every premise: each trigger the sections name ("when X is deleted, imported, or
+     archived, Y happens"), each claim that a sibling ticket handles a path, and each
+     assumption about an existing mechanism (a handler, a signal, a cascade, an import).
+   - Check each one at its source, never from memory and never from the ticket itself.
+     Dispatch narrow Sonnet lookups per "Model and orchestration", one question each, and
+     require the quoted lines back. Read sibling tickets live with `gh issue view`, and
+     quote the sentence that covers, or fails to cover, the path in question. Checks that
+     recur on this codebase: what an existing handler does for a given event (which key,
+     which signal, before or after the change, robust or not); whether an import path
+     replaces or diffs; the `on_delete` of every foreign key on the chain the ticket walks;
+     whether a hook the design would need exists at all (a bulk `.update()` fires no
+     signal); and whether the thing the sections say "nothing does today" is in fact
+     already done by a receiver nobody remembered.
+   - Trust rules. A sub-agent's answer is a fact only when it quotes the lines it rests on;
+     a summary like "none of the receivers touch that" gets re-checked at the cited
+     location before you repeat it. A local checkout can be months stale, so confirm any
+     claim about `openedx-platform` against upstream `master` before calling it a fact.
+   - Every premise that fails is a finding for step 5. Every fact that opens a scope choice
+     (the trigger never reaches this layer today; the sibling ticket does not cover that
+     path; no hook exists) becomes a question for step 6. Hand the verified facts to both
+     experts in step 3 as a "Verified facts" block with file and line references, so they
+     design against the code as it is rather than rediscovering or assuming it.
+3. Dispatch `business-analyst` and `software-architect` in parallel. Give each one the
    human-written title, User Story, Description, Context, and Notes for drafting verbatim, plus
-   the related tickets, and tell it this is a pre-drafting check: it must not draft any
-   section. Ask each one to return findings on the human-written sections (Missing /
-   Contradiction / Outdated / Improvement, anchored to the text), the OPEN QUESTIONS it
-   would otherwise raise while drafting (in the format from step 2 below, including which
-   ones are truly the implementer's to decide), and any NEEDS RESEARCH items. The BA
-   covers the requirements angle and the architect covers scope and design, which is why
-   both are needed: an architect alone asks technical questions and misses product-shaped
-   gaps.
-3. Resolve the NEEDS RESEARCH items per "Model and orchestration" and continue the experts
+   the related tickets and the verified facts from step 2, and tell it this is a pre-drafting
+   check: it must not draft any section. Ask each one to return findings on the human-written
+   sections (Missing / Contradiction / Outdated / Improvement, anchored to the text), the OPEN
+   QUESTIONS it would otherwise raise while drafting (in the format from step 2 below,
+   including which ones are truly the implementer's to decide), and any NEEDS RESEARCH items.
+   The BA covers the requirements angle and the architect covers scope and design, which is
+   why both are needed: an architect alone asks technical questions and misses
+   product-shaped gaps.
+4. Resolve the NEEDS RESEARCH items per "Model and orchestration" and continue the experts
    if their answers depend on the research.
-4. Report the findings on the human-written sections to the architect in chat. Never edit
+5. Report the findings on the human-written sections to the architect in chat. Never edit
    those sections.
-5. Merge and dedupe the questions, drop the implementer-owned ones, and ask the rest with
-   `AskUserQuestion` per step 3 below.
-6. Record each answer so the BA's draft pass sees it. The architect decides where each
+6. Merge and dedupe the questions, drop the implementer-owned ones, and ask the rest with
+   `AskUserQuestion` per step 3 below. Ask them together, in as few rounds as they fit, not
+   one at a time as each surfaces. The scope decisions a ticket needs usually depend on each
+   other, and a decision answered late forces the experts to run again and the architect
+   to re-read sections that were already right.
+7. Record each answer so the BA's draft pass sees it. The architect decides where each
    answer goes: into Context, which the architect writes or approves word for word, or
    into Notes for drafting, which is never posted. You may append answers under Notes for
    drafting yourself, as a `Decisions from the pre-handoff check` list, one line per
    question and answer. Don't write into User Story, Description, or Context unless the
    architect gives you the exact wording.
-7. Tell the architect the file is ready to commit and push to the BA. Don't commit or push
+8. Tell the architect the file is ready to commit and push to the BA. Don't commit or push
    it yourself unless asked.
 
 ## Model and orchestration
@@ -404,6 +434,16 @@ and work through their list before running the checks below:
 
 - Answer each question directly, with a bounded lookup if it needs one. When the answer
   shows the ticket is wrong, say what you'd change.
+- When a comment rests on a claim about the code or a sibling ticket, verify the claim
+  before answering, with the same trust rules as the pre-handoff check's step 2: quoted
+  lines, the live issue body, upstream `master` for a platform claim. The architect's own
+  assumption can be the wrong one, and so can the ticket's; say which, with the source.
+- If the ticket never had a pre-handoff ground-truth pass (step 2 of that check), run it
+  now, before revising anything. A final review that discovers false premises one at a time
+  is the most expensive place to discover them.
+- When the review opens more than one scope decision, collect them and ask in one round
+  before revising, then dispatch each expert once with every answer. One dispatch per
+  answer re-does the same work as many times as there are answers.
 - For each concern about a Claude-drafted section (Acceptance Criteria, Technical Details,
   UX Design placeholder), revise that section. For a concern that changes the technical
   approach, dispatch `software-architect` with the ticket and the concern rather than
