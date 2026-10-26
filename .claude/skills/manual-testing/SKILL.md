@@ -7,7 +7,7 @@ description: Use when asked to manually test a pull request, set up a PR for man
 
 Command: `/manual-testing <PR URL> [testing instructions]`. The skill checks out the PR and the branches it depends on in the clones Tutor mounts, makes the devstack run that code, seeds named test data, turns the testing steps into an exact test plan with each step's acceptance criteria quoted above it, and for backend changes runs a very simple demo script. The person then does the manual testing with everything ready.
 
-`<artifacts>` is `/Users/jesperhodge/openedx/pr-reviews/<repo>-<n>/manual-testing/`, created with `mkdir -p` once step 2 has found manual steps. Every file the skill writes goes there. `<prefix>` is `mt_pr<n>_`. Always pass `gh` the full PR or issue URL, or `--repo`, because the clones' remotes are often forks.
+`<clones>` is the parent directory of the clone that `~/.virtualenvs/tutor/bin/tutor mounts list` reports for the PR's repo. `<artifacts>` is `<clones>/pr-reviews/<repo>-<n>/manual-testing/`, created with `mkdir -p` once step 2 has found manual steps. Every file the skill writes goes there. `<prefix>` is `mt_pr<n>_`. Always pass `gh` the full PR or issue URL, or `--repo`, because the clones' remotes are often forks.
 
 ## Local setup
 
@@ -77,7 +77,7 @@ Write the list as a table for the person: repo, PR, state, branch, local clone. 
 
 Then confirm each app answers: `curl -s -o /dev/null -w '%{http_code}' <url>` for Studio and for the MFE page under test. The MFE's first build after a restart takes 30 to 40 seconds, so poll before calling it broken. For the MFE's login flow and router details, the run-frontend-app-authoring skill has them.
 
-**6. Seed the test data.** Write `<artifacts>/seed.py` and run it in the CMS. Before writing it, check every model, field, and import against the checked-out code, because PR bodies and issues often name them wrong. Earlier seed scripts (`~/openedx/*seed*.py`, `~/openedx/pr-reviews/*/manual-testing/seed.py`) show working patterns. The seed:
+**6. Seed the test data.** Write `<artifacts>/seed.py` and run it in the CMS. Before writing it, check every model, field, and import against the checked-out code, because PR bodies and issues often name them wrong. Earlier seed scripts (`<clones>/*seed*.py`, `<clones>/pr-reviews/*/manual-testing/seed.py`) show working patterns. The seed:
 
 - Creates everything the plan needs, so the plan never depends on rows left over from earlier work. Every object's name or key starts with `<prefix>`.
 - Brings those objects to the plan's starting state on every run: `get_or_create`, then reset any field a step changes, and recreate any row a step deletes. A rerun of seed then demo shows the same output.
