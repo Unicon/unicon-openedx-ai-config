@@ -4,7 +4,7 @@ GitHub: https://github.com/openedx/openedx-core/issues/902 (#902, OPEN)
 Cached: 2026-10-23
 
 ## User Story
-As an administrator, I want a re-import of a competency taxonomy to be rejected when it would re-arrange tags in a way that breaks the competency dominance rule, in order to keep the competency criteria already configured for courses across the platform valid and manageable in Studio.
+As an administrator, I want a re-import of a competency taxonomy to be rejected when the taxonomy it would produce breaks the competency dominance rule, in order to keep the competency criteria already configured for courses across the platform valid and manageable in Studio.
 
 ## Description
 
@@ -19,6 +19,9 @@ In order to continue following the rule that the tagging code is not allowed to 
 ## Context
 - The primary BE implementation of this for the GUI: #666
 - #797 is the frontend counterpart to #666
+- Development blocked by #666
+- Relates to #892 and #893
+- QA blocked by #709 and #797
 
 ## Acceptance Criteria
 
