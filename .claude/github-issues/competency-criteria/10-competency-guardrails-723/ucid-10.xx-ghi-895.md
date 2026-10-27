@@ -4,9 +4,9 @@ GitHub: https://github.com/openedx/openedx-core/issues/895 (#895, OPEN)
 Cached: 2026-10-20
 
 ## User Story
-As a course author, when I delete a subsection, a section, or a whole course in Studio, or re-import a course, and that deletes or archives a tag association, I want the competency criteria and groups behind that content to be cleaned up the same way they would be if I had removed the rule on the Competency Management page, in order to never be left with an empty group on the page that I cannot explain or remove, and that can block learners from being able to demonstrate the related competency in my course.
+As a course author, when I delete a subsection or a section in Studio, or re-import a course, and that deletes or archives a tag association, I want the competency criteria and groups behind that content to be cleaned up the same way they would be if I had removed the rule on the Competency Management page, in order to never be left with an empty group on the page that I cannot explain or remove, and that can block learners from being able to demonstrate the related competency in my course.
 
-As a platform administrator, when I delete a course run, or re-import a taxonomy in a way that deletes or archives a competency tag, or archive a whole taxonomy, I want that competency's criteria and groups to be removed or archived to match, in order to never leave rules behind that point at a tag or a course that no longer exists.
+As a platform administrator, when I delete a course run, or delete a course with the delete_course management command, or re-import a taxonomy in a way that deletes or archives a competency tag, or archive a whole taxonomy, I want that competency's criteria and groups to be removed or archived to match, in order to never leave rules behind that point at a tag or a course that no longer exists.
 
 ## Description
 When a course author deletes a subsection, this fires a "block-deleted" event, which is heard by the Tagging code, which then deletes any relevant ObjectTag records, or archives them instead when a learner status depends on them (#779 and #782).
@@ -15,13 +15,13 @@ When a course author deletes a subsection, this fires a "block-deleted" event, w
 
 When a course author deletes a section, Studio deletes every subsection inside it, but the Tagging code has a bug that makes it only delete the ObjectTags associated with that section and does not also remove the ObjectTags associated with its subsections. **This ticket adds a section-delete handler** in openedx-platform that runs before the section is removed, while its contents can still be read, and deletes the ObjectTag records of every block inside it. From there, the algorithm described above runs for each subsection exactly as if it had been deleted on its own.
 
-When a course author deletes a course in Studio, Studio deletes the course without deleting its content, which also means that all of its ObjectTag records continue existing, which is the same bug as the section case above. **This ticket adds a course-delete handler** in openedx-platform that runs when a course is deleted and deletes every ObjectTag record belonging to that course. From there, the algorithm described above runs for each tagged subsection exactly as if it had been deleted on its own.
+When an operator deletes a course with the delete_course management command, the command deletes the course without deleting its content, which also means that all of its ObjectTag records continue existing, which is the same bug as the section case above. **This ticket adds a course-delete handler** in openedx-platform that runs when a course is deleted and deletes every ObjectTag record belonging to that course. From there, the algorithm described above runs for each tagged subsection exactly as if it had been deleted on its own.
 
-A CourseRun is a record in openedx-core's catalog app as opposed to the course and its content ("blocks"), which are records in modulestore. Deleting a course in Studio also deletes its CourseRun record, unless learner status recorded in that course refuses the delete, and a Django admin can delete a CourseRun directly. Deleting a CourseRun already deletes that course's course-level CompetencyCriteriaGroup, every group beneath it, and the CompetencyCriteria in them, by cascade. It leaves two things behind:
+A CourseRun is a record in openedx-core's catalog app as opposed to the course and its content ("blocks"), which are records in modulestore. Deleting a course with the delete_course management command also deletes its CourseRun record, unless learner status recorded in that course refuses the delete, and a Django admin can delete a CourseRun directly. Deleting a CourseRun already deletes that course's course-level CompetencyCriteriaGroup, every group beneath it, and the CompetencyCriteria in them, by cascade. It leaves two things behind:
 1. The ObjectTags stay on their subsections, which still exist in Studio when an administrator deleted only the course run, with no rule behind them. **This ticket removes those associations too**, when no other CompetencyCriterion still uses them, so a subsection does not keep showing a competency tag that nothing backs.
 2. The competency's shared root group may be left with nothing beneath it, and nothing cleans it up today, because the criteria were deleted through their groups rather than through an ObjectTag, so the listener described above never ran. **This ticket adds a group-deleted listener**, on the CompetencyCriteriaGroup's delete signals, that removes that root group, or archives it per #674's rules.
 
-When a course author re-imports a course, the tag import today removes and re-applies the tags of every tagged block, even when nothing changed. With no un-archiving in scope, that would permanently archive every rule with learner progress on every re-import, and it deletes every rule without learner progress for no reason. **This ticket changes the course tag import** in openedx-platform to apply only the differences between the export and the course, so an unchanged re-import touches no association. Only a tag the export dropped is removed or archived, and the criterion-deleted and association-archived listeners handle it as they would any other removal.
+When a course author re-imports a course, the tag import today removes and re-applies the tags of every tagged block, even when nothing changed. With no un-archiving in scope, that would permanently archive every rule with learner progress on every re-import, and it deletes every rule without learner progress for no reason. **This ticket changes the course tag import** in openedx-platform to apply only the differences between the export and the course, so an unchanged re-import touches no association. Only a tag the export dropped is removed or archived, and the criterion-deleted and association-archived listeners handle it as they would any other removal. Content added after the export was taken is dropped from the course by the import, and the tags and rules behind it are removed or archived like any other dropped tag, so no rule is left behind a block that is no longer in the course.
 
 When someone re-imports a taxonomy and the import omits a competency tag that is associated with a subsection:
 1. If no learner status depends on any of that tag's associations, the Tag is deleted, and because the CompetencyCriteriaGroup's foreign key to the Tag cascades, the competency's entire group tree and every CompetencyCriterion in it are deleted with it. The ObjectTags are not deleted and stay on their subsections with their tag reference cleared, which is existing Tagging behavior. Nothing is left for this ticket to clean up; **the criterion-deleted listener** must ignore deletions that start from a Tag.
@@ -35,17 +35,17 @@ When someone re-imports a taxonomy and the import omits a competency tag that is
 4. **The tag-archived listener**: when #780 archives a competency tag or a whole taxonomy, archive each affected competency's CompetencyCriteria and whole group tree. #780's archive paths gain a signal, and the taxonomy import's tag removal is routed through the method #780 branches in.
 **In openedx-platform:**
 5. **The section-delete handler**: deleting a block in Studio also deletes the ObjectTags of every block inside it.
-6. **The course-delete handler**: deleting a course in Studio deletes every ObjectTag in it.
+6. **The course-delete handler**: deleting a course with the delete_course management command deletes every ObjectTag in it.
 7. **The course tag import change**: re-importing a course applies only the differences between the export and the course, so an unchanged re-import touches no association.
 
-A taxonomy re-import with no learner status needs nothing of its own: the existing cascade from the Tag removes the competency's groups and rules. Nothing this ticket archives is ever restored; un-archiving is out of scope for MVP, apart from #872's reactivation of a root group.
+A taxonomy re-import with no learner status needs nothing of its own: the existing cascade from the Tag removes the competency's groups and rules. This ticket restores nothing it archives. #717 reactivates an archived root when an author adds a new rule under it, and #696 decides whether a course import reactivates an archived course-level group.
 
 ## Context
 - Blocked by #674, which implements the upward walk that removes or archives emptied groups when a criterion is removed on the Competency Management page. Every listener in this ticket reuses that walk rather than reimplementing it.
 - Blocked by #779 and #782. #782 locks a tag association when a learner status is written through it, and #779 makes every tagging-layer delete path archive a locked association and hard-delete the rest, reviving an archived association in place when the same tag is re-applied. This ticket covers what happens to the criteria and groups on both branches. #779 archives with a bulk update that fires no Django signal, so this ticket adds a signal to #779's archive path for the association-archived listener to react to.
 - Blocked by #780, which archives a tag or taxonomy instead of deleting it when a locked association sits beneath it. #780 also archives with a bulk update, so this ticket adds a signal to its tag and taxonomy archive paths for the tag-archived listener, and routes the taxonomy import's tag removal through the method #780 branches in, because the import deletes tags through a different call today.
 - #817 runs in the opposite direction from the association-archived listener: when an author archives a rule on the Competency Management page, #817 archives or removes the association behind it. The two must not undo each other, so the association-archived listener has to be a no-op for an archive that #817 caused.
-- Un-archiving is out of scope for MVP. Nothing this ticket archives is restored, and #872's reactivation of an archived root group is the only un-archive path.
+- Un-archiving is out of scope for MVP. This ticket restores nothing it archives. #717 reactivates an archived root when an author adds a new rule under it, and #696 decides whether a course import reactivates an archived course-level group.
 - #870's group rollup is needed to verify the scenario where removing an emptied group lets a learner demonstrate a competency whose course-level group requires all of its groups.
 
 ## Acceptance Criteria
@@ -54,36 +54,36 @@ In these scenarios, a rule is a competency criterion. Each rule applies to one s
 
 Learner progress decides whether something is deleted or archived. When no learner progress has been recorded against a rule, removing the rule's tag association deletes the association, and the rule is deleted with it. When learner progress has been recorded against a rule, #782 has locked its tag association, so #779 archives the association in place instead of deleting it. An archived rule or group keeps all of its learner progress, is not shown as in use on the Competency Management page, and does not count toward a learner's status (#815, #816).
 
-"Group cleanup" is what this ticket does after one of those changes. It removes the groups that a deleted rule leaves empty. It archives a rule whose tag association was archived, along with each group above that rule that is left with no unarchived rule or group beneath it. It archives every rule and group of a competency whose tag, or whose whole taxonomy, is archived. Group cleanup follows #674's rules: a group that learner progress has been recorded against, or that holds an archived rule, is archived instead of removed, and a course-level group left holding only archived groups is archived too. Nothing that this ticket archives is restored later, not even when the same tag is applied to the subsection again and #779 revives the archived association. The application log identifies each group that group cleanup removes or archives, one line for each change, and records nothing when group cleanup changes no group. If group cleanup fails, the deletion or import that triggered it still completes, the group stays as it was, and the application log records a warning naming that group. Only a test can force that failure, so the Technical Details test list covers it, together with data states that no product path can produce.
+"Group cleanup" is what this ticket does after one of those changes. It removes the groups that a deleted rule leaves empty. It archives a rule whose tag association was archived, along with each group above that rule that is left with no unarchived rule or group beneath it. It archives every rule and group of a competency whose tag, or whose whole taxonomy, is archived. Group cleanup follows #674's rules: a group that learner progress has been recorded against, or that holds an archived rule, is archived instead of removed, and a course-level group left holding only archived groups is archived too. This ticket restores nothing it archives, not even when the same tag is applied to the subsection again and #779 revives the archived association. #717 reactivates an archived root when an author adds a new rule under it, and #696 decides whether a course import reactivates an archived course-level group. The application log identifies each group that group cleanup removes or archives, one line for each change, and records nothing when group cleanup changes no group. If group cleanup fails, the deletion or import that triggered it still completes, the group stays as it was, and the application log records a warning naming that group. Only a test can force that failure, so the Technical Details test list covers it, together with data states that no product path can produce.
 
-A course re-import applies only the differences between the export's tags and the course's tags. A tag that the export keeps for a subsection keeps its association and its rule, and a tag that the export drops for a subsection is removed from it like any other removal. A subsection that the export's tag file does not list at all is treated as untagged, so its competency tags are removed like any other dropped tag. An export with no tag file changes no tags.
+A course re-import applies only the differences between the export's tags and the course's tags. A tag that the export keeps for a subsection keeps its association and its rule, and a tag that the export drops for a subsection is removed from it like any other removal. A block that the export's tag file does not list can only have been added after the export was taken. The import drops that block from the course, and its tag associations are removed, or archived when learner progress has been recorded against them, like any other dropped tag. An export with no tag file changes no tags.
 
 The scenarios are grouped by what triggers the change.
 
-### Deleting content in Studio
+### Deleting a subsection, a section, or a course
 
 ```
-Scenario Outline: Deleting tagged content in Studio cleans up the groups behind each tagged subsection inside it
+Scenario Outline: Deleting tagged content cleans up the groups behind each tagged subsection inside it
   Given a rule for a competency applies to subsection S, and no group of that competency is empty
     And <groups around S's rule>
     And <learner progress>
-  When an author deletes <deleted content> in Studio
+  When <deletion>
   Then <outcome>
     And all learner progress recorded for that competency is unchanged
     And the Competency Management page shows no empty group for that competency
     And the application log identifies each group that group cleanup removed or archived, one line per change, and records no group cleanup for any other group
 
   Examples:
-    | groups around S's rule | learner progress | deleted content | outcome |
-    | S's bottom-tier group also holds a rule that applies to subsection T | no learner progress has been recorded for that competency | S | S's rule no longer exists, S's bottom-tier group still exists and holds only T's rule, and every group above it is unchanged |
-    | S's bottom-tier group also holds a rule that applies to subsection T, which is in a different section | learner progress has been recorded against T's rule and the groups above it, and against no other rule | the section that contains S | S's rule no longer exists, and T's rule, S's bottom-tier group, and every group above it are unchanged |
-    | S's rule is alone in its bottom-tier group, and the course-level group above it requires all of its bottom-tier groups and holds one other bottom-tier group | no learner progress has been recorded for that competency | S | S's bottom-tier group no longer exists, and the course-level group still exists and holds only the other bottom-tier group |
-    | S's rule is alone in its bottom-tier group, that group is the only group in its course-level group, and another course has rules for the competency | no learner progress has been recorded for that competency | S | S's bottom-tier group and its course-level group no longer exist, and the shared root group and the other course's rules and groups are unchanged |
-    | S's bottom-tier group holds S's rule and one rule that was archived earlier, and nothing else, and the course-level group above it also holds another bottom-tier group whose rule is unarchived | learner progress has been recorded against the archived rule and the groups above it, and against no other rule | S | S's rule no longer exists, S's bottom-tier group is archived, and the course-level group and the shared root group are unchanged |
-    | S's bottom-tier group holds S's rule and one rule that was archived earlier, and nothing else, that group is the only group in its course-level group, and another course has rules for the competency | learner progress has been recorded against the archived rule and the groups above it, and against no other rule | the section that contains S | S's rule no longer exists, S's bottom-tier group and its course-level group are archived, and the shared root group and the other course's rules and groups are unchanged |
-    | S's bottom-tier group also holds a rule that applies to subsection T | learner progress has been recorded against S's rule and the groups above it, and against no other rule | S | S's rule is archived, and T's rule, S's bottom-tier group, and every group above it are unchanged |
-    | S's rule is alone in its bottom-tier group, and the course-level group above it requires all of its bottom-tier groups and holds one other bottom-tier group | learner progress has been recorded against S's rule and the groups above it, and against no other rule | S | S's rule and S's bottom-tier group are archived, and the course-level group is unchanged and still holds the other bottom-tier group, unarchived |
-    | S's rule is the competency's only rule in any course | learner progress has been recorded against S's rule and the groups above it | the course that contains S | S's rule and every group of that competency, including the shared root group, are archived, and none of them is removed |
+    | groups around S's rule | learner progress | deletion | outcome |
+    | S's bottom-tier group also holds a rule that applies to subsection T | no learner progress has been recorded for that competency | an author deletes S in Studio | S's rule no longer exists, S's bottom-tier group still exists and holds only T's rule, and every group above it is unchanged |
+    | S's bottom-tier group also holds a rule that applies to subsection T, which is in a different section | learner progress has been recorded against T's rule and the groups above it, and against no other rule | an author deletes the section that contains S in Studio | S's rule no longer exists, and T's rule, S's bottom-tier group, and every group above it are unchanged |
+    | S's rule is alone in its bottom-tier group, and the course-level group above it requires all of its bottom-tier groups and holds one other bottom-tier group | no learner progress has been recorded for that competency | an author deletes S in Studio | S's bottom-tier group no longer exists, and the course-level group still exists and holds only the other bottom-tier group |
+    | S's rule is alone in its bottom-tier group, that group is the only group in its course-level group, and another course has rules for the competency | no learner progress has been recorded for that competency | an author deletes S in Studio | S's bottom-tier group and its course-level group no longer exist, and the shared root group and the other course's rules and groups are unchanged |
+    | S's bottom-tier group holds S's rule and one rule that was archived earlier, and nothing else, and the course-level group above it also holds another bottom-tier group whose rule is unarchived | learner progress has been recorded against the archived rule and the groups above it, and against no other rule | an author deletes S in Studio | S's rule no longer exists, S's bottom-tier group is archived, and the course-level group and the shared root group are unchanged |
+    | S's bottom-tier group holds S's rule and one rule that was archived earlier, and nothing else, that group is the only group in its course-level group, and another course has rules for the competency | learner progress has been recorded against the archived rule and the groups above it, and against no other rule | an author deletes the section that contains S in Studio | S's rule no longer exists, S's bottom-tier group and its course-level group are archived, and the shared root group and the other course's rules and groups are unchanged |
+    | S's bottom-tier group also holds a rule that applies to subsection T | learner progress has been recorded against S's rule and the groups above it, and against no other rule | an author deletes S in Studio | S's rule is archived, and T's rule, S's bottom-tier group, and every group above it are unchanged |
+    | S's rule is alone in its bottom-tier group, and the course-level group above it requires all of its bottom-tier groups and holds one other bottom-tier group | learner progress has been recorded against S's rule and the groups above it, and against no other rule | an author deletes S in Studio | S's rule and S's bottom-tier group are archived, and the course-level group is unchanged and still holds the other bottom-tier group, unarchived |
+    | S's rule is the competency's only rule in any course | learner progress has been recorded against S's rule and the groups above it | an operator deletes the course that contains S with the delete_course management command | S's rule and every group of that competency, including the shared root group, are archived, and none of them is removed |
 
 Scenario: Deleting a section cleans up each subsection inside it according to that subsection's own rule
   Given a section contains subsections S, T, and U, and a rule for one competency applies to each of them
@@ -99,12 +99,12 @@ Scenario: Deleting a section cleans up each subsection inside it according to th
     And all learner progress recorded for that competency is unchanged
     And the application log identifies S's bottom-tier group as removed and U's bottom-tier group as archived, and records no group cleanup for any other group
 
-Scenario: Deleting a course with learner progress in Studio cleans up every tagged subsection in it
+Scenario: Deleting a course with learner progress cleans up every tagged subsection in it
   Given a course contains subsections S, T, U, and V, and a rule for one competency applies to each of them
     And S's rule is alone in its bottom-tier group, T's and U's rules share a second bottom-tier group, and V's rule is alone in a third bottom-tier group
     And learner progress has been recorded against V's rule and the groups above it, and against no other rule
     And another course has rules for the competency
-  When an author deletes the course in Studio
+  When an operator deletes the course with the delete_course management command
   Then S's, T's, and U's rules and the two bottom-tier groups that held them no longer exist
     And V's rule, V's bottom-tier group, and the course's course-level group are archived
     And the shared root group and the other course's rules and groups are unchanged
@@ -112,11 +112,11 @@ Scenario: Deleting a course with learner progress in Studio cleans up every tagg
     And all learner progress recorded for that competency is unchanged
     And the application log identifies the two removed groups and the two archived groups, and records no group cleanup for any other group
 
-Scenario Outline: Deleting a course with no learner progress in Studio removes its rules, its groups, and its course run record
+Scenario Outline: Deleting a course with no learner progress removes its rules, its groups, and its course run record
   Given a course contains subsections S and T, and a rule for a competency applies to each of them from its own bottom-tier group
     And no learner progress has been recorded for that competency
     And <other courses>
-  When an author deletes the course in Studio
+  When an operator deletes the course with the delete_course management command
   Then the rules that applied to S and T, their bottom-tier groups, and the course's course-level group no longer exist
     And the course's course run record no longer exists
     And <shared root group outcome>
@@ -180,12 +180,19 @@ Scenario: An unchanged course re-import changes no tag, rule, or group
     And all learner progress recorded for that competency is unchanged
     And the application log records no group cleanup
 
-Scenario: A subsection that the export's tag file does not list loses its tag and its rule
-  Given a rule for a competency applies to subsection S in a course, and that rule is alone in its bottom-tier group
-    And no learner progress has been recorded for that competency
-  When the course is re-imported from an export whose tag file lists other subsections of the course but not S
-  Then S is no longer tagged with that competency, and S's rule and S's bottom-tier group no longer exist
-    And the application log identifies S's bottom-tier group as removed
+Scenario Outline: A subsection added after the export is dropped with its tag and its rule when the export is re-imported
+  Given a course was exported
+    And after the export, an author added subsection S to the course and tagged it with a competency, so a rule applies to S alone in its bottom-tier group
+    And <learner progress>
+  When the course is re-imported from that export
+  Then S is no longer in the course
+    And <outcome>
+    And all learner progress recorded for that competency is unchanged
+
+  Examples:
+    | learner progress | outcome |
+    | no learner progress has been recorded for that competency | S is no longer tagged with that competency, S's rule and S's bottom-tier group no longer exist, and the application log identifies S's bottom-tier group as removed |
+    | learner progress has been recorded against S's rule and the groups above it | S's tag association, S's rule, and S's bottom-tier group are archived, and the application log identifies S's bottom-tier group as archived |
 
 Scenario Outline: A rule that was archived stays archived when its subsection is tagged with the same competency again
   Given learner progress has been recorded against the only rule that applies to subsection S for a competency
@@ -235,6 +242,17 @@ Scenario Outline: Deleting a taxonomy removes or archives the rules and groups o
     | learner progress | outcome | application log |
     | no learner progress has been recorded for either competency in the first taxonomy | the deletion completes, and neither competency has any rules or groups left | the application log records no group cleanup and no warning about group cleanup |
     | learner progress has been recorded against one rule of the first competency and the groups above it, and against no other rule | every rule and group of both competencies, including rules with no learner progress of their own and both shared root groups, is archived, and none of them is removed | the application log identifies each group that group cleanup archived, one line per group |
+
+Scenario: Removing a parent competency whose child has learner progress archives both competencies' rules and groups
+  Given parent competency P has its own rules and groups in a course, and no learner progress has been recorded against any of P's own rules
+    And P has two child competencies, C and D, and each has its own rules and groups in that course
+    And learner progress has been recorded against one of C's rules and the groups above it, and against no rule of D
+  When the taxonomy is re-imported from a file that omits P and both of its children
+  Then P's tag and C's tag still exist in an archived state, and D's tag no longer exists
+    And every rule and group of P and of C, including rules with no learner progress of their own and both shared root groups, is archived, and none of them is removed
+    And D has no rules or groups left
+    And all learner progress recorded for C is unchanged
+    And the application log identifies each group that group cleanup archived for P and for C, one line per group, and records no group cleanup for D
 ```
 
 ### Deleting a course run
@@ -253,6 +271,7 @@ Scenario Outline: Deleting a course run removes the shared root group and the co
     | other courses | shared root group outcome |
     | no other course has rules for that competency | the competency's shared root group no longer exists, and the application log records its removal |
     | another course has rules for that competency | the competency's shared root group and the other course's rules and groups are unchanged, and the application log records no group cleanup |
+    | another course's rules and groups for that competency were archived earlier, and learner progress recorded in that course was rolled up to the shared root group | the competency's shared root group is archived, and the application log records it as archived |
 
 Scenario: A course run with learner progress beneath it cannot be deleted
   Given learner progress has been recorded against one of course run R's rules for a competency
@@ -279,6 +298,36 @@ Scenario Outline: Group cleanup does not depend on who caused the change
     | a course import running as a background task re-imports S's course from an export that matches the course except that it no longer tags S with that competency |
 ```
 
+### Failures, and removals that already clean up after themselves
+
+```
+@unit-test-only
+Scenario Outline: A group cleanup failure leaves the groups in place and does not stop the change that caused it
+  Given a rule for a competency applies to subsection S and is alone in its bottom-tier group
+    And no learner progress has been recorded for that competency
+    And group cleanup is forced to fail after it has removed S's bottom-tier group
+  When <the change>
+  Then the change completes, and S's rule no longer exists
+    And S's bottom-tier group remains, empty, and every group above it is unchanged
+    And the application log records a warning that names the group left in place
+
+  Examples:
+    | the change |
+    | an author deletes S in Studio |
+    | an import re-imports S's course from an export that no longer tags S with that competency |
+
+Scenario Outline: A rule or group removed on the Competency Management page is cleaned up once, by its own flow
+  Given a competency with rules and groups in a course, and no learner progress recorded for any of them
+  When <the removal>
+  Then the removal succeeds, and the groups it leaves empty are removed by that flow
+    And the application log records that cleanup once, with no second cleanup from this ticket's listeners
+
+  Examples:
+    | the removal |
+    | an author removes the last rule in a bottom-tier group on the Competency Management page |
+    | an author removes a bottom-tier group and its rules on the Competency Management page |
+```
+
 <details>
 <summary>Technical Details</summary>
 
@@ -286,12 +335,12 @@ This is a suggested approach, not the source of truth. The User Story, Descripti
 
 **Summary**
 
-In openedx-core, four listeners in a new CBE `signal_handlers.py` keep competency criteria and groups consistent with the tagging and catalog layers. The criterion-deleted and group-deleted listeners react to Django deletes that cascade into CBE. The association-archived and tag-archived listeners react to new tagging signals that #779 and #780 send when they archive an association, a tag, or a taxonomy. Nothing this ticket archives is ever un-archived. In openedx-platform, the section-delete and course-delete handlers make deleting a section or a whole course in Studio delete the ObjectTags of everything inside it. Course tag import applies only the differences in tags.csv, so an unchanged re-import leaves every rule in place.
+In openedx-core, four listeners in a new CBE `signal_handlers.py` keep competency criteria and groups consistent with the tagging and catalog layers. The criterion-deleted and group-deleted listeners react to Django deletes that cascade into CBE. The association-archived and tag-archived listeners react to new tagging signals that #779 and #780 send when they archive an association, a tag, or a taxonomy. Nothing this ticket archives is ever un-archived. In openedx-platform, the section-delete and course-delete handlers make deleting a section in Studio, or a whole course with the delete_course management command, delete the ObjectTags of everything inside it. Course tag import applies only the differences in tags.csv, so an unchanged re-import leaves every rule in place.
 
 Suggested split:
 
 - PR A is the openedx-core deletion side (items 1 and 3), and needs only #674.
-- PR B is the three openedx-platform changes. It needs nothing new from openedx-core to merge, and ships with #779 and no later than PR C.
+- PR B is the three openedx-platform changes. It needs nothing new from openedx-core to merge, and merges alongside #779 and no later than PR C.
 - PR C is the openedx-core archive side (items 2 and 4, the tagging signals, and the taxonomy import change), and waits for #779 and #780.
 
 **Approach**
@@ -314,7 +363,7 @@ PR A, openedx-core: the criterion-deleted and group-deleted listeners.
      - A `CourseRun`: the group-deleted listener handles it.
    - **What it does.** It looks up the criterion's former group by `instance.group_id`. If that group is already gone, it returns, because an earlier call or the other listener may have removed it. Otherwise it calls `_cascade_from_group(group, "delete")` from `.api`, unchanged.
    - **Check when #779 merges.** Confirm that #779's overridden `delete()` methods still hard-delete unlocked rows through Django's collector with an ObjectTag origin. A raw SQL delete would never reach this receiver.
-4. **The group-deleted listener.** This is a `post_delete` receiver for `CompetencyCriteriaGroup` that acts only when `origin` is a `CourseRun` instance or queryset. That happens from Django admin, and from `delete_course_run()` when a course is deleted in Studio (step 7). `CourseRun.catalog_course` is `PROTECT`, so no other delete cascades into a course run.
+4. **The group-deleted listener.** This is a `post_delete` receiver for `CompetencyCriteriaGroup` that acts only when `origin` is a `CourseRun` instance or queryset. That happens from Django admin, and from `delete_course_run()` when a course is deleted with the delete_course management command (step 7). `CourseRun.catalog_course` is `PROTECT`, so no other delete cascades into a course run.
    - **What it does.** For each deleted course-level group (the one with `course_id` set), it calls `_cascade_from_group()` with `"delete"` on that group's parent. The parent is the shared root, which survives the delete. It then removes the ObjectTags that no remaining criterion uses.
    - **Why it needs a `pre_delete` partner.** Django deletes the criteria before the groups, so the `post_delete` instance has no criteria left to read. A `pre_delete` receiver on the same model, with the same filter, reads the `object_tag_id` of every criterion beneath the course-level group and stores the ids on the instance. Django passes that same instance to `post_delete`.
    - **How the ObjectTags are removed.** The removal reuses #817's `_reconcile_object_tags()`. That helper skips ids that any non-archived criterion still uses, and removes the rest through `openedx_tagging.api.tag_object()`. If #817 has not merged yet, this PR adds the helper with #817's semantics.
@@ -334,17 +383,17 @@ PR B, openedx-platform: the section-delete handler, the course-delete handler, a
    - **Why the `+type@` delimiter.** Without it, deleting `course-v1:A+B+C` would also match the blocks of `course-v1:A+B+C2`.
    - **Deleting them.** It calls `api.delete_object_tags()` once per object id, and logs one line for the course.
    - **No new openedx-core API.** Querying `ObjectTag` directly follows `get_all_object_tags()` in `api.py`, which does the same because the tagging API has no by-course lookup.
-7. **The two receivers of a Studio course deletion.** The same `course_deleted` signal also reaches `_listen_for_course_delete` in `openedx/core/djangoapps/content/course_overviews/signals.py`, which deletes the course's `CourseRun` through `delete_course_run()`. The order of the two receivers is not guaranteed, and the end state is the same either way.
+7. **The two receivers of a course deletion.** The same `course_deleted` signal also reaches `_listen_for_course_delete` in `openedx/core/djangoapps/content/course_overviews/signals.py`, which deletes the course's `CourseRun` through `delete_course_run()`. The order of the two receivers is not guaranteed, and the end state is the same either way.
    - **If the CourseRun is deleted first.** Its cascade deletes the course's rules and its course-level and bottom-tier groups directly. The group-deleted listener then removes or archives the root, and removes the rules' ObjectTags. The course-delete handler then deletes the remaining tags, which have no rule behind them.
    - **If the course-delete handler runs first.** The criterion-deleted listener removes each emptied group up to the root, and the CourseRun delete then finds no groups.
    - **What the log records.** The log records only cleanup, never groups that a CourseRun delete cascades away directly. So the first order logs only the root, and the second order logs every removed group.
    - **When the course has learner status.** `delete_course_run()` raises `ProtectedError`, which `send_robust` logs. The course deletion completes and the `CourseRun` row stays. What remains under it is the rules that hold learner status and the groups above them, archived by the association-archived listener.
    - **Failures.** All of these signals use `send_robust`, so a failure in either handler is logged and the deletion proceeds.
-   - **Shipping with #779.** Until #779 ships, deleting the ObjectTag of a rule that holds learner status raises `ProtectedError`, which stops either handler at that block.
+   - **Before #779 has merged.** Until #779 has merged, deleting the ObjectTag of a rule that holds learner status raises `ProtectedError`, which stops either handler at that block.
 8. **The course tag import change.** `set_exported_object_tags()` in `api.py`, which course import calls once per tags.csv row, applies only the differences instead of deleting every tag on the block and re-applying them.
    - **What changes.** Drop its opening `oel_tagging.delete_object_tags(content_key_str)`. The loop after it already calls `oel_tagging.tag_object()` once per taxonomy in the row. `tag_object()` keeps the associations whose values are listed, adds new ones, and removes only the omitted ones through #779's archive-or-delete branch.
    - **Taxonomies the row no longer carries.** For each taxonomy the block still has tags in that the row does not list, call `oel_tagging.tag_object(object_id, taxonomy, [], taxonomy_export_id=...)`. Find those taxonomies with `oel_tagging.get_object_tags()`, matched by export id. This keeps today's rule that an import replaces a block's tags. The tagging API has no taxonomy-scoped `delete_object_tags()`, and `tag_object()` with an empty list does that job.
-   - **Result.** An unchanged re-import deletes and archives nothing, so no rule or group changes. A re-import still removes the associations the export no longer carries, and the criterion-deleted and association-archived listeners follow those removals. Blocks that tags.csv does not list are treated as untagged: after the rows are processed, the import finds the course's remaining tagged objects with the same prefix query the course-delete handler uses, and calls `oel_tagging.delete_object_tags()` for each one the file did not list. An export with no tags.csv keeps today's behavior and changes nothing.
+   - **Result.** An unchanged re-import deletes and archives nothing, so no rule or group changes. A re-import still removes the associations the export no longer carries, and the criterion-deleted and association-archived listeners follow those removals. Blocks that tags.csv does not list can only have been added after the export, and the import has already dropped them from the course tree: after the rows are processed, the import finds the course's remaining tagged objects with the same prefix query the course-delete handler uses, and calls `oel_tagging.delete_object_tags()` for each one the file did not list. An export with no tags.csv keeps today's behavior and changes nothing.
    - **Why.** Without this change, every re-import would delete every rule without learner status and permanently archive every rule with it. #779 revives the association when the tag is re-applied, but nothing un-archives a rule.
 
 PR C, openedx-core: the association-archived and tag-archived listeners, after #779 and #780. The tagging hooks below land in `openedx_tagging` code, but they are this ticket's work.
@@ -361,7 +410,7 @@ PR C, openedx-core: the association-archived and tag-archived listeners, after #
    - They are new public surface of `openedx_tagging`, so their docstrings define the payload.
 10. **The taxonomy import change.** In `src/openedx_tagging/import_export/actions.py`, `DeleteTag.execute()` looks the tag up with `_get_tag()`, returning as today when it no longer exists. It then calls `self.taxonomy.delete_tags([tag.value], with_subtags=True)`, so #780's archive-or-delete branch also applies on re-import.
     - **Why `with_subtags=True`.** It matches today's cascade. An earlier `UpdateParentTag` action in the same plan has already moved every child that the file keeps, so only children that the file also omits are removed with the tag.
-    - **Tags already archived.** A tag that #780 already archived earlier in the same import must be skipped, not deleted again. #778 is expected to hide it from `_get_tag()`; confirm that.
+    - **Tags already archived.** A tag that #780 already archived earlier in the same import must be skipped, not deleted again. `_get_tag()` reads `Taxonomy.tag_set`, a reverse manager that #778's read-path filters may not cover, so check the tag's `archived` flag here rather than relying on #778 to hide it.
     - **Search events.** The existing `pre_delete` receiver in `src/openedx_tagging/signal_handlers.py` already handles a queryset origin, so search events are unchanged.
 11. **The association-archived listener.** It receives `object_tags_archived`.
     - **Archiving the rules.** It archives the non-archived criteria on those ObjectTags with simple-history's `bulk_update_with_history()` and a change reason, never `QuerySet.update()`, so history records the archive (ADR 0003, Decision 1).
@@ -381,7 +430,7 @@ Tests in openedx-core for PR A, in `tests/openedx_learning/applets/cbe/test_sign
   - The root is unchanged and not logged when another course's group remains under it.
   - The root is archived and logged when it has its own status row.
   - ObjectTags used only by the deleted run's criteria are removed. One that a criterion in another course run also uses is kept.
-- **Both orders of a Studio course deletion end with the same rows.**
+- **Both orders of a course deletion end with the same rows.**
   - Deleting the course's ObjectTags and then its `CourseRun` logs each removed group, and the `CourseRun` delete finds nothing to do.
   - Deleting the `CourseRun` and then the remaining ObjectTags logs only the root.
   - Neither order raises or logs a warning.
@@ -400,7 +449,7 @@ Tests in openedx-platform for PR B. They assert on ObjectTags only.
   - A tag the row no longer carries is removed from that block.
   - A taxonomy the row no longer carries is removed from that block.
   - A block absent from the file loses its tags, and an export with no tags.csv changes nothing.
-- **Once #779 is released:** a locked association inside a deleted section or course, or dropped by an import, is archived, not deleted.
+- **Once #779 has merged:** a locked association inside a deleted section or course, or dropped by an import, is archived, not deleted.
 
 Tests in openedx-core for PR C, in the same CBE module and in `tests/openedx_tagging/`:
 
@@ -420,7 +469,7 @@ Out of scope:
 
 - Any frontend change.
 - Changing #779's or #780's archive-or-delete rules. This ticket only adds signals to them.
-- Un-archiving anything this ticket archives, when #779 revives an association or when a tag or taxonomy is un-archived. #872's reactivation of an archived root is unaffected.
+- Un-archiving anything this ticket archives, when #779 revives an association or when a tag or taxonomy is un-archived. #717's reactivation of an archived root is unaffected.
 - #826's display of unresolvable criteria.
 - Backfilling groups that are already empty.
 - ObjectTags left with a null tag after a Tag is hard-deleted, which is existing tagging behavior.
@@ -445,14 +494,10 @@ Out of scope:
 
 **Additional context**
 
-- **Prior art.**
-  - `src/openedx_content/applets/publishing/signal_handlers.py` is a `post_delete` receiver loaded from `ContentConfig.ready()`.
-  - `_is_explicit_tag_delete` in `src/openedx_tagging/signal_handlers.py` filters on `origin`.
-  - In openedx-platform, `handle_item_deleted` in `cms/djangoapps/contentstore/signals/handlers.py` walks descendants on `pre_item_delete`.
-  - `set_all_object_tags()` in `content_tagging/api.py` already applies tags through `tag_object()` without deleting first.
+- **Prior art.** `set_all_object_tags()` in `content_tagging/api.py` already applies tags through `tag_object()` without deleting first. The receiver, origin-filter, and descendant-walk precedents are named in the Approach steps that use them.
 - **Where the listeners run.** The CMS installs `openedx_learning`, so the CBE listeners run inside Studio's deletes and imports.
 - **ADR.** ADR 0002 (`docs/openedx_learning/decisions/0002-competency-criteria-model.rst`), Decision 2, says persisted criteria definitions must not contain empty groups.
-- **For #696.** #696's rule import runs after the tag import. With the course tag import change, an unchanged re-import leaves every association, rule, and group in place, so #696 finds each group and skips each rule it already has. A rule this ticket archived stays archived. When its association is live again, #696 creates a new rule beside it.
+- **For #696.** #696's rule import runs after the tag import. With the course tag import change, an unchanged re-import leaves every association, rule, and group in place, so #696 finds each group and skips each rule it already has. A rule this ticket archived stays archived. When its association is live again and #696's file still records that rule, #696 skips it and logs the skip, because an archived rule already sits on that association.
 - **For #675 and #817.** Both can hard-delete ObjectTags inside their own flows, and the criterion-deleted listener treats those deletes as starting on an ObjectTag. They should delete criteria before ObjectTags, and can then expect the listener to do nothing.
 - **For #781.** It can connect to `tags_archived` and `taxonomies_archived` for its search-index update instead of adding its own hooks.
 
