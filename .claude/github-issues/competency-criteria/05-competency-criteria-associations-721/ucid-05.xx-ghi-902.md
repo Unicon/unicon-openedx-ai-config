@@ -14,7 +14,7 @@ Each taxonomy reports a taxonomy_type. In the event that the taxonomy_type is Co
 
 In order to continue following the rule that the tagging code is not allowed to know about the CBE code, we will implement this using the same principle described in ADR 0013 which suggests using openedx-platform as a proxy to handle the relationship between tagging and CBE. We will have openedx-platform pass a CBE validator function into the tagging import function when the taxonomy is a competency taxonomy. The tagging code runs it during the plan phase, after its own validations, and reports all errors together, on both the preview and the real import.
 
-#666 supplies the dominance rule and the lookup of course runs where a set of tags holds live criteria. This ticket adds the pieces around it: a validator seam in tagging's import, the openedx-platform override that supplies the CBE validator for competency taxonomies, and the validator itself, which walks the tag tree the file produces and reports each conflicting pair.
+#666 supplies the dominance rule and the lookup of course runs where a set of tags holds live criteria. This ticket adds the pieces around it: a validator seam in tagging's import, the openedx-platform override that supplies the CBE validator for competency taxonomies, and the validator itself, which reuses #666's definition of a live criterion to look up, in one query, which tags of the taxonomy hold live criteria in which course runs, then walks the tag tree the file produces: for each tag that holds criteria, it follows the parent links up to the root and reports every ancestor that holds criteria in the same course run. That lookup is the check's only database query, whatever the size of the file; the rest is an in-memory walk of the tree.
 
 ## Context
 - The primary BE implementation of this for the GUI: #666
@@ -22,7 +22,7 @@ In order to continue following the rule that the tagging code is not allowed to 
 
 ## Acceptance Criteria
 
-In these scenarios, an error names a tag by its value and its identifier in the file. A tag "holds live criteria in a course run" when it has at least one criterion there that is not archived, under an association with that course run that is not archived. "The preview" is the plan step of Studio's taxonomy import wizard, and "the import" is the step that applies the file. A conflict is reported on the file row of the lower tag of the pair, the descendant. Studio's re-import replaces the taxonomy's tags with the file's, so each file below is an export of the taxonomy with only the rows named in the scenario changed.
+In these scenarios, an error names a tag by its value and its identifier in the file. A tag "holds live criteria in a course run" when it has at least one criterion there that is not archived, under an association with that course run that is not archived. "The preview" is the plan step of Studio's taxonomy import wizard, and "the import" is the step that applies the file. A conflict is reported on the file row of the descendant, the lower tag of the conflicting ancestor/descendant pair. Studio's re-import replaces the taxonomy's tags with the file's, so each file below is an export of the taxonomy with only the rows named in the scenario changed.
 
 ```
 Background:
@@ -128,6 +128,13 @@ Scenario: Archived criteria don't block a move
   Then the preview reports no errors
   And after the import "Deduction" is a child of "Critical Thinking"
 
+Scenario: Archived associations don't block a move
+  Given "Deduction" holds live criteria in Course X
+  And the association of "Critical Thinking" with Course X is archived
+  When a taxonomy administrator previews and then imports a file that moves "Deduction" under "Critical Thinking"
+  Then the preview reports no errors
+  And after the import "Deduction" is a child of "Critical Thinking"
+
 Scenario: Related tags whose criteria are in different course runs don't block a move
   Given "Critical Thinking" holds live criteria in Course X only
   And "Deduction" holds live criteria in Course Y only
@@ -203,7 +210,7 @@ This is a suggested approach, not the source of truth. The User Story, Descripti
 
 openedx-core, tagging (no CBE reference):
 
-1. In `src/openedx_tagging/import_export/import_plan.py`, `TagImportPlan.generate_actions()` already computes the final tree for PR #877's hierarchy checks, as the `parent_of`, `pk_of`, and `row_of` dicts that `_end_state()` returns, but keeps them in local variables. Right after `_end_state()`, store the final tree on the plan as a public attribute, for example `final_tree: dict[str, FinalTag]`, keyed by casefolded final id like those dicts. `FinalTag` is a small record next to `ExistingTag`. It holds the tag's final `external_id` and `value` (from its file row, or from `_existing_tags()` for a stored tag the file omits), its `pk` (None for a tag the import creates), its `parent` (the parent's final id, or None for a root), and its `row` (1-based, as "Row N" appears in errors, or None when the tag has no row). With this record, validators never deal with `NEW_TAG`, the 0-based positions, or the split between file rows and stored tags. The attribute's docstring calls it read-only input for import validators and marks it UNSTABLE, because its shape follows `_end_state()`.
+1. In `src/openedx_tagging/import_export/import_plan.py`, `TagImportPlan.generate_actions()` already computes the final tree for PR #877's hierarchy checks, as the `parent_of`, `pk_of`, and `row_of` dicts that `_end_state()` returns, but keeps them in local variables. Right after `_end_state()`, store the final tree on the plan as a public attribute, for example `final_tree: dict[str, FinalTag]`, keyed by casefolded final id like those dicts. `FinalTag` is a small record next to `ExistingTag`. It holds the tag's final `external_id` and `value` (from its file row, or from `_existing_tags()` for a stored tag the file omits), its `pk` (None for a tag the import creates), its `parent` (the parent's final id, or None for a root), and its `row` (1-based, as "Row N" appears in errors, or None when the tag has no row). With this record, validators never deal with `NEW_TAG`, the 0-based positions, or the split between file rows and stored tags. The attribute's docstring calls it read-only input for import validators.
 2. In `src/openedx_tagging/import_export/api.py`, `import_tags()` gains a trailing `validators=None` keyword that takes a list of `Callable[[TagImportPlan], list[TagImportError]]`. Run each validator after `generate_actions()` and before `task.log_plan()`, and add its results to `plan.errors` even when tagging has already found errors. The placement matters because `log_plan()` copies the errors into the task log that the Studio import wizard shows. A validator that ran after `log_plan()` would still block the import, but its message would never reach the wizard. Parse errors still end the import before planning. The docstring states the validator contract:
    - A validator is read-only.
    - A validator returns errors and never raises. A raised exception lands in the broad `except` and drops the plan from the preview.
@@ -213,7 +220,7 @@ openedx-core, tagging (no CBE reference):
 openedx-core, CBE, in `src/openedx_learning/applets/cbe/api.py`:
 
 4. Move the live-criteria filter out of PR #875's `get_courses_with_relative_criteria()` into a private `_live_criteria_groups()`, which returns the `CompetencyCriteriaGroup` queryset with the archived and course conditions. `get_courses_with_relative_criteria()` then filters that queryset by `tag_id__in`, and its signature and behavior stay the same. The criterion-creation check and the import check then share one definition of "holds live criteria in a course run", so Studio and the import can't disagree about what conflicts.
-5. Add `validate_tag_import_dominance(plan) -> list[TagImportError]` to `__all__`, marked UNSTABLE like the other criteria-authoring functions. It must be in `__all__` because openedx-platform imports it from `openedx_learning.api`, which re-exports this module's `__all__`.
+5. Add `validate_tag_import_dominance(plan) -> list[TagImportError]` to `__all__`. It must be in `__all__` because openedx-platform imports it from `openedx_learning.api`, which re-exports this module's `__all__`.
    1. Run one query: `_live_criteria_groups()` filtered by `tag__taxonomy=plan.taxonomy`, read as `values_list("tag_id", "parent__course__course_key")`, and collect the course keys of each tag pk into a set.
    2. Keep only the tags of `plan.final_tree` whose `pk` has course keys. Tags that the import deletes are not in the final tree, so they drop out here. Tags that the file creates have no pk, so they drop out too.
    3. For each kept tag, in file row order, walk up its `parent` links with a visited set. Stop at a root, or at a parent that is not a key of the final tree: that parent is unknown or deleted, tagging reports it itself, and the validator treats it as the root. If the walk revisits a tag, the starting tag is on or below a parent cycle that tagging has already reported as a `ParentCycleError`, so skip the starting tag. Validators run after that report, and without the visited set the walk would never end.
@@ -227,19 +234,19 @@ openedx-platform:
 
 6. In `openedx/core/djangoapps/content_tagging/rest_api/v1/views.py`, `TaxonomyOrgView` overrides `_get_import_validators()` to add `validate_tag_import_dominance` when `is_competency_taxonomy(taxonomy)` is true. The re-import request carries no `taxonomy_type`, so the stored taxonomy decides.
 
-Beyond the Acceptance Criteria, the tests must cover the following cases. Several of them need a conflict that already exists, which QA cannot create in Studio because #666 blocks it.
+Beyond the Acceptance Criteria, unit tests must cover the following cases. In this list, a conflicting pair is an ancestor tag and a descendant tag that both hold live criteria in the same course run. QA cannot create one in Studio, because #666 blocks it, so these cases are unit tests only.
 - A rename-only file is rejected when the stored taxonomy already holds a conflicting pair, and the error is on the descendant's row.
-- A file that moves the descendant under a sibling below the same ancestor, which keeps the pair, is rejected.
-- A file that changes the ancestor's identifier and keeps the pair is rejected.
-- A file that moves the lower tag of an existing pair to the root clears the conflict, and the import succeeds.
-- An archived association (an archived course-level parent group) does not block, and neither does an archived criterion.
-- With `import_tags(replace=False)` and a file that omits the descendant of an existing pair, the error names both tags and has no row prefix.
+- A file that moves the descendant of an existing conflicting pair under a sibling below the same ancestor, so that the ancestor still sits above the descendant, is rejected.
+- A file that changes the identifier of the ancestor of an existing conflicting pair, and leaves the descendant under it, is rejected.
+- A file that moves the descendant of an existing conflicting pair to the root clears the conflict, and the import succeeds.
+- With `import_tags(replace=False)` and a file that omits the descendant of an existing conflicting pair, the error names both tags and has no row prefix.
 - The validator makes exactly one query, both when no tag holds criteria and when several pairs conflict.
-- In openedx-platform, the override applies the validator for a competency taxonomy and not for a plain one, on both the plan endpoint and the import endpoint.
+
+openedx-platform needs its own tests for the override, because openedx-core's tests cannot exercise it: the same file is rejected for a competency taxonomy and accepted for a plain one, on both the plan endpoint and the import endpoint.
 
 Out of scope:
 - `create_import`, because a new taxonomy has no criteria.
-- Changes to a tag's parent that bypass the two re-import endpoints: edits through the Django admin, and direct `import_tags()` callers that pass no validators, such as `import_tags_task`. This gap is accepted.
+- Changes to a tag's parent that bypass the two re-import endpoints: edits through the Django admin, and a direct call to `import_tags()` that passes no validators. `import_tags_task` is such a caller: it runs tagging's own checks but not the pluggable validators, and nothing in openedx-core or openedx-platform calls it today. This gap is accepted.
 - Restoring an archived criterion or group. No restore path exists, and adding one would need its own dominance check.
 - Whether replace-mode deletes archive or hard-delete tags (#780), and refusing the values and identifiers of archived tags on import (#814).
 
