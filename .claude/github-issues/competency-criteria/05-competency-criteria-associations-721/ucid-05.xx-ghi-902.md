@@ -14,14 +14,14 @@ Each taxonomy reports a taxonomy_type. In the event that the taxonomy_type is Co
 
 In order to continue following the rule that the tagging code is not allowed to know about the CBE code, we will implement this using the same principle described in ADR 0013 which suggests using openedx-platform as a proxy to handle the relationship between tagging and CBE. We will have openedx-platform pass a CBE validator function into the tagging import function when the taxonomy is a competency taxonomy. The tagging code runs it during the plan phase, after its own validations, and reports all errors together, on both the preview and the real import.
 
-#666 supplies the dominance rule and the lookup of course runs where a set of tags holds live criteria. This ticket adds the pieces around it: a validator seam in tagging's import, the openedx-platform override that supplies the CBE validator for competency taxonomies, and the validator itself, which reuses #666's definition of a live criterion to look up, in one query, which tags of the taxonomy hold live criteria in which course runs, then walks the tag tree the file produces: for each tag that holds criteria, it follows the parent links up to the root and reports every ancestor that holds criteria in the same course run. That lookup is the check's only database query, whatever the size of the file; the rest is an in-memory walk of the tree.
+#666 supplies the dominance rule and the code that decides which criteria count as live. This ticket adds the plumbing around it: a way for tagging's import to run extra validators that the caller supplies, the openedx-platform code that supplies the competency validator when the taxonomy is a competency taxonomy, and the validator itself. The validator asks the database once which tags in the taxonomy hold live criteria in which course runs, reusing #666's code to answer that question. It then walks the tag tree the file would produce: for every tag that holds criteria, it follows the parent links up to the root and reports each ancestor that also holds criteria in the same course run. The validator makes only one database query, no matter how large the file is.
 
 ## Context
 - The primary BE implementation of this for the GUI: #666
 - #797 is the frontend counterpart to #666
 - Development blocked by #666
 - Relates to #892 and #893
-- QA blocked by #709 and #797
+- QA blocked by #709 and #672
 
 ## Acceptance Criteria
 
@@ -249,7 +249,8 @@ openedx-platform needs its own tests for the override, because openedx-core's te
 
 Out of scope:
 - `create_import`, because a new taxonomy has no criteria.
-- Changes to a tag's parent that bypass the two re-import endpoints: edits through the Django admin, and a direct call to `import_tags()` that passes no validators. `import_tags_task` is such a caller: it runs tagging's own checks but not the pluggable validators, and nothing in openedx-core or openedx-platform calls it today. This gap is accepted.
+- Changes to a tag's parent that bypass the two re-import endpoints: edits through the Django admin, and a direct call to `import_tags()` that passes no validators. This gap is accepted.
+- `import_tags_task`, tagging's Celery wrapper around `import_tags()`. It is completely unused: its only caller is its own unit test, nothing in openedx-core or openedx-platform calls it, and its arguments (a taxonomy model instance and an in-memory file) cannot be sent to a Celery worker. It could be removed from the code in a separate chore rather than taught about validators.
 - Restoring an archived criterion or group. No restore path exists, and adding one would need its own dominance check.
 - Whether replace-mode deletes archive or hard-delete tags (#780), and refusing the values and identifiers of archived tags on import (#814).
 
