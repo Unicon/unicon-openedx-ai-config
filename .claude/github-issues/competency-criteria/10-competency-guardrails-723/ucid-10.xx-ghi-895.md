@@ -9,6 +9,24 @@ As a course author, when I delete a subsection or a section in Studio, or re-imp
 As a platform administrator, when I delete a course run, or delete a course with the delete_course management command, or re-import a taxonomy in a way that deletes or archives a competency tag, or archive a whole taxonomy, I want that competency's criteria and groups to be removed or archived to match, in order to never leave rules behind that point at a tag or a course that no longer exists.
 
 ## Description
+A competency criterion (aka "a rule") applies to one subsection through a tag, and it sits in a tree of groups: a bottom-tier group, a course-level group, and one shared root group for the competency. #674 already cleans up that tree when an author removes a rule on the Competency Management page. A rule can also disappear without anyone touching that page: an author deletes a subsection or a section in Studio or re-imports the course, an operator deletes the course or its course run, or the competency's tag, or its whole taxonomy, is archived. Today those paths clean up only part of that tree, or none of it. They leave behind empty groups that the author cannot explain or remove, and that can block learners from demonstrating the competency, or rules that point at content that no longer exists. This ticket makes each of those paths end in the same cleanup #674 does: when no learner progress is recorded against a rule, the rule and the groups it leaves empty are deleted. When learner progress is recorded, they are archived instead, and nothing this ticket archives is ever restored.
+
+The work is four signal listeners in openedx-core, which react when a criterion is deleted, when a tag association is archived, when a group is deleted, and when a tag or a taxonomy is archived, and three changes in openedx-platform, so that deleting a section or a course also removes the tags inside it, and so that re-importing an unchanged course does not remove and re-apply every tag. The list below names the seven pieces. The walkthrough after it explains, path by path, why each piece is needed. The Acceptance Criteria are grouped by the same paths.
+
+**What this ticket builds:**
+**In openedx-core:**
+1. **The criterion-deleted listener**: when an ObjectTag delete cascades to a CompetencyCriterion, delete the groups it leaves empty, up to the shared root, or archive them per #674's rules.
+2. **The association-archived listener**: when #779 archives an association, archive its CompetencyCriteria and the groups left with no unarchived children. #779's archive path gains a signal so this listener can react.
+3. **The group-deleted listener**: when a CourseRun delete cascades away a course's groups, remove the shared root if nothing is left beneath it, or archive it per #674's rules, and remove the ObjectTags no remaining CompetencyCriterion uses.
+4. **The tag-archived listener**: when #780 archives a competency tag or a whole taxonomy, archive each affected competency's CompetencyCriteria and whole group tree. #780's archive paths gain a signal, and the taxonomy import's tag removal is routed through the method #780 branches in.
+**In openedx-platform:**
+5. **The section-delete handler**: deleting a block in Studio also deletes the ObjectTags of every block inside it.
+6. **The course-delete handler**: deleting a course with the delete_course management command deletes every ObjectTag in it.
+7. **The course tag import change**: re-importing a course applies only the differences between the export and the course, so an unchanged re-import touches no association.
+
+<details>
+<summary>How each path reaches that cleanup</summary>
+
 When a course author deletes a subsection, this fires a "block-deleted" event, which is heard by the Tagging code, which then deletes any relevant ObjectTag records, or archives them instead when a learner status depends on them (#779 and #782).
 1. If there was no learner status related to that association, then this also deletes the relevant CompetencyCriteria, through the existing cascade. The CompetencyCriteriaGroups they leave empty are not touched today. **This ticket adds a criterion-deleted listener** in the CBE applet on the CompetencyCriterion's post_delete signal that reuses #674's upward walk to delete those groups, or archive them per #674's rules.
 2. If there is a learner status related to that association, the ObjectTag is archived instead (#779), and today nothing archives the CompetencyCriterion behind it or its groups. **This ticket adds an association-archived listener** that reacts when an association is archived, archives its CompetencyCriteria, and archives each group above them that is left with no unarchived children, per #674's rules. An archived rule stays archived if #779 later revives the association.
@@ -27,18 +45,9 @@ When someone re-imports a taxonomy and the import omits a competency tag that is
 1. If no learner status depends on any of that tag's associations, the Tag is deleted, and because the CompetencyCriteriaGroup's foreign key to the Tag cascades, the competency's entire group tree and every CompetencyCriterion in it are deleted with it. The ObjectTags are not deleted and stay on their subsections with their tag reference cleared, which is existing Tagging behavior. Nothing is left for this ticket to clean up; **the criterion-deleted listener** must ignore deletions that start from a Tag.
 2. If a learner status depends on one of its associations, today the learner status protection refuses the delete and the import fails at that tag. #780 changes that to archive the Tag instead, which leaves the competency's groups and rules live. **This ticket adds a tag-archived listener** that reacts when #780 archives a competency tag, or a whole taxonomy of competencies, and archives every CompetencyCriterion for each affected competency and every group in its tree. The listener needs #780's archive path to announce which tags or taxonomies it archived, the same kind of hook the association-archived listener needs from #779. #780 as written branches only in the taxonomy's delete-tags method and the taxonomy delete endpoint, and the taxonomy import removes tags through a different call. This ticket also routes the import's tag removal through that method, so #780's branch applies on re-import.
 
-**In conclusion, this ticket will build:**
-**In openedx-core:**
-1. **The criterion-deleted listener**: when an ObjectTag delete cascades to a CompetencyCriterion, delete the groups it leaves empty, up to the shared root, or archive them per #674's rules.
-2. **The association-archived listener**: when #779 archives an association, archive its CompetencyCriteria and the groups left with no unarchived children. #779's archive path gains a signal so this listener can react.
-3. **The group-deleted listener**: when a CourseRun delete cascades away a course's groups, remove the shared root if nothing is left beneath it, or archive it per #674's rules, and remove the ObjectTags no remaining CompetencyCriterion uses.
-4. **The tag-archived listener**: when #780 archives a competency tag or a whole taxonomy, archive each affected competency's CompetencyCriteria and whole group tree. #780's archive paths gain a signal, and the taxonomy import's tag removal is routed through the method #780 branches in.
-**In openedx-platform:**
-5. **The section-delete handler**: deleting a block in Studio also deletes the ObjectTags of every block inside it.
-6. **The course-delete handler**: deleting a course with the delete_course management command deletes every ObjectTag in it.
-7. **The course tag import change**: re-importing a course applies only the differences between the export and the course, so an unchanged re-import touches no association.
-
 A taxonomy re-import with no learner status needs nothing of its own: the existing cascade from the Tag removes the competency's groups and rules. This ticket restores nothing it archives. #717 reactivates an archived root when an author adds a new rule under it, and #696 decides whether a course import reactivates an archived course-level group.
+
+</details>
 
 ## Context
 - Blocked by #674, which implements the upward walk that removes or archives emptied groups when a criterion is removed on the Competency Management page. Every listener in this ticket reuses that walk rather than reimplementing it.
