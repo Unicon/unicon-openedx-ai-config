@@ -1,11 +1,11 @@
-# [FE] Show and remove competency criteria whose gradeable subsection has been deleted
+# [FE] Show competency criteria whose gradeable subsection has been deleted
 
 GitHub: https://github.com/openedx/openedx-core/issues/826 (#826, OPEN)
 Cached: 2026-10-22
 
 ## User Story
 
-As a course author managing a competency's criteria, I want a criterion whose gradeable subsection has been deleted to be shown as unresolvable and allow me to remove it, in order to recognize a rule that a learner can no longer complete and remove it from the competency.
+As a course author managing a competency's criteria, I want a criterion whose gradeable subsection has been deleted to be shown as unresolvable, in order to recognize a rule that a learner can no longer complete.
 
 ## Acceptance Criteria
 
@@ -78,7 +78,7 @@ course's outline.
 Deleting a gradeable subsection from a course leaves the criterion, its tagging row,
 and every learner's recorded competency status in place. This is done so that mastery a learner has already demonstrated is not taken away because someone edited the course afterwards. What the deletion does remove is the assignment's entry in the course outline, and that entry is where the page gets the assignment's name from. With no name to display, the requirement isn't visable on the page. So a competency can end up carrying a requirement that can't ever meet again, with nothing on the page to indicate that.
 
-This ticket makes those broken criteria visible, and allows the user to removable them.
+This ticket makes those broken criteria visible.
 
 Figma Designs:
 [U1 · Content unavailable](https://www.figma.com/design/VhAdaucNQS49x0Afp9xPZw/Competency-Application?node-id=3149-32046)
