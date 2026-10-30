@@ -1,5 +1,18 @@
 # Agent Instructions
 
+## Workspace layout and repository instruction files
+
+This Claude setup runs from a workspace folder, usually named `openedx/`, that contains
+one or more Open edX repositories: `openedx-platform`, `edx-platform`, `openedx-core`, or
+`frontend-app-authoring`. The `.claude/` folder in that workspace folder is a symlink to
+the `.claude/` folder of the `unicon-openedx-ai-config` repository.
+
+A repository folder may contain its own `CLAUDE.md` or `AGENTS.md`. When you work in that
+repository, read those files as well as this one, and treat them as the source of truth
+for context and rules about that repository. If this file strongly contradicts one of
+those files, tell the user about the conflict and keep working, handling the conflict
+with your best judgment.
+
 This is `openedx-core`: a published Django library of apps used by `openedx-platform`
 and community plugins. Treat public APIs as contracts and keep changes small.
 
