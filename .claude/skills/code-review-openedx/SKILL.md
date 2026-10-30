@@ -24,7 +24,8 @@ sub-agent needs something it cannot fetch, it returns a "Needs research" item an
 session fulfills it.
 
 **Shape and timing.** The review runs in four phases: a short inline phase in which the
-orchestrator pins the target, reads the ticket and the diff, and writes one shared brief; one
+orchestrator pins the target, has one Sonnet sub-agent extract the tickets, reads the extracts
+and the diff, and writes one shared brief; one
 dispatch wave in which five sub-agents work in parallel from that brief; an inline phase in
 which the orchestrator verifies, sorts, and presents; and an explanation phase in which the
 orchestrator writes the findings out for the engineer who implemented the change, has a Sonnet
@@ -85,15 +86,17 @@ missing:
 - A fact used to settle a disagreement is reported. When two sources conflict (a code comment
   and the library's source, two sub-agents) and you resolve it by reading the code, every
   passage in the change that stated the losing version is a finding.
-- A ticket's User Story and Acceptance Criteria are the review's instructions, and they are the
-  only parts of any ticket the review reads: the ticket under review, its parent, and its
-  siblings alike. The brief quotes those two sections. The Description, Context, UX Design,
-  Technical Details, and Open Questions sections, and any design discussion they link, stay
-  unread, because they record one author's guess at an implementation and the review judges the
-  code on its own merits against the behavior the criteria describe and the repository's rules.
-  When a criterion itself names a mechanism (a hook, a parameter, a query option) and the code
-  delivers the behavior the criterion describes another way, that is a `Question` addressed to
-  the ticket's author, not a `Gap`.
+- A ticket is the specification of behavior, never of implementation. The review reads every
+  ticket (the one under review, its parent, its siblings) through the extract A1 produces, and
+  no agent in the review opens a ticket's raw text after that. The extract carries the User
+  Story and the Acceptance Criteria word for word, the UX Design section in full, and the
+  Description, Context, and Open Questions sections with every implementation detail removed:
+  how to build it, which function, hook, parameter, query option, table, or file to use, and
+  which library behavior to rely on. The Technical Details section is skipped entirely, because
+  it records one author's guess at an implementation and the review judges the code on its own
+  merits against the behavior the specification describes and the repository's rules. When a
+  criterion itself names a mechanism and the code delivers the behavior the criterion describes
+  another way, that is a `Question` addressed to the ticket's author, not a `Gap`.
 - Specification silence is not permission. For behavior the criteria do not mention, judge by
   what a reasonable user of the software would expect, and grade the finding by its effect on
   that user.
@@ -115,6 +118,7 @@ missing:
 | Phase | Work | Agent, model, effort | Budget |
 | --- | --- | --- | --- |
 | A | Pin the target and ticket, obtain the diff and the delta on `main`, quote the criteria, list the claims to verify, write the shared brief | the top-level session, inline | 10 tool calls |
+| A1 extract | Fetch the ticket, its parent, and its siblings and write one extract file per ticket: user story and criteria verbatim, UX Design in full, the other sections stripped of implementation detail, Technical Details omitted | `general-purpose`, Sonnet, medium-high | 15 |
 | B1 | Locate instruction files, ADRs, and callers of changed code in this and the consuming repositories ("where is X") | `Explore`, Haiku, default | 25 |
 | B2 | Condense the sibling tickets' user stories and acceptance criteria into expectations of this change; read git history and prior PR comments on the touched files; check comment necessity and conciseness and the PR's community requirements | `general-purpose`, Sonnet, medium-high | 35 |
 | B3 | Mechanical checks in a temporary worktree: the merge with `main` and its migration graph and import linter, targeted tests and linters, the premise lookups | `general-purpose`, Sonnet, high | 35 |
@@ -156,9 +160,21 @@ Do not infer the ticket from the branch name, PR title, commit messages, or the 
 ticket is a child of a larger ticket, follow the parent links to the ticket that states the
 acceptance criteria, then use the child to select the subset this change is on the hook for;
 say which criteria you excluded and why. When ticket or PR discussion appears to have superseded
-a criterion, flag the conflict and ask; do not assume the criterion changed. Fetch the tickets
-the PR body or the ticket names as siblings or consumers, extract the User Story and Acceptance
-Criteria sections of each, and save those extracts for B2.
+a criterion, flag the conflict and ask; do not assume the criterion changed.
+
+Once the ticket, its parent, and the tickets the PR body or the ticket names as siblings or
+consumers are identified, dispatch one `general-purpose` Sonnet sub-agent at medium-high effort,
+budget 15, with `run_in_background: false`, to fetch each of them live with `gh` and write one
+extract file per ticket in the scratchpad. The extract has, in this order: the ticket number,
+title, and `updated_at`; the User Story, word for word; the Acceptance Criteria, word for word
+and numbered; the UX Design section in full, with its links; then the Description, Context, and
+Open Questions sections rewritten as the behavior and constraints they state, with every
+implementation detail removed (how to build it, which function, hook, parameter, query option,
+table, or file to use, which library behavior to rely on), each kept to the length the stripped
+content needs. The Technical Details section is not read and does not appear. A section the
+ticket lacks is marked absent. The sub-agent returns the file paths; you read the extracts and
+work from them, and nothing in the review opens the raw ticket text again. Save the sibling and
+consumer extracts for B2.
 
 Record: repository, target, base and head SHAs, merge-base, ticket number and `updated_at`.
 
@@ -451,7 +467,7 @@ this order:
    change adds, every name the ticket or the PR coined (an "opt-out", an "escape hatch"), the
    sibling tickets and what each one owns, the consuming repository and how it reaches this
    code, and the method the review used to test the tests (break the line, run the suite).
-   Each definition comes from the code or the tickets, and the draft says where.
+   Each definition comes from the code or the ticket extracts, and the draft says where.
 3. The findings, grouped in this order: "Must fix before merge" (every `Bug` and `Gap`),
    "Decisions to make or write down" (every `Question`), "Improvements worth doing" (every
    `Suggestion`), and "Small things" (every `Nit`). Each finding says, in full sentences and in
@@ -540,7 +556,7 @@ file, nothing more.
 | "A senior engineer would not raise this nit." | Some would. List it under `Nit`; the human decides. |
 | "There is no `AGENTS.md`, so there are no conventions to check." | `openedx-core` and `edx-platform` keep theirs in `CLAUDE.md`, ADRs, OEPs, and `.importlinter`. |
 | "The ticket does not mention it, so it is fine." | Specification silence is not permission. A reasonable user's expectation is a requirement. |
-| "The ticket's Technical Details say to build it this way." | The review reads the user story and the criteria, and nothing else from a ticket. Technical Details are one author's guess; the code is judged against the behavior the criteria describe and the repository's rules. |
+| "The ticket's Technical Details say to build it this way." | The review works from the ticket extract, which has no Technical Details and no implementation detail. The code is judged against the behavior the specification describes and the repository's rules. |
 | "This is a library change; the platform and the frontend are someone else's problem." | Trace the chain. A missing or unlinked companion change is a `Gap`. |
 | "The sub-agent found it, so it is a finding." | It is a hypothesis until you have read its citation at the head SHA. |
 | "That configuration is exotic." | If the product exposes it as a setting, it is supported input, and the failure is a `Bug`. |
