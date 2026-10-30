@@ -101,12 +101,22 @@ describes, as a component or hook test that performs the transition or request a
 the user sees, run once. Report each hop that produced the wrong result as a reproduction with
 the user action and the observed render.
 
-**The repository's own conventions (B5 and phase C).** Alongside the trace, hold the change to
-the conventions `AGENTS.md` and the frontend section of `.claude/CLAUDE.md` state, citing the
-line in each case: Paragon components, Paragon utility classes, and design tokens before custom
-markup or CSS; WCAG AA for every interactive and informational element the change adds;
-TypeScript, TanStack Query for server state, and this repository's React patterns; no inline
-styles. These are standing rules, so a finding under them needs the cited line, not a trace.
+**The repository's own conventions (B5, B4, and phase C).** Alongside the trace, hold the change
+to the conventions `AGENTS.md` and the frontend section of `.claude/CLAUDE.md` state. These are
+standing rules, so a finding under them needs the cited line, not a trace. In addition to the
+parent's checks in [code-review-openedx](../code-review-openedx/SKILL.md), evaluate the following
+questions about the change, and raise any further concern they lead to. Give the component,
+accessibility, and styling questions to remit B5, any test question to remit B4, and the rest to
+phase C.
+
+1. Is the Paragon design system being used as extensively as possible for the components this
+   change adds? Paragon components, Paragon's bootstrap classes, and design tokens, with custom
+   CSS used sparingly?
+2. Does the implementation meet WCAG AA accessibility standards, if applicable?
+3. Does it adhere to general best practices for this repository's version of React?
+4. Is it using TypeScript, and TanStack Query instead of Redux for server state, and the other
+   conventions `AGENTS.md` names?
+5. Is it avoiding inline styles?
 
 ## Delivering the review
 
