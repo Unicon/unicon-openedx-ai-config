@@ -156,6 +156,10 @@ groups including nesting; the three-level status model; a re-evaluation workflow
 
 ## Authoritative in-repo resources
 
+- **Where tickets are filed.** Every CBE ticket is a GitHub issue in
+  `openedx/openedx-core`, whatever repo the work lands in (`openedx-platform`,
+  `frontend-app-authoring`, a plugin repo). When a ticket's work is in another repo, name
+  that repo in the ticket body; don't recommend filing the issue there.
 - **Existing ticket text**: `.claude/github-issues/competency-criteria/` and
   `.claude/github-issues/student-progress/` hold a local cache of GitHub issue
   descriptions, one file per issue, organized by epic (see each folder's `README.md`).
@@ -179,6 +183,32 @@ groups including nesting; the three-level status model; a re-evaluation workflow
   `oel_tagging_*`. CBE extends this.
 - `architecture-taxonomies-and-competencies.md` for how taxonomies and competencies fit
   the current code.
+
+## External references
+
+- **Competency Criteria Technical Design Document** (Confluence):
+  https://openedx.atlassian.net/wiki/spaces/OEPM/pages/5604573185/Competency+Criteria+Technical+Design+Document.
+  The original design for the whole feature. It is more detailed than any ticket on the
+  authoring-time validation and dominance rules (no overlap in containment paths, parent
+  competencies dominate scope, groups and courses are isolation boundaries), on learner
+  status evaluation timing and the three-state status enum, and on open questions about
+  roles, permissions, and plugin extensibility. Read it before scoping a ticket that
+  touches any of those. Treat it as the record of intent, not of the current design. It
+  was written in December 2025 and January 2026, before the in-repo ADRs and any tickets,
+  and has had only small edits since (the last in September 2026), none of which re-synced
+  it with them: the "Implemented Model" section is empty, the data model points at a
+  superseded "ADR 0022" on a personal fork, versioning is listed as a non-goal while ADR
+  0003 versions the definition models, and the evaluation flow names repos by their old
+  names. When it disagrees with an ADR, a merged ticket, or code on `main`, those win.
+- **Master spreadsheet**, "Competency Criteria & Learner Progress Package Summary"
+  (Google Sheets):
+  https://docs.google.com/spreadsheets/d/1eArBhSKZK2k4qU4LOSdFVlKHcDz2ON6YsnrfifjF5FA/edit.
+  Holds the epic numbers (column D: bare digits for Competency Criteria, `SP`-prefixed for
+  Student Progress), the per-ticket use-case numbers (column E), and sprint assignments.
+  Read it live through the Google Drive connector when those are needed; never copy it
+  into this repo. Reading the whole sheet as one dump breaks row boundaries on
+  multi-paragraph cells, so verify an individual epic or use-case number against the live
+  sheet before relying on it.
 
 ## Naming and source caveats
 

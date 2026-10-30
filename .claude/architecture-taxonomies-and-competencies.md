@@ -376,6 +376,18 @@ Initial approach (deliberately **not** the full publishing framework):
 Rejected: deferring versioning entirely; ad-hoc per-model version columns; the full
 publishable framework (too heavy for this phase); a generic append-only event log.
 
+**Who owns archive, delete, and restore of a tag association.** The tagging layer does,
+not CBE. The tagging-guardrails tickets give `Taxonomy`, `Tag`, and `ObjectTag` an
+`archived` flag and give `ObjectTag` a `deletion_locked` flag (#776); `tag_object()` in
+`src/openedx_tagging/api.py` archives a locked association instead of deleting it, and
+un-archives an existing archived row when the same tag is re-applied (#779); ordinary
+reads exclude archived rows (#778). CBE's whole job is to set `deletion_locked` on the
+`ObjectTag` a criterion was evaluated through, at the moment a learner status is written
+(#782), and to call `tag_object()` when an association no longer applies. CBE code must not
+flip `ObjectTag.archived` itself or decide archive-versus-delete on its own; doing so
+duplicates the tagging mechanism and drifts from it. Check any new CBE deletion path
+against this before scoping it.
+
 ### B.6 Worked example (from ADR 0002)
 
 Competency **"Writing Poetry"**, Course **X**, assignments 7 & 9 (both tagged "Writing
