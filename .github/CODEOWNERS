@@ -1,0 +1,4 @@
+# Every pull request needs an approving review from a member of this team.
+# Enforced by the "Protect main" ruleset (require review from code owners).
+# The team's notifications are off, so the PR author requests a reviewer by name.
+* @Unicon/openedx-ai-config-reviewers
