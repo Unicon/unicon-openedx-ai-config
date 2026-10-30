@@ -226,10 +226,10 @@ names and shapes a consumer's criteria rely on, with the ticket and line; the li
 describe (archive, delete, replace, re-create) for the rows this change creates; and any
 contradiction between them, the ticket, and the ADRs. From git: the blame and log of the
 changed code and prior PR review comments on the same files, for a constraint the change may
-have missed. From the diff: for each comment the change adds, whether the code would be clear without it and
-whether it is as short as it can be; most comments should be one or two lines unless the file
-already follows a pattern of longer ones; a comment says why, not what, and a comment the change
-made stale is a bug. From the PR: the description states which AI agent was used or that none
+have missed. From the diff: for each comment the change adds, whether the code would be clear
+without it and whether it is as short as it can be; most comments should be one or two lines
+unless the file already follows a pattern of longer ones; a comment says why, not what, and a
+comment the change made stale is a bug. From the PR: the description states which AI agent was used or that none
 was; it gives manual testing steps or states that the change has no manual QA path; its
 description matches the diff (file names, counts, claims about tests).
 
