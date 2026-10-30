@@ -22,15 +22,15 @@ Open edX is a large, multi-repo learning platform. The repos that matter for thi
   Code here never imports from `openedx-platform`. Database tables use the `oel_` prefix
   (Open edX Learning). Top-level packages under `src/`: `openedx_catalog`,
   `openedx_content`, `openedx_core`, `openedx_django_lib`, `openedx_tagging`, and
-  `openedx_learning` (planned — not yet on disk; see below).
+  `openedx_learning` (the CBE applet lives at `src/openedx_learning/applets/cbe/`).
 
   > **Naming collision to watch out for:** the old PyPI package name was
-  > `openedx-learning` (hyphenated); it was renamed to `openedx-core`. The *new*
-  > Python package being introduced for CBE work is **`openedx_learning`**
-  > (underscored module name, a new top-level package inside this same library).
-  > They are different things. `openedx_learning` is not a separate repo or project —
-  > it will live at `src/openedx_learning/` inside this repo. The
-  `.importlinter` contracts enforce the layering.
+  > `openedx-learning` (hyphenated); it was renamed to `openedx-core`. The Python
+  > package that holds the CBE work is **`openedx_learning`** (underscored module
+  > name, a top-level package inside this same library). They are different things.
+  > `openedx_learning` is not a separate repo or project; it lives at
+  > `src/openedx_learning/` inside this repo. The `.importlinter` contracts enforce
+  > the layering, and `AGENTS.md` at the repo root summarizes it.
 - **`openedx-platform`** (formerly `edx-platform` -- still commonly called that in issues,
   PRs, and discussion; recognize both). The big LMS and Studio (CMS) application. It is
   the upper layer and depends on this repo. Grading lives here, and the CBE *evaluation
@@ -168,10 +168,11 @@ groups including nesting; the three-level status model; a re-evaluation workflow
   comments, fetch them live (`gh issue view <n> --comments`) and treat the most recent
   comment on any given point as the current answer, over both earlier comments and the
   original body.
-- **CBE ADRs** under `docs/openedx_learning/decisions/` (all currently proposals; note
-  these ADRs use Context/Decision headings and do not carry a `Status:` line):
+- **CBE ADRs** under `docs/openedx_learning/decisions/`. ADRs 0001 to 0003 use
+  Context/Decision headings and carry no `Status:` line; 0004 onward (mastery
+  concurrency, then the Pathways ADRs) do carry one, so read it before relying on them:
   - `0001-competency-criteria-location.rst`: CBE code lives in this repo at
-    `src/openedx_learning/applets/cbe` (a new `openedx_learning` package).
+    `src/openedx_learning/applets/cbe` (the `openedx_learning` package).
   - `0002-competency-criteria-model.rst`: the data model and domain terms.
   - `0003-competency-criteria-versioning.rst`: the versioning approach.
 - **Tagging foundation**: `src/openedx_tagging/` (`models/base.py`, `api.py`), tables

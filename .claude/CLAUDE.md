@@ -168,6 +168,12 @@ Other context-hygiene defaults:
 
 ## Architecture
 
+- `AGENTS.md` at the openedx-core root is the source of truth for repo facts: commands,
+  database and concurrency rules, package layering, applet rules, and the per-app API
+  module conventions. That repo's own `CLAUDE.md` loads it, so it is already in context
+  whenever the working directory is inside openedx-core. When this file or any document
+  under `.claude/` disagrees with `AGENTS.md`, follow `AGENTS.md` and treat the
+  disagreement as a stale line here to fix.
 - Never import from `openedx-platform`. Code here is the lower layer.
 - Respect the layering in `.importlinter`; `lint-imports` enforces it. Don't loosen a
   rule to fix the build.
