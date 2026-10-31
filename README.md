@@ -10,6 +10,7 @@ an upstream community repo: AI config, local dev setup notes, deployment notes, 
 - [Why bother with all this?](#why-bother-with-all-this)
 - [Claude Setup](#claude-setup)
 - [Using it day to day](#using-it-day-to-day)
+- [License](#license)
 
 ## Contents
 
@@ -149,3 +150,12 @@ the other various tasks.
   acceptance criteria each piece implements beside it and each box colored by blast radius.
 - **Everything else** (`CLAUDE.md`, the principles docs) loads as background context
   automatically. You never invoke it directly, it's just informing every response.
+
+## License
+
+Apache License 2.0. See [LICENSE](LICENSE). Copyright 2026 Unicon, Inc.
+
+Most of this repo was written during Unicon's work for Axim Collaborative on competency-based
+education in Open edX. The `.claude/github-issues/` cache reproduces issue text from
+`openedx/openedx-core` written by many contributors. Copyright in that text stays with its
+original authors and it is not covered by this license.

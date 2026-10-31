@@ -5,5 +5,8 @@ workstream and epic, so ticket drafting doesn't need to re-fetch from GitHub eve
 **GitHub is the source of truth for everything in it** — see each workstream's own README
 for the details on how stale this cache can get and what it deliberately leaves out.
 
+The issue text in this folder was written by its original authors on GitHub and keeps their
+copyright. It is reproduced here for reference only and is not covered by the repo's license.
+
 - [`competency-criteria/`](competency-criteria/README.md) — 8 epics
 - [`student-progress/`](student-progress/README.md) — 6 epics
