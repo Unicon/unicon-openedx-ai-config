@@ -34,7 +34,6 @@ Terms used in the scenarios:
 
 - A **mastery rule** is a competency criterion. A **group** is a competency criteria group. A competency's groups form a tree: one shared root, one course-level group per course, and bottom-tier groups under the course-level group that hold the rules.
 - For MVP every mastery rule evaluates a subsection.
-- A **rule the export cannot carry** is a live mastery rule in one of these states: its subsection is not part of the export (for example, it was deleted from the course after learners were evaluated against it); its subsection's tag association with the competency is archived while the competency itself is live; the competency's tag is archived; or the competency's taxonomy is archived.
 
 ```
 # What the export writes
@@ -98,33 +97,6 @@ Scenario Outline: Archived groups and rules are left out
     | an archived bottom-tier group with rules still recorded under it |
     | an archived course-level group with groups and rules still recorded under it |
 
-Scenario Outline: A live rule the export cannot carry is left out
-  Given a live mastery rule that <condition>
-  When a course author exports the course
-  Then the file contains no equivalent of that rule
-  And the rule's live siblings are recorded
-
-  Examples:
-    | condition |
-    | evaluates a subsection that is not part of the export, such as one deleted from the course after learners were evaluated against it |
-    | evaluates a subsection whose tag association with that competency is archived, while the competency itself is live |
-    | belongs to a competency whose tag is archived |
-    | belongs to a competency whose taxonomy is archived |
-
-Scenario: A group left with no rules is left out
-  Given a bottom-tier group whose only live rule is one the export cannot carry
-  And a sibling bottom-tier group with a live rule the export can carry
-  When a course author exports the course
-  Then the file contains no equivalent of the first group
-  And the sibling group and its rule are recorded
-
-Scenario: A competency left with nothing to record in this course is left out
-  Given a competency whose only rules in this course are ones the export cannot carry
-  And another competency with a live rule in this course that the export can carry
-  When a course author exports the course
-  Then the file does not mention the first competency
-  And the file records the other competency with its groups and rule
-
 Scenario: Learner status, history, and internal identifiers are never exported
   Given learners have mastery statuses against the course's rules, and the rules and groups have edit history
   When a course author exports the course
@@ -143,7 +115,6 @@ Scenario Outline: No competency criteria file is written when there is nothing t
     | a course with no mastery rules |
     | a course tagged only with taxonomies that are not competency taxonomies |
     | a course whose every mastery rule is archived |
-    | a course whose every live mastery rule is one the export cannot carry |
 
 # Failure and permission
 
@@ -175,7 +146,7 @@ openedx-core gets one public function that turns a course run's live competency 
 2. **openedx-platform, call site.** In `CourseExportManager.process_extra` (`xmodule/modulestore/xml_exporter.py`), inside the existing `if tags_count or course_tags_count:` block, pass the course key and that set to `openedx_learning.api.export_competency_criteria_for_course()`. The call belongs inside that block because every criterion points at a tag association, so a course with no tags holds no criteria. When the function returns text, write it to `COMPETENCY_CRITERIA_FILE_NAME` (`competency_criteria.json`) in `export_fs`, beside `tags.csv`. Add no try/except: a failure fails the export, the same way a `tags.csv` failure does, because the `export_tags_in_csv_file` call in `process_extra` has no try/except of its own.
 3. **openedx-core, public surface.** Add `export_competency_criteria_for_course(course_key: CourseKey, object_ids: set[str]) -> str | None` and `COMPETENCY_CRITERIA_FILE_NAME` to `cbe/api.py`'s `__all__`, so `openedx_learning.api` re-exports them. Leave the function without an UNSTABLE marker unless the implementer sees a reason for one; the durable contract is the file format, governed by its `version`. Put the format itself (the version constant, the serializer, and the parser that #696 adds) in a new private module, `cbe/criteria_file.py`.
 4. **What is read.** Resolve the run with `openedx_catalog.api.get_course_run()`, and return `None` when it does not exist. Load the live course-level groups with `CompetencyCriteriaGroup.objects.filter(course=run, archived=False)`, then the live groups below them one level at a time through `parent`, until none remain. Only the course-level group carries `course` (ADR 0002 Decision 2, as amended on 2026-10-22); the groups below it have `course=None`, so a filter on the course alone would miss them. #919 (option C) adds a column to every group in a course-scoped subtree naming that subtree's course; once it lands, one filter on that column replaces the walk. Load the live criteria in those groups in one query, with `select_related` on `object_tag`, its `tag` and `taxonomy`, and `rule_profile`, so the archived checks and the rule read no further rows per criterion.
-5. **What is left out, each with one log line** naming the competency, the content, and the reason. Log at info level, or whatever level the implementer prefers below warning: each of these is an expected state of a course's data, and the export page cannot show it to the author.
+5. **Stale criteria are left out, each with one log line** naming the competency, the content, and the reason. A stale criterion is a live one whose subsection or competency is gone or archived. #895 archives such a criterion when the change happens, so the export meets one only when that cleanup was bypassed, which is why no Acceptance Criteria scenario covers these cases and the tests below do. Log at info level, or whatever level the implementer prefers below warning: each of these is an expected state of a course's data, and the export page cannot show it to the author.
    - a competency whose Tag or taxonomy is archived
    - a criterion whose ObjectTag is archived
    - a criterion whose `object_tag.object_id` is not in `object_ids`, such as a deleted or orphaned block
@@ -230,8 +201,8 @@ openedx-core gets one public function that turns a course run's live competency 
 Tests must cover:
 
 - each archived row left out: a group, a criterion, an ObjectTag, a Tag, and a taxonomy
-- a criterion on a block that is not in `object_ids`
-- emptied groups dropped, up to the whole competency, and no file written when nothing remains
+- each kind of stale criterion left out while its live siblings are kept: one whose block is not in `object_ids`, one whose ObjectTag is archived while its Tag is live, one whose Tag is archived, and one whose taxonomy is archived
+- a bottom-tier group whose only criterion is stale dropped while a sibling group is kept, a competency whose every criterion in the course is stale dropped while another competency is kept, and no file written when nothing remains
 - a rule on the system default profile, and an override
 - a group nested below a bottom-tier group, created directly through the model since no API creates one, serialized under its parent with its own criteria
 - two runs of the same course, each exporting only its own groups
