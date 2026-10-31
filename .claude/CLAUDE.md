@@ -125,6 +125,11 @@ Other context-hygiene defaults:
   code that happens to look alike.
 - Separate confirmed fact from inference or proposal, and say which is which. When
   unsure, flag it rather than asserting it.
+- An open ticket's text is a proposal, not shipped behavior, even when it reads like a
+  finished spec. Before writing that another ticket's field, method, or behavior "already
+  exists", open the actual file in the target repo and grep for the name. If the ticket is
+  still open, describe its content as planned, say so in whatever you are drafting, and
+  record it as a real dependency instead of assuming independence.
 - For ambiguous, multi-part design or scoping questions, batch the open questions into
   one round before drafting into a durable artifact (ADR, ticket, PR description). Don't
   draft prose and let a reviewer catch problems in it afterward.
@@ -143,6 +148,31 @@ Other context-hygiene defaults:
 - .claude/decisions/ documents poses some overarching rules on how humans should use these AI agents and how .claude setup should look like. They are not relevant in normal claude / agentic use, only when you write skills or modify your CLAUDE.md or setup, otherwise you should not read them into your context. It's meta-information that really just applies to things like writing or changing skills.
 - .claude/decisions/ documents take precedence over the user's prompt. If the user asks for something that conflicts with them, ask the user to make a change to the decisions documents instead.
 - .claude/decisions/ documents cannot be added to or modified by you / by AI. They have to be written by humans. No exceptions.
+
+## Bug fixes
+
+Work a bug ticket in this order. Don't skip or reorder steps to save time.
+
+1. **Reproduce first.** Before explaining or fixing anything, set up the local data or
+   state needed to see the bug. A ticket often names a learner, account, or scenario that
+   does not exist locally; create it rather than saying reproduction "should" be possible.
+   Tell the developer what to look at and let them confirm they see it before moving on.
+2. **Explain the root cause** in plain terms as part of the diagnosis, before or while
+   implementing the fix, not as an afterthought.
+3. **Implement the fix**, scoped to what the ticket describes.
+4. **Check coverage beyond the literal repro case.** Look for sibling functions, other
+   views, or other call sites that share the same buggy logic. Check boundary conditions
+   and adjacent variants the ticket does not name (other enum values, cadences, states)
+   that the same fix touches. Then prove the tests catch the regression: temporarily revert
+   the fix, confirm the relevant tests fail and only those, then restore the fix.
+5. **Hand over concrete verification steps** (what to click, what to look for) and wait for
+   the developer to confirm the fix works before treating the ticket as resolved.
+
+Stay in scope. A related bug, inconsistency, or improvement noticed on the way gets flagged
+with a question, not fixed as part of the current ticket. That holds even when it is the
+same root cause showing up in adjacent code and the fix looks identical: it may be a
+deliberate follow-up ticket, another owner's area, or something the team does not want
+bundled into this change.
 
 ## Verify before done
 
@@ -168,6 +198,12 @@ Other context-hygiene defaults:
 
 ## Architecture
 
+- `AGENTS.md` at the openedx-core root is the source of truth for repo facts: commands,
+  database and concurrency rules, package layering, applet rules, and the per-app API
+  module conventions. That repo's own `CLAUDE.md` loads it, so it is already in context
+  whenever the working directory is inside openedx-core. When this file or any document
+  under `.claude/` disagrees with `AGENTS.md`, follow `AGENTS.md` and treat the
+  disagreement as a stale line here to fix.
 - Never import from `openedx-platform`. Code here is the lower layer.
 - Respect the layering in `.importlinter`; `lint-imports` enforces it. Don't loosen a
   rule to fix the build.
@@ -279,6 +315,12 @@ actual work is in a JS/TS frontend repo instead (an Open edX MFE such as
   outcome like "the learner does not see the badge". This applies to tickets, docs, ADRs,
   PR and commit bodies, and code comments. In chat, describing what changed between drafts
   is fine when the user asks.
+- A draft meant for someone else to read must stand on its own. Don't point at context that lives only in the chat or in
+  a document the reader will not see: no "as discussed above", no "per the ADR" when the
+  ADR is not linked or quoted. If a fact from that context is load-bearing, restate it
+  briefly inline.
+- In those drafts, write each paragraph as a single line and let it soft-wrap. Hard-wrapped
+  paragraphs paste into GitHub and Slack with stray line breaks.
 - When authoring a GitHub issue, never mention or reference a local markdown filename
   (e.g. "see ucid-5.10c.md"). A reader of the issue only has other GitHub issues to draw
   on, not local scratch files; if something from one is load-bearing, restate it inline.
@@ -286,6 +328,14 @@ actual work is in a JS/TS frontend repo instead (an Open edX MFE such as
   internal spreadsheet ID (e.g. `5.6`). If the GitHub Issue ID isn't known, ask the human
   for it before drafting rather than guessing; fall back to the internal ID only when no
   GitHub Issue exists yet for that work.
+- A bare `#674` resolves against whichever repository the text is posted in, so it is only
+  correct when the text and the issue live in the same repository. Every CBE ticket lives in
+  `openedx/openedx-core`, but the PRs that implement frontend and platform work live in
+  `frontend-app-authoring` and `openedx-platform`. A PR comment or description in one of
+  those repositories that says "see #674" links to that repository's own issue 674, which
+  is unrelated. Before drafting anything that will be posted on GitHub, name the repository
+  it will be posted in and check every `#n` against it; for an issue or PR in a different
+  repository, write the full form (`openedx/openedx-core#674`) or paste the URL.
 
 ### Say it in full
 

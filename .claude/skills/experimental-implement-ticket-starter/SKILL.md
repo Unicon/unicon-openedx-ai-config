@@ -18,6 +18,7 @@ Before starting, ask the user these questions, unless the user already provided 
 ## Background info
 
 - The frontend and main backend repos (frontend-app-authoring, edx-platform) live in sibling folders to this folder.
+- Read `AGENTS.md` at the openedx-core root first. It gives the commands (dependencies are managed with `uv`, tools run via `uv run <cmd>` or `.venv/bin/<cmd>`), the database and concurrency rules, the package layering, and the applet conventions. It is the source of truth for repo facts.
 - Pull ticket descriptions by using the `gh` tool.
 - Write a steps log to a separate markdown file as you go along - this will serve a future evaluation agent to see how well you did and what can be improved. Don't include the implementation detail or too much content, instead, keep it short and briefly bullet-point outline your approach steps taken, including anything that went right or wrong and any human corrections and iterations needed. This should not contain detail about what exactly is going on in the code but instead just show what approach you took and what worked or not. The whole log should only be focused on that and be max 1 or 2 pages.
 - If not specified, ask the user if the ticket is a subtask. If so, read the parent ticket first, then read the subtask, then read the other subtasks in the parent ticket.

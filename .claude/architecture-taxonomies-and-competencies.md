@@ -1,7 +1,7 @@
 # Taxonomies, Tags & Competencies
 
 > Reference for future Claude agents on the tagging system (`openedx_tagging`) and the
-> Competency-Based Education / competency-criteria design (planned `openedx_learning`).
+> Competency-Based Education / competency-criteria design (the `cbe` applet in `openedx_learning`).
 > Synthesized from [docs/openedx_tagging/decisions/](docs/openedx_tagging/decisions/)
 > and [docs/openedx_learning/decisions/](docs/openedx_learning/decisions/).
 >
@@ -14,7 +14,8 @@ The three layers, bottom to top:
 1. **Tags & Taxonomies** — the controlled vocabulary. *(implemented: `openedx_tagging`)*
 2. **ObjectTags** — attach a tag to a piece of content (or a course, user, etc.). *(implemented)*
 3. **Competencies / Competency Criteria** — reuse tags + ObjectTags, layer evaluation
-   rules and per-learner status on top. *(DESIGN-STAGE — ADRs only, not yet coded)*
+   rules and per-learner status on top. *(implemented: `openedx_learning/applets/cbe`; this doc
+   describes the ADR design, so verify names against the code)*
 
 ---
 
@@ -36,7 +37,7 @@ validation, course-creator permissions) lives in **`openedx-platform`'s
 > **`openedx_tagging` is a package inside `openedx-core`**, not a separate library
 > or project. "No Open edX project dependencies" means no deps *outside this repo*.
 > Intra-repo layering is enforced by `.importlinter`: `openedx_tagging` sits below
-> `openedx_content` and (once created) below `openedx_learning`. Code in higher layers
+> `openedx_content`, `openedx_catalog`, and `openedx_learning`. Code in higher layers
 > may import from `openedx_tagging`, but **`openedx_tagging` must never import from
 > `openedx_learning` or `openedx_content`** — that would be a layering violation
 > caught by `lint-imports`.
@@ -199,10 +200,11 @@ src/openedx_tagging/
 
 ## Part B — Competencies / Competency Criteria (CBE)
 
-> **STATUS: DESIGN-STAGE.** This is fully specified in
-> [docs/openedx_learning/decisions/](docs/openedx_learning/decisions/) (ADRs 0001–0003)
-> but **`src/openedx_learning/` does not yet exist**. Treat the model below as the agreed
-> design, not as code on disk. Verify against the actual source before implementing.
+> **STATUS: IMPLEMENTED, DOC WRITTEN FROM THE ADRs.** The design below is specified in
+> [docs/openedx_learning/decisions/](docs/openedx_learning/decisions/) (ADRs 0001–0003) and
+> the code is on disk at `src/openedx_learning/applets/cbe/`. This section was written
+> from the ADRs, so model and field names here can lag the code. Verify against the actual
+> source before implementing.
 
 ### B.1 What CBE is
 
@@ -373,6 +375,18 @@ Initial approach (deliberately **not** the full publishing framework):
 
 Rejected: deferring versioning entirely; ad-hoc per-model version columns; the full
 publishable framework (too heavy for this phase); a generic append-only event log.
+
+**Who owns archive, delete, and restore of a tag association.** The tagging layer does,
+not CBE. The tagging-guardrails tickets give `Taxonomy`, `Tag`, and `ObjectTag` an
+`archived` flag and give `ObjectTag` a `deletion_locked` flag (#776); `tag_object()` in
+`src/openedx_tagging/api.py` archives a locked association instead of deleting it, and
+un-archives an existing archived row when the same tag is re-applied (#779); ordinary
+reads exclude archived rows (#778). CBE's whole job is to set `deletion_locked` on the
+`ObjectTag` a criterion was evaluated through, at the moment a learner status is written
+(#782), and to call `tag_object()` when an association no longer applies. CBE code must not
+flip `ObjectTag.archived` itself or decide archive-versus-delete on its own; doing so
+duplicates the tagging mechanism and drifts from it. Check any new CBE deletion path
+against this before scoping it.
 
 ### B.6 Worked example (from ADR 0002)
 

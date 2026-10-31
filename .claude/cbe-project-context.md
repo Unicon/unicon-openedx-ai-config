@@ -22,15 +22,15 @@ Open edX is a large, multi-repo learning platform. The repos that matter for thi
   Code here never imports from `openedx-platform`. Database tables use the `oel_` prefix
   (Open edX Learning). Top-level packages under `src/`: `openedx_catalog`,
   `openedx_content`, `openedx_core`, `openedx_django_lib`, `openedx_tagging`, and
-  `openedx_learning` (planned — not yet on disk; see below).
+  `openedx_learning` (the CBE applet lives at `src/openedx_learning/applets/cbe/`).
 
   > **Naming collision to watch out for:** the old PyPI package name was
-  > `openedx-learning` (hyphenated); it was renamed to `openedx-core`. The *new*
-  > Python package being introduced for CBE work is **`openedx_learning`**
-  > (underscored module name, a new top-level package inside this same library).
-  > They are different things. `openedx_learning` is not a separate repo or project —
-  > it will live at `src/openedx_learning/` inside this repo. The
-  `.importlinter` contracts enforce the layering.
+  > `openedx-learning` (hyphenated); it was renamed to `openedx-core`. The Python
+  > package that holds the CBE work is **`openedx_learning`** (underscored module
+  > name, a top-level package inside this same library). They are different things.
+  > `openedx_learning` is not a separate repo or project; it lives at
+  > `src/openedx_learning/` inside this repo. The `.importlinter` contracts enforce
+  > the layering, and `AGENTS.md` at the repo root summarizes it.
 - **`openedx-platform`** (formerly `edx-platform` -- still commonly called that in issues,
   PRs, and discussion; recognize both). The big LMS and Studio (CMS) application. It is
   the upper layer and depends on this repo. Grading lives here, and the CBE *evaluation
@@ -156,6 +156,10 @@ groups including nesting; the three-level status model; a re-evaluation workflow
 
 ## Authoritative in-repo resources
 
+- **Where tickets are filed.** Every CBE ticket is a GitHub issue in
+  `openedx/openedx-core`, whatever repo the work lands in (`openedx-platform`,
+  `frontend-app-authoring`, a plugin repo). When a ticket's work is in another repo, name
+  that repo in the ticket body; don't recommend filing the issue there.
 - **Existing ticket text**: `.claude/github-issues/competency-criteria/` and
   `.claude/github-issues/student-progress/` hold a local cache of GitHub issue
   descriptions, one file per issue, organized by epic (see each folder's `README.md`).
@@ -168,16 +172,43 @@ groups including nesting; the three-level status model; a re-evaluation workflow
   comments, fetch them live (`gh issue view <n> --comments`) and treat the most recent
   comment on any given point as the current answer, over both earlier comments and the
   original body.
-- **CBE ADRs** under `docs/openedx_learning/decisions/` (all currently proposals; note
-  these ADRs use Context/Decision headings and do not carry a `Status:` line):
+- **CBE ADRs** under `docs/openedx_learning/decisions/`. ADRs 0001 to 0003 use
+  Context/Decision headings and carry no `Status:` line; 0004 onward (mastery
+  concurrency, then the Pathways ADRs) do carry one, so read it before relying on them:
   - `0001-competency-criteria-location.rst`: CBE code lives in this repo at
-    `src/openedx_learning/applets/cbe` (a new `openedx_learning` package).
+    `src/openedx_learning/applets/cbe` (the `openedx_learning` package).
   - `0002-competency-criteria-model.rst`: the data model and domain terms.
   - `0003-competency-criteria-versioning.rst`: the versioning approach.
 - **Tagging foundation**: `src/openedx_tagging/` (`models/base.py`, `api.py`), tables
   `oel_tagging_*`. CBE extends this.
 - `architecture-taxonomies-and-competencies.md` for how taxonomies and competencies fit
   the current code.
+
+## External references
+
+- **Competency Criteria Technical Design Document** (Confluence):
+  https://openedx.atlassian.net/wiki/spaces/OEPM/pages/5604573185/Competency+Criteria+Technical+Design+Document.
+  The original design for the whole feature. It is more detailed than any ticket on the
+  authoring-time validation and dominance rules (no overlap in containment paths, parent
+  competencies dominate scope, groups and courses are isolation boundaries), on learner
+  status evaluation timing and the three-state status enum, and on open questions about
+  roles, permissions, and plugin extensibility. Read it before scoping a ticket that
+  touches any of those. Treat it as the record of intent, not of the current design. It
+  was written in December 2025 and January 2026, before the in-repo ADRs and any tickets,
+  and has had only small edits since (the last in September 2026), none of which re-synced
+  it with them: the "Implemented Model" section is empty, the data model points at a
+  superseded "ADR 0022" on a personal fork, versioning is listed as a non-goal while ADR
+  0003 versions the definition models, and the evaluation flow names repos by their old
+  names. When it disagrees with an ADR, a merged ticket, or code on `main`, those win.
+- **Master spreadsheet**, "Competency Criteria & Learner Progress Package Summary"
+  (Google Sheets):
+  https://docs.google.com/spreadsheets/d/1eArBhSKZK2k4qU4LOSdFVlKHcDz2ON6YsnrfifjF5FA/edit.
+  Holds the epic numbers (column D: bare digits for Competency Criteria, `SP`-prefixed for
+  Student Progress), the per-ticket use-case numbers (column E), and sprint assignments.
+  Read it live through the Google Drive connector when those are needed; never copy it
+  into this repo. Reading the whole sheet as one dump breaks row boundaries on
+  multi-paragraph cells, so verify an individual epic or use-case number against the live
+  sheet before relying on it.
 
 ## Naming and source caveats
 
