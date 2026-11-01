@@ -37,7 +37,15 @@ Terms used in the scenarios:
 - A **mastery rule** is a competency criterion. A **group** is a competency criteria group. A competency's groups form a tree: one shared root, one course-level group per course, and bottom-tier groups under the course-level group that hold the mastery rules. For MVP every mastery rule evaluates a subsection.
 - A **rule profile** holds a threshold, such as a grade of at least 75%. A mastery rule either uses a rule profile or carries its own override threshold. For MVP the destination has one rule profile, the default.
 - The **course export** is the package the author uploads. The **criteria file** is the competency criteria file inside it, the one #695 writes.
-- **How the import matches what the course already has.** A mastery rule in the criteria file is already present when the destination course has a live mastery rule for the same competency on the same subsection, wherever that mastery rule sits and whatever its threshold, and the import leaves it exactly as it is. A mastery rule that is not present is added to the one live bottom-tier group that already holds a live mastery rule on any of the subsections the file lists in that rule's group. When no group holds any of them, the import creates a new group with the file's name and way of combining. When two or more groups hold some of them, the import adds nothing from that file group. The import never renames, reorders, or changes the way of combining of an existing group, and it never brings back an archived group or mastery rule. When a competency's course-level group in the course is archived, nothing is imported for that competency. The one exception is an archived shared root, which becomes live again when the import adds a new course-level group beneath it.
+- **How the import matches what the course already has.**
+  - A mastery rule in the file is **already present** when the destination course has a live mastery rule for the same competency on the same subsection, in any group and with any threshold. The import leaves that mastery rule exactly as it is.
+  - A mastery rule that is not present is **added**. To pick its group, the import looks at the other subsections listed in the same group of the file, and finds the live bottom-tier groups in the destination that already hold a live mastery rule on any of those subsections.
+    - When exactly one destination group holds some of those subsections, the new mastery rule joins that group.
+    - When no destination group holds any of them, the import creates a new group with the file's name and way of combining.
+    - When two or more destination groups each hold some of them, the import cannot pick one, so it adds nothing from that group of the file.
+  - The import never renames, reorders, or changes the way of combining of an existing group, and it never brings back an archived group or mastery rule.
+  - When a competency's course-level group in the course is archived, nothing is imported for that competency.
+  - The one exception to "never brings back" is an archived shared root, which becomes live again when the import adds a new course-level group beneath it.
 
 ```
 # Importing into a new course
@@ -87,7 +95,7 @@ Scenario Outline: Each recreated mastery rule keeps the threshold the file recor
   Then the destination has <result>
 
   Examples:
-    | as recorded | destination threshold | result |
+    | as recorded | destination default threshold | result |
     | as using a rule profile, with a grade of at least 75% | a grade of at least 75% | a mastery rule that uses the destination's default rule profile |
     | as using a rule profile, with a grade of at least 75% | a grade of at least 80% | a mastery rule with its own override requiring a grade of at least 75% |
     | as its own override, requiring a grade of at least 85% | a grade of at least 75% | a mastery rule with its own override requiring a grade of at least 85% |
@@ -111,17 +119,18 @@ Scenario Outline: A competency the destination cannot take is skipped as a whole
     | the competency or its taxonomy is archived on the destination |
     | a competency above or below it in the destination's taxonomy already has a live mastery rule in the destination course |
 
-Scenario Outline: A mastery rule whose subsection is not tagged with its competency after the tag import is skipped
+Scenario Outline: A mastery rule is skipped when the content tags import could not tag its subsection with the competency
   Given the file records a mastery rule for a competency on a subsection
-  And on the destination <condition>, so the content tags import leaves that subsection with no live tag for that competency
+  And the content tags import finds a competency by its value, while the criteria file finds it by its identifier
+  And after the export, on the destination, <change>
   When the course export is imported
   Then the destination has no equivalent of that mastery rule
   And the mastery rules beside it in the file are created
 
   Examples:
-    | condition |
-    | the competency has the file's identifier but a different value, which the content tags import matches by value |
-    | a different competency in the same taxonomy now has the value the file's tag association names |
+    | change |
+    | the competency's value was changed, so the content tags import finds no competency with the value the export carries and leaves the subsection with no usable tag for that competency |
+    | the competency's value was given to a different competency in the same taxonomy, so the content tags import tags the subsection with that other competency instead |
 
 Scenario: A group left with no mastery rules is left out, and nothing is created above it
   Given every mastery rule the file records in one bottom-tier group is on a subsection that is not tagged with the competency on the destination
@@ -241,10 +250,10 @@ openedx-core gets one public function that reads the competency criteria file #6
    - A structurally invalid entry skips only itself, and its siblings still import. A criterion skips itself when it has a missing key, an unknown `source`, or a `block_id` for which `course_key.make_usage_key(block_type, block_id)` raises `InvalidKeyError`. Any other problem inside a competency's entry skips that whole competency, for example an unknown `logic_operator` on one of its groups. A competency the file lists twice is skipped, because the import cannot tell which entry is right.
 4. **Look up each competency.** Find the taxonomy with `openedx_tagging.api.get_taxonomy_by_export_id()`, check it with `is_competency_taxonomy()`, and find the Tag with the taxonomy's `tag_for_external_id()`. Skip the competency when the taxonomy or the Tag is missing or archived, or when the taxonomy is not a competency taxonomy.
 5. **Load the run's existing groups and criteria once.**
-   - Load the run's course-level groups with `CompetencyCriteriaGroup.objects.filter(course=run)`. Then load the groups below them one level at a time through `parent`, archived ones included, as #695's export does. Put this walk in one query function, so that once #919 lands, one filter on #919's subtree-course column can replace it.
+   - Load the run's groups, archived ones included, with one filter on the subtree-course column that #919 adds to every group in a course-scoped subtree. That gives the course-level group and every group below it. Reach each shared root through the course-level group's `parent`.
    - Load every criterion in those groups, archived ones included, with `select_related` on `object_tag` and `rule_profile`. Index the criteria by Tag and `object_tag.object_id`.
    - A criterion counts as live only when the criterion, its group, and every group above it are all live.
-6. **Plan each competency in memory first.** The plan reads only the state that step 5 loaded. This matters when the file lists one subsection in two groups, a second association that authoring allows. On a fresh import, the subsection is then created in both groups instead of being counted as already present the second time.
+6. **Plan each competency in memory first.** The plan reads only the state that step 5 loaded. This matters when the file lists one subsection in two groups, a second association that authoring allows, since `_reject_duplicate_criterion()` rejects a duplicate only inside the same group. On a fresh import, the subsection is then created in both groups instead of being counted as already present the second time.
    - **Archived course-level group.** When the run's course-level group for the Tag is archived, skip the competency. The import never reactivates a course-level group.
    - **Dominance.** When a taxonomy ancestor or descendant of the Tag has a live criterion in the run, skip the competency. Reuse the check that `_validate_containment()` makes through `get_courses_with_relative_criteria()`. Step 7 writes competencies one at a time, so this check also finds a relative that the same file added earlier.
    - **Criteria.** A file criterion is the same as a destination criterion when both have the same Tag and the same object id. Build the object id with `course_key.make_usage_key()`.
@@ -253,15 +262,15 @@ openedx-core gets one public function that reads the competency criteria file #6
      - For a missing criterion, find the live ObjectTag for that object id and Tag, and skip the criterion when that ObjectTag is missing or archived. Do not fall back to matching by tag value. An ObjectTag that the tag import could not match has no Tag, and a renamed value can point at a different Tag.
    - **Group for the missing criteria.** For each bottom-tier group in the file, collect the live bottom-tier groups under the run's course-level group that hold a live criterion for any subsection that file group lists.
      - With exactly one such group, add the file group's missing criteria to it. Log when its name or operator differs from the file's.
-     - With two or more, skip the file group's missing criteria and log.
+     - With two or more, the import cannot tell which destination group the file group corresponds to, so skip the file group's missing criteria and log. This rule only decides which existing group a criterion joins; creating several new groups in one import is fine.
      - With none, plan a new bottom-tier group with the file's name, `ordering`, and `logic_operator`, and with `course=None`, the way authoring creates one.
      - `ordering` plays no part in matching, because every group has `ordering` 0 today and the field may be removed later.
      - A group the file nests below a bottom-tier group goes through the same matching one level down, inside its parent's destination group. No API creates such a group, so only a unit test covers this case.
    - **Rule profile or override.** Compare the file's `rule_type` and `rule_payload` with the values of the rule profile that `_get_applicable_rule_profile()` returns, which for MVP is the system default. When they are equal, the new criterion uses that rule profile. Otherwise it carries an override with the file's values. The file's `source` does not change the outcome. Validate each planned override with `validate_rule_payload()` and skip any override it rejects, so the next bullet works from the final set.
    - **Nothing empty.** ADR 0002 forbids persisting an empty group. Plan a new group only when a criterion is added in or beneath it. Create the course-level group, or reactivate an archived root, only when the competency adds at least one criterion.
-7. **Write each competency's plan.** All writes for the whole file happen inside one `transaction.atomic()`.
-   - Do not use `select_for_update()`. `AGENTS.md` in openedx-core reserves it as a last resort that needs a comment explaining why a constraint cannot do the job, and here the unique constraints already handle the root and the course-level group. Factor `_create_leaf_group()`'s two `get_or_create()` calls into a helper that both callers use. `get_or_create()` already recovers from the `IntegrityError` a concurrent insert raises, and the helper keeps the derived names in one place. Pass the file's `root_logic_operator` and the course-level group's `logic_operator` as `defaults`, so only a newly created row takes them. Log when an existing row's operator differs from the file's, counting a null operator as OR. The file's root and course-level group names are the source course's, and the import does not use them.
-   - The duplicate check in step 6 and the dominance check are plain queries. Authoring serializes the same checks by locking the Tag row in `associate_competency_criterion()`. So when an author adds a criterion for the same competency in the same run while the import runs, the author's criterion can get past the import's checks as a duplicate. Accept that race and explain it in a code comment.
+7. **Write each competency's plan.** All writes for the whole file happen inside one `transaction.atomic()`, and the import takes no row locks. The transaction only makes the writes commit or roll back together; it does not lock the rows the import reads.
+   - Do not use `select_for_update()`, which would lock the rows the import reads so that a concurrent author has to wait. `AGENTS.md` in openedx-core reserves it as a last resort that needs a comment explaining why a constraint cannot do the job, and here the unique constraints already handle the root and the course-level group. Factor `_create_leaf_group()`'s two `get_or_create()` calls into a helper that both callers use. `get_or_create()` already recovers from the `IntegrityError` a concurrent insert raises, and the helper keeps the derived names in one place. Pass the file's `root_logic_operator` and the course-level group's `logic_operator` as `defaults`, so only a newly created row takes them. Log when an existing row's operator differs from the file's, counting a null operator as OR. The file's root and course-level group names are the source course's, and the import does not use them.
+   - Because nothing is locked, the duplicate check in step 6 and the dominance check are plain reads. Authoring serializes the same checks by locking the Tag row in `associate_competency_criterion()`. So when an author adds a criterion for the same competency in the same run while the import runs, the author's criterion can get past the import's checks as a duplicate. Accept that race and explain it in a code comment.
    - Reactivate an archived root with `save()`, so that simple-history records the change. Call `get_or_create()` for the run's `CompetencyCourseRun` row, which is meant to exist for every run that has criteria, and do not lock it.
    - Create new groups parent-first, then the criteria, each with `objects.create()`, so that `save()` runs `full_clean()` and simple-history records every row. Do not call `create_competency_criterion()`, because it rewrites the object's tags through `tag_object()`. The import never changes Tags, ObjectTags, or learner status.
    - Any exception rolls back the whole file and propagates, so the course import fails.
@@ -270,21 +279,26 @@ openedx-core gets one public function that reads the competency criteria file #6
 
 Tests must cover, beyond the Acceptance Criteria:
 
-- a group nested below a bottom-tier group, created through the model, and a criterion the file lists directly on the course-level group
-- a subsection listed in two file groups, created in both groups on a fresh import
-- two file groups whose missing criteria resolve to the same destination group
+Entries the import skips, or failures:
+
 - each structurally invalid entry, where only that criterion or competency is skipped
-- a new root created with the file's operator, and an existing root or course-level group whose operator differs from the file's, which is kept and logged, with a null operator treated as OR
 - a criterion whose subsection is not in the destination course, whose ObjectTag is archived, or whose ObjectTag has no Tag
 - an override that `validate_rule_payload()` rejects
-- a live bottom-tier group with no criteria, which is never matched
 - the dominance skip, including a relative added earlier from the same file
 - a missing `CourseRun`, and a failure partway through that rolls everything back
 - openedx-platform: a missing file does nothing, and an unexpected error fails the import
 
+Shapes that import cleanly:
+
+- a group nested below a bottom-tier group, created through the model, and a criterion the file lists directly on the course-level group
+- a subsection listed in two file groups, created in both groups on a fresh import. Authoring allows this: `_reject_duplicate_criterion()` rejects a second criterion for the same competency and subsection only inside the same group
+- two file groups whose missing criteria resolve to the same destination group. For example, the file has groups {A, B} and {C, D}, and the destination author merged A and C into one group, so B joins it through A and D joins it through C
+- a new root created with the file's operator, and an existing root or course-level group whose operator differs from the file's, which is kept and logged, with a null operator treated as OR
+- a live bottom-tier group with no criteria, which is never matched
+
 Out of scope:
 
-- showing the author, on the import page, which entries were skipped or differ
+- showing the author, on the import page, which entries were skipped or differ. The import page shows success or one failure message, and a `tags.csv` error is only logged today, so skips here are logged the same way. Layering does not forbid an author-facing message; a warning channel on the import page would be new work.
 - course-final-grade criteria, taxonomy-scoped rule profiles, and creating groups nested below a bottom-tier group through the API
 - the tag import's difference logic, and the cleanup of criteria whose subsection tag the course export dropped (#895, #779)
 - library copy (#697, #698)
@@ -303,7 +317,8 @@ Out of scope:
 
 **Additional context**
 
-- The work is two PRs. The openedx-core PR goes first and needs #695's `criteria_file.py`. The openedx-platform PR then raises the openedx-core requirement and merges together with #695's openedx-platform PR.
+- The work is two PRs. The openedx-core PR goes first and needs #695's `criteria_file.py`. The openedx-platform PR then raises the openedx-core requirement. It can land independently of #695's openedx-platform PR: a criteria file that no importer reads yet is ignored, and an importer that finds no file does nothing.
+- #919 lands first. Step 5 loads a run's groups with the subtree-course column #919 adds; without it, the only way to find a run's bottom-tier groups is to walk down through `parent` one level at a time.
 - #895 ships with this ticket and #695. It changes a tag re-import to apply only the differences between the course export's tags and the course's tags. As a result, an unchanged re-import removes no criterion, and a criterion is missing at this step only when the author removed it, or when the course export dropped its subsection's tag.
 - The lookups use the `archived` fields that #776 adds, so #776 is needed even for a fresh import.
 - #717 also changes `_create_leaf_group()`, to reactivate an archived root and to reject an archived course-level group, and makes the duplicate check count only live criteria. The import follows the same three rules, so whichever of the two tickets lands second reuses the other's helper.

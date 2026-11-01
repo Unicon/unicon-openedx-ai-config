@@ -231,7 +231,7 @@ Out of scope:
 
 **Additional context**
 
-- The work is two PRs. The openedx-core PR goes first; the openedx-platform PR then raises the openedx-core requirement to a version that contains the function. Merge the openedx-platform PRs for this ticket and #696 together, because #895 relies on re-import recreating the rules that a tag re-import deletes.
+- The work is two PRs. The openedx-core PR goes first; the openedx-platform PR then raises the openedx-core requirement to a version that contains the function. The openedx-platform PR can land independently of #696's: a criteria file that no importer reads yet is ignored. #895 keeps a re-import's existing rules in place, so nothing depends on #696 recreating them.
 - The archived filters on Tag, Taxonomy, and ObjectTag use the fields #776 adds. #776 is open, so until it merges those three left-out cases cannot occur and their tests wait on it.
 - ADR 0011 (openedx_tagging, Proposed) describes creating taxonomies automatically on import. This format makes no provision for it.
 - Prior art: `generate_csv_rows` in `content_tagging/api.py` and `helpers/objecttag_export_helpers.py` for the `tags.csv` walk, and `_export_drafts` in `xml_exporter.py` for how draft-only units are exported.
