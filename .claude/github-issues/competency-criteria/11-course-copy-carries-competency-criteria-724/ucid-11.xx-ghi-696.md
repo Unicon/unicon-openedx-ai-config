@@ -153,12 +153,18 @@ Scenario: A mastery rule the course run is missing is added to the group that ho
   Then the fourth mastery rule is added to that same group
   And the three mastery rules already there are unchanged, with their learner statuses
 
-Scenario: A file group the course run no longer has is recreated beside the existing groups
-  Given a course run with two bottom-tier groups for a competency
-  And a course export of that run taken when it also had a third bottom-tier group, which the author has since removed with all of its mastery rules
+Scenario Outline: A file group the course run no longer has is recreated beside the existing groups
+  Given a course run with two live bottom-tier groups for a competency
+  And a course export of that run taken when it also had a third bottom-tier group, which the author has since removed with all of its mastery rules, <how it was removed>
   When the course export is imported into that course run
-  Then the course run has that third group again, with the name, way of combining, and mastery rules the file records
+  Then the course run has a live third group again, with the name, way of combining, and mastery rules the file records
   And the two existing groups are unchanged
+  And <what is left of the removed group>
+
+  Examples:
+    | how it was removed | what is left of the removed group |
+    | and no learner had been evaluated against them, so the group and its mastery rules were deleted | nothing of the deleted group remains |
+    | after learners had been evaluated against them, so the group and its mastery rules were archived | the archived group and its mastery rules stay archived, with their learner statuses unchanged |
 
 Scenario: A mastery rule the course run holds in a different group than the file records stays where it is
   Given the author removed a mastery rule from one bottom-tier group and created the same mastery rule again in another bottom-tier group for the same competency
