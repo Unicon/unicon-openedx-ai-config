@@ -353,3 +353,33 @@ Out of scope:
 - The `CourseRun` row normally exists by this step. `course_published` is sent when the first `bulk_operations` block of the import closes, and `_listen_for_course_publish` in `openedx/core/djangoapps/content/course_overviews/signals.py` creates the row.
 
 </details>
+
+<details>
+<summary>Appendix: how the import treats content, tags, and criteria differently</summary>
+
+A course import does not treat competency criteria the way it treats course content and content tags. Content and tags are imported as "make the course run look like the course export". Criteria are imported as "add what the run is missing, and never take anything away". The difference is deliberate, and the reason is learner status: a criterion can have mastery results recorded against it, and a subsection or a tag association cannot.
+
+The table compares the three layers on the same questions. The content column describes the split modulestore importer as it works today. The tag column describes the tag import after #895. The criteria column describes this ticket.
+
+| Question | Subsections (content) | Tag associations (tags.csv, after #895) | Criteria and groups (this ticket) |
+| --- | --- | --- | --- |
+| What is the course export's role? | The source of truth. The run is rewritten to match it. | The source of truth. Only differences are applied, but the end state matches the export. | A list of suggestions. Anything already in the run wins. |
+| Something in the export that the run lacks | Created. | Created. | Created, in the group holding its siblings, or in a new group. |
+| Something in the run that the export lacks | Becomes an orphan: out of the outline, never deleted. | Removed. A block the export does not list loses all its associations, which cascades to its criteria. | Left alone. The import never removes a criterion or a group. The tag removal in the previous column is what takes a rule away. |
+| Same item in both, but different | The export's version replaces the run's: fields, children, position. | The export's tag set replaces the run's for that block. | The run's version is kept: threshold, name, operator, and which group it sits in. |
+| Item moved to a different parent | Follows the export. One copy, under the export's parent. | Not applicable. An association has no parent. | Stays where the author put it. The export's group placement is ignored. |
+| Author's edits since the export | Overwritten, including drafts. | Overwritten. | Kept. |
+| Archived item in the run | Not applicable. Content has no archive state. | Revived if the export carries it again (#779). | Stays archived. A fresh criterion is created beside it, and an archived course-level group blocks the whole competency. |
+| Learner history | Not affected by the import. Grades key on the usage key, which survives. | None attached. | The reason for every row above: statuses hang off a criterion, so it is never replaced or moved. |
+| Importing the same export twice | The second import changes nothing. | The second import changes nothing. | The second import changes nothing. |
+
+The two places where the lack of parity shows up most:
+
+- An author who re-imports a course to reset it gets reset content and reset tags, but keeps every threshold, group name, operator, and group placement changed since the export. Only rules whose subsection lost its tag go away, and only through the tag import.
+- A subsection the export drops disappears from the outline, loses its tags, and loses its rule, all through the content and tag imports. The criteria import plays no part in removal. That is consistent with #895 owning cleanup, but it means a rule survives a re-import only if its tag does.
+
+Parity would be wrong in the "archived item" and "same item, but different" rows. Replacing a criterion that has learner statuses would either orphan those statuses or delete history, which is what the archive rules exist to prevent. Parity is missing without a strong reason in the "moved to a different parent" row: the import could follow the file's group placement for a rule with no learner status, the way content follows the export. This ticket chose one rule for every rule, regardless of history, because that is simpler to explain and to test.
+
+An alternative considered and left out of this ticket: treat the course export as the source of truth when the course run has no competency statuses at all, by deleting the run's criteria and groups and recreating them from the file, and fall back to the add-only behavior above once any status exists. It would give an unlaunched run the same reset semantics as content and tags. It is left out because the two behaviors would differ only for an author who edits rules after exporting and then re-imports into the same unlaunched run, and because it adds a second code path and a mode switch that an author cannot see. It can be added later without changing anything this ticket does.
+
+</details>
