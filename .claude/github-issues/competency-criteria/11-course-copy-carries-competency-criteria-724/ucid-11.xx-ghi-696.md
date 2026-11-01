@@ -57,6 +57,7 @@ Scenario: Importing into a new course recreates the file's groups and mastery ru
   Then the destination course has a course-level group for that competency holding two bottom-tier groups
   And each bottom-tier group has the name and the way of combining its children that the file records
   And the course-level group is named the way the destination names a course-level group an author creates by hand
+  And the course-level group combines its bottom-tier groups the way the file records
   And each mastery rule evaluates the destination course's own copy of the subsection the file names
   And the import reports success to the author as usual
 
@@ -152,17 +153,39 @@ Scenario: A mastery rule the course run is missing is added to the group that ho
   Then the fourth mastery rule is added to that same group
   And the three mastery rules already there are unchanged, with their learner statuses
 
+Scenario: A file group the course run no longer has is recreated beside the existing groups
+  Given a course run with two bottom-tier groups for a competency
+  And a course export of that run taken when it also had a third bottom-tier group, which the author has since removed with all of its mastery rules
+  When the course export is imported into that course run
+  Then the course run has that third group again, with the name, way of combining, and mastery rules the file records
+  And the two existing groups are unchanged
+
+Scenario: A mastery rule the course run holds in a different group than the file records stays where it is
+  Given the author removed a mastery rule from one bottom-tier group and created the same mastery rule again in another bottom-tier group for the same competency
+  And the file records that mastery rule in the first group
+  When the course export is imported into that course run
+  Then the mastery rule exists once, live, in the group the author moved it to
+  And no copy of it is created in the first group
+
+Scenario: Two file groups whose mastery rules the author merged into one group both add to that group
+  Given the file records two bottom-tier groups for a competency, one with mastery rules on subsections A and B, the other with mastery rules on subsections C and D
+  And in the course run the author merged them, so one live bottom-tier group holds the mastery rules on A and C, and no mastery rule exists for B or D
+  When the course export is imported into that course run
+  Then the mastery rules on B and D are added to that one group, which then holds A, B, C, and D
+  And no new group is created
+
 Scenario: A mastery rule the course run already has keeps its own threshold
   Given a mastery rule in the course run that learners have been evaluated against requires a grade of at least 80%
   And the file records that mastery rule with a grade of at least 75%
   When the course export is imported
   Then the mastery rule still requires a grade of at least 80%, and its learner statuses are unchanged
 
-Scenario: A group that receives a mastery rule keeps its own name and way of combining
+Scenario: Groups that receive a mastery rule keep their own names and ways of combining
   Given the group in the course run that holds the file group's other mastery rules has a different name and a different logic operator from the ones the file records
+  And the course-level group above it has a different logic operator from the one the file records
   When the course export is imported into that course run
   Then the missing mastery rule is added to that group
-  And the group's name and logic operator are unchanged
+  And both groups' names and logic operators are unchanged
 
 Scenario: A file group whose mastery rules are split across two groups in the course run adds nothing
   Given the file records a bottom-tier group with three mastery rules
@@ -292,7 +315,6 @@ Shapes that import cleanly:
 
 - a group nested below a bottom-tier group, created through the model, and a criterion the file lists directly on the course-level group
 - a subsection listed in two file groups, created in both groups on a fresh import. Authoring allows this: `_reject_duplicate_criterion()` rejects a second criterion for the same competency and subsection only inside the same group
-- two file groups whose missing criteria resolve to the same destination group. For example, the file has groups {A, B} and {C, D}, and the destination author merged A and C into one group, so B joins it through A and D joins it through C
 - a new root created with the file's operator, and an existing root or course-level group whose operator differs from the file's, which is kept and logged, with a null operator treated as OR
 - a live bottom-tier group with no criteria, which is never matched
 
