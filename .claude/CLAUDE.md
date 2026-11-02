@@ -3,6 +3,18 @@
 This is `openedx-core`: a published Django library of apps used by `openedx-platform`
 and community plugins. Treat public APIs as contracts and keep changes small.
 
+## Where to run
+
+Start Claude Code from the workspace root: the folder that holds `openedx-core`,
+`frontend-app-authoring`, and the other repositories as children, with this `.claude/`
+symlinked into it (setup: see the README). Claude Code reads `settings.json` only from the
+working directory, and discovers project skills and agents by walking up from the working
+directory to the repository root, no further. A session started inside one of the
+repositories still loads this file from the parent folder but sees no team skills, agents,
+or settings. If the working directory is inside one of the repositories rather than the
+workspace root, say so at the start of the session and suggest restarting from the
+workspace root.
+
 ## Which skill to use
 
 - Implementing a non-trivial change: use the superpowers skills
@@ -198,12 +210,12 @@ bundled into this change.
 
 ## Architecture
 
-- `AGENTS.md` at the openedx-core root is the source of truth for repo facts: commands,
-  database and concurrency rules, package layering, applet rules, and the per-app API
-  module conventions. That repo's own `CLAUDE.md` loads it, so it is already in context
-  whenever the working directory is inside openedx-core. When this file or any document
-  under `.claude/` disagrees with `AGENTS.md`, follow `AGENTS.md` and treat the
-  disagreement as a stale line here to fix.
+- The root `AGENTS.md` of the repository the task touches is the source of truth for that
+  repository's facts. Read it before working there. `openedx-core` and
+  `frontend-app-authoring` each have one; openedx-core's covers commands, database and
+  concurrency rules, package layering, applet rules, and the per-app API module
+  conventions. When this file or any document under `.claude/` disagrees with that
+  `AGENTS.md`, follow `AGENTS.md` and treat the disagreement as a stale line here to fix.
 - Never import from `openedx-platform`. Code here is the lower layer.
 - Respect the layering in `.importlinter`; `lint-imports` enforces it. Don't loosen a
   rule to fix the build.
@@ -324,18 +336,15 @@ actual work is in a JS/TS frontend repo instead (an Open edX MFE such as
 - When authoring a GitHub issue, never mention or reference a local markdown filename
   (e.g. "see ucid-5.10c.md"). A reader of the issue only has other GitHub issues to draw
   on, not local scratch files; if something from one is load-bearing, restate it inline.
-- When a ticket references another ticket, use its GitHub Issue ID (e.g. `#674`), not an
-  internal spreadsheet ID (e.g. `5.6`). If the GitHub Issue ID isn't known, ask the human
-  for it before drafting rather than guessing; fall back to the internal ID only when no
-  GitHub Issue exists yet for that work.
-- A bare `#674` resolves against whichever repository the text is posted in, so it is only
-  correct when the text and the issue live in the same repository. Every CBE ticket lives in
-  `openedx/openedx-core`, but the PRs that implement frontend and platform work live in
-  `frontend-app-authoring` and `openedx-platform`. A PR comment or description in one of
-  those repositories that says "see #674" links to that repository's own issue 674, which
-  is unrelated. Before drafting anything that will be posted on GitHub, name the repository
-  it will be posted in and check every `#n` against it; for an issue or PR in a different
-  repository, write the full form (`openedx/openedx-core#674`) or paste the URL.
+- When a ticket, PR body, or comment references an issue or PR, paste its full GitHub URL
+  (e.g. `https://github.com/openedx/openedx-core/issues/674`), not a bare `#674` and not an
+  internal spreadsheet ID (e.g. `5.6`). A bare number resolves against whichever repository
+  the text is posted in: the same sentence pasted into a `frontend-app-authoring` or
+  `openedx-platform` PR links to that repository's unrelated issue 674, and in Slack or
+  Confluence it links to nothing. GitHub renders a same-repository URL as `#674` on the
+  page, so the URL costs the reader nothing there. If the GitHub issue isn't known, ask the
+  human for it before drafting rather than guessing; fall back to the internal ID only when
+  no GitHub issue exists yet for that work.
 
 ### Say it in full
 
