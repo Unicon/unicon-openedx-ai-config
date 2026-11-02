@@ -7,7 +7,7 @@ description: Use when asked to manually test a pull request, set up a PR for man
 
 Command: `/manual-testing <PR URL> [testing instructions]`. The skill checks out the PR and the branches it depends on in the clones Tutor mounts, makes the devstack run that code, seeds named test data, and for backend changes runs a very simple demo script of the PR's testing steps. The person then follows those testing steps with everything ready, and the skill cleans up once they say they are done.
 
-`<clones>` is the parent directory of the clone that `~/.virtualenvs/tutor/bin/tutor mounts list` reports for the PR's repo. `<artifacts>` is `<clones>/pr-reviews/<repo>-<n>/manual-testing/`, created with `mkdir -p` once step 2 has found manual steps. Every file the skill writes goes there. `<prefix>` is `mt_pr<n>_`. Always pass `gh` the full PR or issue URL, or `--repo`, because the clones' remotes are often forks.
+`<clones>` is the parent directory of the clone that `~/.virtualenvs/tutor/bin/tutor mounts list` reports for the PR's repo. `<artifacts>` is `<clones>/pr-reviews/<repo>-<n>/manual-testing/`, created with `mkdir -p` once step 2 has found manual steps. Every file the skill writes goes there. Write the scripts and notes with the file-writing tool, because the shell may have `noclobber` set, which can make `>` and `>>` fail. `<prefix>` is `mt_pr<n>_`. Always pass `gh` the full PR or issue URL, or `--repo`, because the clones' remotes are often forks.
 
 ## Local setup
 
@@ -26,10 +26,10 @@ Only the mounted clones reach the containers. A worktree or another copy of the 
 Run a Python script in the CMS with:
 
 ```bash
-docker exec -i tutor_main_dev-cms-1 python manage.py cms shell --no-imports < <script> 2> <artifacts>/<script name>.stderr.log
+docker exec -i tutor_main_dev-cms-1 python manage.py cms shell --no-imports < <script> 2>| <artifacts>/<script name>.stderr.log
 ```
 
-`--no-imports` and the stderr redirect keep the output down to the script's own prints. When the command exits nonzero, show the last 30 lines of the log.
+`--no-imports` and the stderr redirect keep the output down to the script's own prints. `2>|` lets a rerun overwrite the log when the shell has `noclobber` set. When the command exits nonzero, show the last 30 lines of the log.
 
 ## Steps
 
@@ -69,7 +69,7 @@ Write the list as a table for the person: repo, PR, state, branch, local clone. 
 2. When the clone's `HEAD` already equals the PR's `headRefOid`, keep it as is.
 3. Otherwise record one line `<pr headRefOid> manual-test/<repo>-<n> <original branch> <clone path>` in `<artifacts>/original-branches.txt`, with the clone path last because it may contain spaces, then run `gh pr checkout <pr url> --branch manual-test/<repo>-<n>`. When `manual-test/<repo>-<n>` already exists, add `--force` only if `git log <pr head>..manual-test/<repo>-<n>` is empty. Otherwise the branch holds the person's own commits, so ask. For a detached HEAD, where `git branch --show-current` prints nothing, record the output of `git -C <clone> rev-parse HEAD` in place of the original branch. When the clone is already on `manual-test/<repo>-<n>`, keep the line already recorded for that clone and record no new one.
 
-**5. Make the devstack run the checked-out code.** Start any stopped container with `~/.virtualenvs/tutor/bin/tutor dev start -d`. Then do what the changed files call for, and record each action for the handover:
+**5. Make the devstack run the checked-out code.** Start any stopped container with `~/.virtualenvs/tutor/bin/tutor dev start -d`. Then compare each clone's original branch with its checked-out branch, do what the files that differ call for, and record each action for the handover:
 
 | Changed files | Action |
 | --- | --- |
@@ -79,16 +79,16 @@ Write the list as a table for the person: repo, PR, state, branch, local clone. 
 | `package.json` or `package-lock.json` | `docker exec tutor_main_dev-authoring-1 npm ci`, then `~/.virtualenvs/tutor/bin/tutor dev restart authoring` |
 | A feature flag the steps name | An MFE flag: check `.env.development` in the container and ask before editing a tracked file. A waffle flag: turn it on in the seed script. |
 
-Then confirm each app answers: `curl -s -o /dev/null -w '%{http_code}' <url>` for Studio and for the MFE page under test. The MFE's first build after a restart takes 30 to 40 seconds, so poll before calling it broken. For the MFE's login flow and router details, the run-frontend-app-authoring skill has them.
+Then confirm each app answers: `curl -sL -o /dev/null -w '%{http_code}' <url>` for Studio and for the MFE page under test. For a frontend PR, also check that the served `app.js` contains a string the PR adds, because the page answers 200 before the new code is built. The MFE's first build after a restart takes 30 to 40 seconds, so poll before calling it broken. For the MFE's login flow and router details, the run-frontend-app-authoring skill has them.
 
 **6. Seed the test data.** Write `<artifacts>/seed.py` and run it in the CMS. Before writing it, check every model, field, and import against the checked-out code, because PR bodies and issues often name them wrong. Earlier seed scripts (`<clones>/*seed*.py`, `<clones>/pr-reviews/*/manual-testing/seed.py`) show working patterns. The seed:
 
-- Creates everything the testing steps need, so they never depend on rows left over from earlier work. Every object's name or key starts with `<prefix>`.
+- Creates everything the testing steps need, so they never depend on rows left over from earlier work. Every object's name or key starts with `<prefix>`. In a key with a fixed format, such as a usage key, the last part (for a usage key, the block ID) starts with it instead.
 - Brings those objects to the testing steps' starting state on every run: `get_or_create`, then reset any field a step changes, and recreate any row a step deletes. A rerun of seed then demo shows the same output.
-- Creates users with a `User` and a `UserProfile` (login fails without the profile) and password `<prefix>password`. One user per role the steps mention. The permitted user gets the narrowest role that passes the view's permission check, such as `CourseStaffRole` on the demo course. The user for a 403 or hidden-control check is an active non-staff user with no course role.
+- Creates users with a `User`, a `UserProfile` (login fails without the profile), the email `<username>@example.com` (the login form asks for the email), and password `<prefix>password`. One user per role the steps mention. The permitted user gets the narrowest role that passes the view's permission check, such as `CourseStaffRole` on the demo course. The user for a 403 or hidden-control check is an active non-staff user with no course role.
 - Ends by printing each object's ID and the exact URLs the testing steps use.
 
-Write `<artifacts>/cleanup.py` together with `seed.py`; it runs in the CMS with the same command. It deletes every seeded object, with one `delete()` per model, filtered by `startswith` on `<prefix>` against the same name, key, or username field the seed sets, in reverse creation order with users last. It prints one line per model with the deleted count, so a second run deletes nothing and prints zeros.
+Write `<artifacts>/cleanup.py` together with `seed.py`; it runs in the CMS with the same command. It deletes every seeded object with one `delete()` per model, in reverse creation order with users last, filtering the name, key, or username field the seed set with `startswith` on `<prefix>` (`contains` for a fixed-format key). It prints one line per model with the deleted count, so a second run deletes nothing and prints zeros.
 
 **7. Frontend PRs: add what the person needs to the testing steps.** The person tests by following the PR's testing steps in the browser. Copy the steps as written. Add a line under a step only when the person cannot follow or judge that step without it, and only for one of these two needs:
 
@@ -111,7 +111,7 @@ Each block is:
 3. the one action the step describes, against the seeded objects,
 4. one labeled `print` per value the expected result names, such as `print("Status code:", response.status_code)` or `print("Row still exists:", CompetencyCriterion.objects.filter(id=criterion_a.id).exists())`.
 
-Every line holds one statement. A step that sends two requests is two blocks. Before running the script, check it: when it contains `def`, `lambda`, `for`, `;`, or a name shorter than three letters, rewrite those parts as plain repeated lines. Repetition is the point, because the person reads each block on its own.
+Every line holds one statement. A step with two actions, such as two requests, is two blocks. Before running the script, check it: when its code outside string literals contains `def`, `lambda`, `for`, `;`, or a name shorter than three letters, rewrite those parts as plain repeated lines. Repetition is the point, because the person reads each block on its own.
 
 When the steps describe an HTTP endpoint, call that endpoint, not the Python function behind it. Use DRF's `APIClient` with `force_authenticate` (the CMS shell has no login session, so `Client.force_login` fails there). The level of simplicity:
 
@@ -155,8 +155,8 @@ Run the seed, then the demo, with the command from Local setup. The rerun comman
 2. Go through each line of `original-branches.txt`, if the file exists.
    - When the clone has tracked changes, or `git -C <clone> branch --show-current` does not print the recorded `manual-test/<repo>-<n>` branch, leave that clone alone and tell the person.
    - Otherwise check out the recorded original branch or commit.
-   - Then delete the branch with `git -C <clone> branch -D manual-test/<repo>-<n>`, but only when `git -C <clone> log <pr head>..manual-test/<repo>-<n>` is empty, which is the same check step 4 uses. Otherwise leave the branch and say that it holds commits beyond the PR head.
-3. Run the step 5 actions again for the files that differ between each restored branch and the PR branch, so the devstack runs the original code. Migrations that step 5 applied stay applied; name them for the person.
+   - Then delete the branch with `git -C <clone> branch -D manual-test/<repo>-<n>`, but only when `git -C <clone> log <recorded PR head>..manual-test/<repo>-<n>` is empty, which is the same check step 4 uses. Otherwise leave the branch and say that it holds commits beyond the PR head.
+3. Run the step 5 actions again for the files that differ between each restored branch and the PR branch, so the devstack runs the original code. Then repeat step 5's health checks. Migrations that step 5 applied stay applied; name them for the person.
 4. Leave `<artifacts>` in place for a later rerun, and say so.
 
 End with one short message that says what was cleaned up and what was left in place, and why.
