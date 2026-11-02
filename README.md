@@ -9,6 +9,8 @@ an upstream community repo: AI config, local dev setup notes, deployment notes, 
 - [Contents](#contents)
 - [Why bother with all this?](#why-bother-with-all-this)
 - [Claude Setup](#claude-setup)
+- [Using Claude Code and Codex together](#using-claude-code-and-codex-together)
+- [AI Code Reviews](#ai-code-reviews)
 - [Using it day to day](#using-it-day-to-day)
 
 ## Contents
@@ -131,6 +133,74 @@ perform the same functionality with minimal concern. Again, though, this is only
 at the time of this writing, namely the code review functionality, and has not been tested with
 the other various tasks.
 
+## Using Claude Code and Codex together
+
+[T3 Code](https://t3.codes/) is a desktop app that runs Claude Code and Codex agents side by
+side, using the Claude and ChatGPT subscriptions you already have. T3 Code calls each agent
+service it connects to a provider. An agent running in T3 Code can delegate a task to an agent
+from the other provider: a Claude agent can hand implementation to a GPT agent, for example,
+and review the result when it comes back.
+
+T3 Code is optional, but recommended for code reviews. [AI Code Reviews](#ai-code-reviews)
+explains why.
+
+**1. Install T3 Code.** On macOS, run:
+
+```
+brew install --cask t3-code
+```
+
+You can also download the app from [t3.codes](https://t3.codes/). T3 Code's
+[install guide](https://github.com/pingdotgg/t3code/blob/main/docs/user/install.md) covers
+Windows and Linux.
+
+**2. Add your Claude Code subscription as a provider.** T3 Code runs the Claude Code CLI you
+installed for the [Claude Setup](#claude-setup) and reuses that CLI's login. If you have not
+signed in to the CLI yet, run `claude auth login`. Then, in T3 Code, open
+**Settings → Providers** and enable Claude.
+
+**3. Add your Codex subscription as a provider.** In **Settings → Providers**, enable Codex and
+click **Connect with ChatGPT**. If you already use the Codex CLI, running `codex login` on the
+same machine also works.
+
+**4. Update any provider CLI that T3 Code flags.** Delegating between providers needs a recent
+version of both CLIs. If **Settings → Providers** flags a provider's version as too old, update
+that CLI.
+
+**5. Open your workspace in T3 Code.** Open the `axim` workspace directory as a project, so
+agents start there and read the symlinked `.claude/` folder, the same way the VS Code panel
+does.
+
+To delegate work, ask for it in your prompt. For example, select Claude Opus in T3 Code and send
+the message below. It shows the shape of a delegating prompt, not a recommended prompt.
+
+> Write an implementation plan for the ticket I'm working on. Then delegate implementation to a
+> new GPT-6.1-Sol agent. Then you should code review the implementation.
+
+## AI Code Reviews
+
+Run `/backend-code-review` for a backend change and `/frontend-code-review` for a frontend
+change. Both skills build on the `code-review-openedx` skill. They write every file they
+produce, including the final review, to a `pr-reviews/` folder in the session's working
+directory.
+
+Where you run the skill decides whether the review includes an adversarial review from a
+ChatGPT model. An adversarial review tries to break the change: it looks for an input or a
+sequence of events that makes the code fail, and for claims in the change that are false.
+
+- **In Claude Code**, either the CLI or the VS Code panel, the review runs Claude agents only.
+  Claude Code cannot start a ChatGPT agent, so the review skips that step and tells you it did.
+- **In a Claude thread in T3 Code**, meaning a T3 Code conversation running a Claude model,
+  **with both the Claude and Codex providers enabled**, the review also hands the change to a
+  GPT-6.1-Sol agent, without any extra prompting from you. A different model tends to spot
+  different problems. The Claude session checks each of the GPT agent's findings against the
+  code before adding it to the final review, the same way it checks its own sub-agents'
+  findings.
+
+T3 Code is not required, but run your reviews in it when you can, or find another way to add an
+adversarial review from a ChatGPT model, because the second model should raise the quality of
+the review.
+
 ## Using it day to day
 
 - **Writing or reviewing a ticket:** follow [`ticketDraftingWorkflow.md`](ticketDraftingWorkflow.md).
@@ -142,7 +212,8 @@ the other various tasks.
   plan, then implement it test-first. Claude asks you to install superpowers if it is
   missing. Skip this for trivial changes like renames or typo fixes.
 - **Reviewing a diff or PR:** the `frontend-code-review` or `backend-code-review` skill as appropriate.
-  For a frontend PR, `frontend-code-review` first hands you a Markdown file with the PR's component
+  Run it in T3 Code to include an adversarial review from a ChatGPT model; see
+  [AI Code Reviews](#ai-code-reviews). For a frontend PR, `frontend-code-review` first hands you a Markdown file with the PR's component
   tree (edited and new components in red, notes on what changed), made by the `pr-component-tree`
   skill, which you can also run on its own. To know where to start reading a long PR, the
   `pr-reading-order` skill draws an SVG of its main threads of execution, top to bottom, with the
