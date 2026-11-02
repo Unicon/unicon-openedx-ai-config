@@ -167,9 +167,10 @@ same machine also works.
 version of both CLIs. If **Settings → Providers** flags a provider's version as too old, update
 that CLI.
 
-**5. Open your workspace in T3 Code.** Open the `axim` workspace directory as a project, so
-agents start there and read the symlinked `.claude/` folder, the same way the VS Code panel
-does.
+**5. Open your workspace in T3 Code.** Open the `openedx` workspace directory as a project, or
+whatever parent folder you have for your Open edX setup that contains `openedx-core` or
+`frontend-app-authoring` as subfolders. Agents then start there and read the symlinked
+`.claude/` folder, the same way the VS Code panel does.
 
 To delegate work, ask for it in your prompt. For example, select Claude Opus in T3 Code and send
 the message below. It shows the shape of a delegating prompt, not a recommended prompt.
