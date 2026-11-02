@@ -88,7 +88,7 @@ Then confirm each app answers: `curl -sL -o /dev/null -w '%{http_code}' <url>` f
 - Creates users with a `User`, a `UserProfile` (login fails without the profile), the email `<username>@example.com` (the login form asks for the email), and password `<prefix>password`. One user per role the steps mention. The permitted user gets the narrowest role that passes the view's permission check, such as `CourseStaffRole` on the demo course. The user for a 403 or hidden-control check is an active non-staff user with no course role.
 - Ends by printing each object's ID and the exact URLs the testing steps use.
 
-Write `<artifacts>/cleanup.py` together with `seed.py`; it runs in the CMS with the same command. It deletes every seeded object with one `delete()` per model, in reverse creation order with users last, filtering the name, key, or username field the seed set with `startswith` on `<prefix>` (`contains` for a fixed-format key). It prints one line per model with the deleted count, so a second run deletes nothing and prints zeros.
+Write `<artifacts>/cleanup.py` together with `seed.py`; it runs in the CMS with the same command. It deletes every seeded object with one `delete()` per model, in reverse creation order with users last, filtering the name, key, or username field the seed set with `startswith` on `<prefix>` (`contains` for a fixed-format key). Pick a field that no testing step changes, so cleanup still finds a renamed object. It prints one line per model with the deleted count, so a second run deletes nothing and prints zeros.
 
 **7. Frontend PRs: add what the person needs to the testing steps.** The person tests by following the PR's testing steps in the browser. Copy the steps as written. Add a line under a step only when the person cannot follow or judge that step without it, and only for one of these two needs:
 
@@ -100,9 +100,9 @@ Start each added line with `Added:` so the person can tell it apart from the PR'
 **8. Backend PRs: write and run the demo script.** Write `<artifacts>/demo.py`. It shows the outcome of each manual step as plain terminal output that a person can check at a glance, reading the script top to bottom once. The script has two parts:
 
 - **Setup**: imports, then one assignment per seeded object, user, and API client, each with a full descriptive name (`criterion_a`, `outsider_client`).
-- **Blocks**: one block per manual testing step from step 2, in the PR's order.
+- **Blocks**: one block per manual testing step that step 2 kept, in the PR's order.
 
-The blocks track the testing steps and add no checks of their own, because the script is not a full test. When a step is vague, its block runs a concrete version of it, taken from the issue and the diff: the exact endpoint, user, and request, and an expected result that is an exact status code, value, or row.
+The blocks track the testing steps and add no checks of their own, because the script is not a full test. When a step leaves out details, its block runs a concrete version of it, taken from the issue and the diff: the exact endpoint, user, and request, and an expected result that is an exact status code, value, or row.
 
 Each block is:
 
