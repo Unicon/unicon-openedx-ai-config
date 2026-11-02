@@ -156,6 +156,6 @@ the other various tasks.
 Apache License 2.0. See [LICENSE](LICENSE). Copyright 2026 Unicon, Inc.
 
 Most of this repo was written during Unicon's work for Axim Collaborative on competency-based
-education in Open edX. The `.claude/github-issues/` cache reproduces issue text from
-`openedx/openedx-core` written by many contributors. Copyright in that text stays with its
-original authors and it is not covered by this license.
+education in Open edX. The `.claude/github-issues/` folder reproduces issue text from
+`openedx/openedx-core` for reference. That repository is the source of truth for it, copyright
+stays with whoever holds it, and it is not covered by this license.
