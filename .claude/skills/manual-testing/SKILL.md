@@ -5,7 +5,7 @@ description: Use when asked to manually test a pull request, set up a PR for man
 
 # Manual testing of a PR
 
-Command: `/manual-testing <PR URL> [testing instructions]`. The skill checks out the PR and the branches it depends on in the clones Tutor mounts, makes the devstack run that code, seeds named test data, turns the testing steps into an exact test plan with each step's acceptance criteria quoted above it, and for backend changes runs a very simple demo script. The person then does the manual testing with everything ready.
+Command: `/manual-testing <PR URL> [testing instructions]`. The skill checks out the PR and the branches it depends on in the clones Tutor mounts, makes the devstack run that code, seeds named test data, and for backend changes runs a very simple demo script of the PR's testing steps. The person then follows those testing steps with everything ready, and the skill cleans up once they say they are done.
 
 `<clones>` is the parent directory of the clone that `~/.virtualenvs/tutor/bin/tutor mounts list` reports for the PR's repo. `<artifacts>` is `<clones>/pr-reviews/<repo>-<n>/manual-testing/`, created with `mkdir -p` once step 2 has found manual steps. Every file the skill writes goes there. `<prefix>` is `mt_pr<n>_`. Always pass `gh` the full PR or issue URL, or `--repo`, because the clones' remotes are often forks.
 
@@ -48,16 +48,20 @@ The issues this PR closes are those in `closingIssuesReferences` plus any `Close
 - **Setup.** Installing dependencies, turning on a flag, creating data. Steps 4 to 6 cover these, and they are not checks.
 - **Manual.** Everything a person does against a running app and then looks at: clicking through a page, calling an endpoint, checking a database row.
 
-When no manual step remains, stop before changing anything. Tell the person the PR has no manual testing instructions, quote what the testing section said (or that there is none), list the acceptance criteria from step 1, and ask them to give steps, to say "use the acceptance criteria", or to ask the PR author for steps.
+A manual step is too vague to be meaningful when it does not say which behavior it checks, such as "test the feature", "make sure everything works", or "check the UI". A step that names the behavior but leaves out the exact URL, user, or expected value is concrete enough, and for backend PRs step 8 fills those details in. The testing steps are a few steps that confirm the most important part of the happy path, not a full test, so missing edge cases, or acceptance criteria that no step covers, do not make them too vague.
+
+When no manual step remains, or no manual step names a behavior to check, stop before changing anything. Tell the person the PR has no usable manual testing steps, quote what the testing section said (or that there is none), list the acceptance criteria from step 1, and ask them to give steps, to say "use the acceptance criteria", or to ask the PR author for steps. For too-vague steps, also quote each one and say why.
+
+When only some manual steps are too vague, continue with the rest and list the vague ones in the handover.
 
 **3. List the branches to check out.** The PR's own branch, plus one branch per dependency that is still needed. The PR body can be stale, so check each dependency's current state with `gh`:
 
 - Merged: skip it.
 - Already in the PR's branch (cherry-picked, or the PR is stacked on it): skip it. Check the PR's commits and changed files with `gh pr view <url> --json commits,files` for the dependency's work.
 - Has an open PR: check that branch out. To find the PR for an issue, try `gh issue view <n> --repo <r> --json closedByPullRequestsReferences`, then `gh pr list --repo <r> --state all --search "<n>"` and pick the one whose title or branch names the issue. Prefer the real backend over mocks, even when the PR's testing steps say to mock it.
-- No PR anywhere: mock it (step 6). When the issue is closed but no PR turns up, ask the person where its code is before mocking it.
+- No PR anywhere: the steps that need that dependency run only on a stand-in that the testing steps themselves describe, such as mock data the PR ships. When the testing steps describe none, list those steps in the handover as not runnable. When the issue is closed but no PR turns up, ask the person where its code is before treating it as missing.
 
-Write the list as a table for the person: repo, PR, state, branch, local clone. When several needed PRs share a clone, ask the person whether to use one of them and mock the rest, or to merge them into the `manual-test/<repo>-<n>` branch in a stated order.
+Write the list as a table for the person: repo, PR, state, branch, local clone. When several needed PRs share a clone, ask the person whether to use only one of them, or to merge them into the `manual-test/<repo>-<n>` branch in a stated order.
 
 **4. Check each clone, then check out.** For each clone in the table:
 
@@ -79,48 +83,30 @@ Then confirm each app answers: `curl -s -o /dev/null -w '%{http_code}' <url>` fo
 
 **6. Seed the test data.** Write `<artifacts>/seed.py` and run it in the CMS. Before writing it, check every model, field, and import against the checked-out code, because PR bodies and issues often name them wrong. Earlier seed scripts (`<clones>/*seed*.py`, `<clones>/pr-reviews/*/manual-testing/seed.py`) show working patterns. The seed:
 
-- Creates everything the plan needs, so the plan never depends on rows left over from earlier work. Every object's name or key starts with `<prefix>`.
-- Brings those objects to the plan's starting state on every run: `get_or_create`, then reset any field a step changes, and recreate any row a step deletes. A rerun of seed then demo shows the same output.
+- Creates everything the testing steps need, so they never depend on rows left over from earlier work. Every object's name or key starts with `<prefix>`.
+- Brings those objects to the testing steps' starting state on every run: `get_or_create`, then reset any field a step changes, and recreate any row a step deletes. A rerun of seed then demo shows the same output.
 - Creates users with a `User` and a `UserProfile` (login fails without the profile) and password `<prefix>password`. One user per role the steps mention. The permitted user gets the narrowest role that passes the view's permission check, such as `CourseStaffRole` on the demo course. The user for a 403 or hidden-control check is an active non-staff user with no course role.
-- Ends by printing each object's ID and the exact URLs the plan uses.
-
-When a frontend PR depends on a backend endpoint that has no PR to check out, write `<artifacts>/mock-browser.js`: a Playwright script that opens a headed (visible) Chromium, logs in as the seeded user, answers only the endpoints whose code is not checked out with `page.route`, opens the first page of the plan, and stays open for the person to test in. Install Playwright in `<artifacts>`, never in the repo.
+- Ends by printing each object's ID and the exact URLs the testing steps use.
 
 Write `<artifacts>/cleanup.py` together with `seed.py`; it runs in the CMS with the same command. It deletes every seeded object, with one `delete()` per model, filtered by `startswith` on `<prefix>` against the same name, key, or username field the seed sets, in reverse creation order with users last. It prints one line per model with the deleted count, so a second run deletes nothing and prints zeros.
 
-Also write `<artifacts>/cleanup.sh`, the one command the person runs afterward. It does the following, in this order:
+**7. Frontend PRs: add what the person needs to the testing steps.** The person tests by following the PR's testing steps in the browser. Copy the steps as written. Add a line under a step only when the person cannot follow or judge that step without it, and only for one of these two needs:
 
-- Runs `cleanup.py` in the CMS.
-- Reads each line of `original-branches.txt`, when the file exists. A missing file means no git work. The first three fields of a line are the PR head, the `manual-test/<repo>-<n>` branch, and the original branch or commit, and the rest of the line is the clone path. For each clone:
-  - When `git -C <clone> status --porcelain --untracked-files=no` prints anything, or `git -C <clone> branch --show-current` does not print the recorded `manual-test/<repo>-<n>` branch, the script prints the clone's path and skips the clone.
-  - Otherwise it checks out the recorded original branch or commit.
-  - It then runs `git -C <clone> branch -D manual-test/<repo>-<n>` when `git -C <clone> rev-parse manual-test/<repo>-<n>` equals the recorded PR head, because a tip still at the PR head holds only commits that are on GitHub, or when `git -C <clone> log manual-test/<repo>-<n> --not --remotes` prints nothing, because an empty log means every commit is on a remote ref this clone knows. The `-D` is needed because the branch is not merged into the original branch, and those two checks are what make it safe.
-  - Otherwise the script names the branch and leaves it, because it holds commits that are on no remote this clone knows.
-- Ends with `rm -rf <artifacts>/node_modules <artifacts>/package.json <artifacts>/package-lock.json`, which does nothing without a Playwright install.
-- Leaves the artifacts directory itself, so the test plan and demo output survive.
+- where to click to reach the seeded data, such as which course, unit, or library to open;
+- which concrete thing to look for, when the step as written could pass without proving the acceptance criterion it relates to. Name that criterion by its AC number from `acceptance-criteria.md`.
 
-**7. Write the test plan** in `<artifacts>/test-plan.md`. First match each acceptance criterion to the manual steps that prove it. One criterion can match several steps, and one step several criteria. Sharpen vague steps from the issue and the diff: the exact URL, user, button or request, and the exact status code, text, or row that proves it. Add a step only when an acceptance criterion has no step. Each step in the plan is this block, in this order:
-
-```markdown
-### Step 3: Delete a criterion that has a learner status (PR step 2)
-
-> AC2 (#674): <criterion text, word for word>
-
-- Precondition: logged in as mt_pr879_author; criterion on mt_pr879 block B has a learner status.
-- Do: <exact click, URL, or request>
-- Expect: <exact status code, text on screen, or database row>
-```
-
-The quote lines are the matching criteria, copied word for word from `acceptance-criteria.md`, one quote block per criterion (a Gherkin scenario keeps all its lines). Never summarize a criterion or merge two into one quote. When the PR built something the criterion names differently, such as another URL or permission, keep the quote word for word and add a `Note:` line under it that states the difference. A step that matches no criterion gets the line `> No acceptance criterion; from the PR's testing steps.` instead. For frontend PRs, this plan is the click-through checklist the person follows in the browser. The plan ends with a list of any criteria that no step covers.
+Start each added line with `Added:` so the person can tell it apart from the PR's own text. Most steps need no added line. The handover carries the annotated steps.
 
 **8. Backend PRs: write and run the demo script.** Write `<artifacts>/demo.py`. It shows the outcome of each manual step as plain terminal output that a person can check at a glance, reading the script top to bottom once. The script has two parts:
 
 - **Setup**: imports, then one assignment per seeded object, user, and API client, each with a full descriptive name (`criterion_a`, `outsider_client`).
-- **Blocks**: one per plan step, in plan order.
+- **Blocks**: one block per manual testing step from step 2, in the PR's order.
+
+The blocks track the testing steps and add no checks of their own, because the script is not a full test. When a step is vague, its block runs a concrete version of it, taken from the issue and the diff: the exact endpoint, user, and request, and an expected result that is an exact status code, value, or row.
 
 Each block is:
 
-1. one `print` per matching acceptance criterion, with the same text as the step's `>` lines in the test plan,
+1. one `print` per acceptance criterion the step relates to, copied word for word from `acceptance-criteria.md`, and none when it relates to no criterion,
 2. a `print` naming the step and the expected result,
 3. the one action the step describes, against the seeded objects,
 4. one labeled `print` per value the expected result names, such as `print("Status code:", response.status_code)` or `print("Row still exists:", CompetencyCriterion.objects.filter(id=criterion_a.id).exists())`.
@@ -154,14 +140,26 @@ Run the seed, then the demo, with the command from Local setup. The rerun comman
 
 **9. Hand over.** End with one message that holds:
 
-- the branch table from step 3, and the path to `original-branches.txt`, which lists the branch `cleanup.sh` switches each clone back to;
+- the branch table from step 3, and the path to `original-branches.txt`, which lists the branch or commit each clone goes back to in step 10;
 - what step 5 changed (installs, migrations, restarts) and the health check results;
 - the seeded logins, objects, and URLs;
-- the test plan path and the plan itself, including any acceptance criteria no step covers;
+- for frontend PRs, the testing steps with the lines step 7 added;
 - for backend PRs, the demo output pasted verbatim and the one-line rerun command;
 - the skipped automated steps;
-- anything that failed or that the plan cannot cover, stated plainly. When a step failed, the handover still goes out, with the failing command and its error;
-- one sentence saying `cleanup.sh` removes the seeded `<prefix>` rows, switches the clones back and deletes the `manual-test/<repo>-<n>` branches where its guards allow, removes the Playwright install, and leaves the artifacts directory, followed by the one-line command `bash <artifacts>/cleanup.sh` as the last line of the handover.
+- anything that failed or cannot be covered, stated plainly: the manual steps that step 2 found too vague, and the steps that cannot run because a dependency has no PR (step 3). When a step failed, the handover still goes out, with the failing command and its error;
+- as the last line of the handover, a request that the person say when they are done testing, so that step 10 can clean up.
+
+**10. Clean up after the person's testing.** Wait for the person to say they are done testing. Never start cleanup before that, and skip it when they ask to keep the setup. Then, in this order:
+
+1. Run `cleanup.py` in the CMS with the command from Local setup. Run it before switching any branch, because it imports models that may exist only in the PR's code.
+2. Go through each line of `original-branches.txt`, if the file exists.
+   - When the clone has tracked changes, or `git -C <clone> branch --show-current` does not print the recorded `manual-test/<repo>-<n>` branch, leave that clone alone and tell the person.
+   - Otherwise check out the recorded original branch or commit.
+   - Then delete the branch with `git -C <clone> branch -D manual-test/<repo>-<n>`, but only when `git -C <clone> log <pr head>..manual-test/<repo>-<n>` is empty, which is the same check step 4 uses. Otherwise leave the branch and say that it holds commits beyond the PR head.
+3. Run the step 5 actions again for the files that differ between each restored branch and the PR branch, so the devstack runs the original code. Migrations that step 5 applied stay applied; name them for the person.
+4. Leave `<artifacts>` in place for a later rerun, and say so.
+
+End with one short message that says what was cleaned up and what was left in place, and why.
 
 ## Rules
 
