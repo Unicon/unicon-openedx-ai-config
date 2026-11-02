@@ -54,22 +54,16 @@ preferred day-to-day AI assistant. If you do not have a Unicon Claude Code accou
 will need to submit an EOR to get one as a prerequisite to using the Claude Setup in this
 repo.
 
-**1. Create your workspace directory.**
+**1. Create your workspace directory.** If you already have Open edX set up, skip steps 1 and
+2 and use the folder that contains your Open edX repositories as subfolders as your workspace.
 
 ```
-mkdir axim
-cd axim
+mkdir openedx
+cd openedx
 ```
 
-**2. Clone the Open edX repos as siblings inside it.** Fork a repo first on GitHub and clone
-your fork's URL instead if you intend to push commits or open a PR from it. Otherwise a plain
-clone is fine, and you can switch to a fork later without redoing anything.
-
-```
-git clone https://github.com/openedx/openedx-core.git
-git clone https://github.com/openedx/openedx-platform.git
-git clone https://github.com/openedx/frontend-app-authoring.git
-```
+**2. Set up your Open edX repositories inside it** with
+[Tutor](https://github.com/overhangio/tutor).
 
 `openedx-proposals` is Open edX's governance docs — reference-only, always a plain clone, no
 need to fork it:
@@ -97,8 +91,7 @@ ln -s unicon-openedx-ai-config/.claude .claude
 `unicon-openedx-ai-config/.claude/settings.local.json` yourself. It's gitignored, so it stays
 local to you.
 
-**6. Open your workspace in VSCode:** File > Open Folder, select the `axim` directory you just
-created. Open the Claude Code panel from there — it reads `.claude/` automatically and applies
+**6. Open your workspace in VSCode:** File > Open Folder, select your workspace directory. Open the Claude Code panel from there — it reads `.claude/` automatically and applies
 it across every repo in the workspace, with no extra setup.
 
 **7. Install the superpowers plugin for Claude Code.** Implementation work in this setup goes
