@@ -13,16 +13,16 @@ At a high level, the import does this:
 
 ```
 when a course is imported, right after tags.csv has been imported:
-  if the criteria file is missing, stop. If it is malformed, log a warning and stop
+  if the criteria file is present and readable:
   for each competency in the file:
-    find the competency's Tag on this instance by taxonomy export_id and tag external_id; if it is missing or its taxonomy is not competency-enabled, skip the competency and log it
-    find the live root group for that competency, or create it with the file's logic operator
-    find this course run's course-level group under that root, or create it
-    for each nested group in the file, find the existing group with the same ordering, or create it
+    find the competency's Tag by taxonomy export_id and tag external_id; if it is missing or archived, or its taxonomy is not a competency taxonomy, skip the competency
+    if this course run's course-level group for that competency is archived, skip the competency
     for each criterion in the file:
-      find the block's association (ObjectTag) for that Tag; if it is missing, has no Tag, or is archived, skip the criterion and log it
-      if the group already has a live criterion on that association, skip it; otherwise create it with its rule (the target's default when the exported values match it, otherwise an override with the exported values)
-    leave out any group that ends up with no criteria
+      if the course run already has a live criterion for that competency on that subsection, leave it as it is
+      if its subsection has no live tag association for that competency, skip it
+      otherwise add it: in the one existing group that holds the rest of its file group's criteria, or in a new group when none does; skip it when those criteria are split across groups
+      give it the destination's default rule profile when the file's threshold matches it, otherwise an override with the file's threshold
+    create the course-level group, and bring back an archived root, only when a criterion was added
 ```
 
 ## Context
@@ -30,102 +30,85 @@ when a course is imported, right after tags.csv has been imported:
 
 ## Acceptance Criteria
 
-Every outcome below can be checked on the destination course's Competency Management page, or through the criteria read path behind it (#681). Anything skipped can also be checked in the operator log. The author sees no new message on the import page, and a skip never fails the import.
+Every outcome below can be checked on the destination course's Competency Management page, or through the criteria read path behind it (#681).
 
-The competency criteria file is the one #695 writes, and both tickets describe it in the same words.
+Terms used in the scenarios:
+
+- A **mastery rule** is a competency criterion. A **group** is a competency criteria group. A competency's groups form a tree: one shared root, one course-level group per course, and bottom-tier groups under the course-level group that hold the mastery rules. For MVP every mastery rule evaluates a subsection.
+- A **rule profile** holds a threshold, such as a grade of at least 75%. A mastery rule either uses a rule profile or carries its own override threshold. For MVP the destination has one rule profile, the default.
+- The **course export** is the package the author uploads. The **criteria file** is the competency criteria file inside it, the one #695 writes.
+- **How the import matches what the course already has.**
+  - A mastery rule in the file is **already present** when the destination course has a live mastery rule for the same competency on the same subsection, in any group and with any threshold. The import leaves that mastery rule exactly as it is.
+  - A mastery rule that is not present is **added**. To pick its group, the import looks at the other subsections listed in the same group of the file, and finds the live bottom-tier groups in the destination that already hold a live mastery rule on any of those subsections.
+    - When exactly one destination group holds some of those subsections, the new mastery rule joins that group.
+    - When no destination group holds any of them, the import creates a new group with the file's name and way of combining.
+    - When two or more destination groups each hold some of them, the import cannot pick one, so it adds nothing from that group of the file.
+  - The import never renames, reorders, or changes the way of combining of an existing group, and it never brings back an archived group or mastery rule.
+  - When a competency's course-level group in the course is archived, nothing is imported for that competency.
+  - The one exception to "never brings back" is an archived shared root, which becomes live again when the import adds a new course-level group beneath it.
 
 ```
 # Importing into a new course
 
-Scenario: Importing into a new course recreates the file's groups and rules
-  Given an archive whose competency criteria file holds a course-level group for a competency with two bottom-tier groups of rules
+Scenario: Importing into a new course recreates the file's groups and mastery rules
+  Given a course export whose criteria file holds a course-level group for a competency with two bottom-tier groups of mastery rules
   And the destination instance has a competency taxonomy and a competency matching the file's identifiers
-  When a course author imports the archive into a new course and the import finishes
+  When a course author imports the course export into a new course and the import finishes
   Then the destination course has a course-level group for that competency holding two bottom-tier groups
-  And each bottom-tier group has the name, position among its siblings, and way of combining its children that the file records
+  And each bottom-tier group has the name and the way of combining its children that the file records
   And the course-level group is named the way the destination names a course-level group an author creates by hand
-  And each rule evaluates the destination course's own copy of the content the file names, with a rule on the course itself evaluating the destination course's final grade
+  And the course-level group combines its bottom-tier groups the way the file records
+  And each mastery rule evaluates the destination course's own copy of the subsection the file names
   And the import reports success to the author as usual
 
-Scenario: A group nested below a bottom-tier group is recreated at the same depth
-  Given the file records a group nested inside a bottom-tier group, with rules of its own
-  When the archive is imported into a new course
-  Then the destination has an equivalent group nested at the same place, with its own rules and its own way of combining them
+Scenario: Imported groups and mastery rules can be edited like any others
+  Given a course whose groups and mastery rules were created by an import
+  When the author adds a mastery rule to an imported group, and edits and removes an imported mastery rule, on the Competency Management page
+  Then each change succeeds the same way it does for groups and mastery rules the author created by hand
 
-Scenario: Imported groups and rules can be edited like any others
-  Given a course whose groups and rules were created by an import
-  When the author adds a rule to an imported group, and edits and removes an imported rule, on the Competency Management page
-  Then each change succeeds the same way it does for groups and rules the author created by hand
-
-Scenario: Imported rules become one more alternative under the competency's existing shared root
+Scenario: Imported mastery rules become one more alternative under the competency's existing shared root
   Given the destination instance already has a live shared root for the competency, holding another course's groups
-  When an archive with rules for that competency is imported into a new course
+  When a course export with mastery rules for that competency is imported into a new course
   Then the new course's course-level group sits under that shared root as one more alternative way to demonstrate the competency
-  And the other course's groups and rules are unchanged
+  And the other course's groups and mastery rules are unchanged
   And no second shared root exists for the competency
-
-Scenario: A missing shared root is created the way the file records
-  Given the destination instance has the competency but no criteria groups for it in any course
-  When an archive with rules for that competency is imported
-  Then the competency has a shared root that combines its alternatives the way the file records
-
-Scenario: A shared root that combines its alternatives differently keeps the destination's way
-  Given the destination's live shared root for the competency combines its alternatives differently from the file
-  When an archive with rules for that competency is imported into a new course
-  Then the shared root keeps the destination's way of combining, and the new course-level group is attached under it
-  And the operator log notes the difference
-
-Scenario: An unset way of combining counts as OR
-  Given a shared root or group on the destination has no recorded way of combining its children
-  And the file records its counterpart as combining them with OR
-  When the archive is imported
-  Then the import treats the two as combining the same way
-  And no difference is logged for them
 
 Scenario: An archived shared root is brought back into use rather than duplicated
   Given the competency's only shared root on the destination is archived, because every course-level group under it was archived
-  When an archive with rules for that competency is imported into a new course
+  When a course export with mastery rules for that competency is imported into a new course
   Then the shared root is live again and holds the new course-level group
   And no second shared root exists for the competency
   And the archived course-level groups under it stay archived
 
-Scenario: More than one live shared root skips the competency
-  Given the destination has more than one live shared root for the competency
-  When an archive with rules for that competency is imported
-  Then the destination gets no groups or rules for that competency from the file
-  And the operator log names the competency and the reason
-  And the other competencies in the file import normally
+Scenario: Importing beside a live source course on the same instance leaves the source unchanged
+  Given a course export taken from a course on this same instance, whose mastery rules are still live
+  When the course export is imported into a different, new course on that instance
+  Then the new course has its own course-level group under the competency's shared root, beside the source course's group
+  And the source course's groups, mastery rules, and learner statuses are unchanged
+  And changing the new course's mastery rules leaves the source course's mastery rules unchanged
 
-# How each rule's profile is chosen
+# How each mastery rule's threshold is chosen
 
-Scenario Outline: Each recreated rule keeps the threshold the file records
-  Given the file records a rule <as recorded>
-  And the rule profile the destination assigns to a new rule for that competency is <destination profile>
-  When the archive is imported
+Scenario Outline: Each recreated mastery rule keeps the threshold the file records
+  Given the file records a mastery rule <as recorded>
+  And the destination's default rule profile requires <destination threshold>
+  When the course export is imported
   Then the destination has <result>
 
   Examples:
-    | as recorded | destination profile | result |
-    | as using a rule profile, with a grade of at least 75% | the default rule profile, requiring a grade of at least 75% | a rule that uses the destination's default rule profile |
-    | as using a rule profile, with a grade of at least 75% | the competency taxonomy's own rule profile, requiring a grade of at least 75% | a rule that uses the competency taxonomy's own rule profile |
-    | as using a rule profile, with a grade of at least 75% | the default rule profile, requiring a grade of at least 80% | a rule with its own override requiring a grade of at least 75% |
-    | as its own override, requiring a grade of at least 85% | the default rule profile, requiring a grade of at least 75% | a rule with its own override requiring a grade of at least 85% |
-
-Scenario: An override the destination cannot accept is skipped and logged
-  Given the file records a rule whose own override the destination's rule validation rejects
-  When the archive is imported
-  Then the destination has no equivalent of that rule
-  And its sibling rules are created
-  And the operator log names the rule's content, its competency, and the reason
+    | as recorded | destination default threshold | result |
+    | as using a rule profile, with a grade of at least 75% | a grade of at least 75% | a mastery rule that uses the destination's default rule profile |
+    | as using a rule profile, with a grade of at least 75% | a grade of at least 80% | a mastery rule with its own override requiring a grade of at least 75% |
+    | as its own override, requiring a grade of at least 85% | a grade of at least 75% | a mastery rule with its own override requiring a grade of at least 85% |
+    | as its own override, requiring a grade of at least 75% | a grade of at least 75% | a mastery rule that uses the destination's default rule profile |
 
 # What is skipped
 
-Scenario Outline: A competency the destination cannot resolve is skipped as a whole
+Scenario Outline: A competency the destination cannot take is skipped as a whole
   Given the file names a competency where <condition>
-  When a course author imports the archive
-  Then the destination gets no groups or rules for that competency from the file
+  When a course author imports the course export
+  Then the destination gets no groups or mastery rules for that competency from the file
   And no taxonomy, competency, or tag association is created beyond what the content tags import creates
-  And the operator log names the competency and the reason
   And the other competencies in the file import normally
   And the import reports success to the author as usual
 
@@ -135,181 +118,145 @@ Scenario Outline: A competency the destination cannot resolve is skipped as a wh
     | the taxonomy exists on the destination but is not a competency taxonomy |
     | the competency taxonomy has no competency with the file's competency identifier |
     | the competency or its taxonomy is archived on the destination |
+    | a competency above or below it in the destination's taxonomy already has a live mastery rule in the destination course |
 
-Scenario Outline: A rule the destination cannot attach is skipped
-  Given the file records a rule whose <condition>
-  When the archive is imported
-  Then the destination has no equivalent of that rule
-  And its sibling rules are created
-  And the operator log names the rule's content, its competency, and the reason
+Scenario Outline: A mastery rule is skipped when the content tags import could not tag its subsection with the competency
+  Given the file records a mastery rule for a competency on a subsection
+  And the content tags import finds a competency by its value, while the criteria file finds it by its identifier
+  And after the export, on the destination, <change>
+  When the course export is imported
+  Then the destination has no equivalent of that mastery rule
+  And the mastery rules beside it in the file are created
 
   Examples:
-    | condition |
-    | content is not in the destination course |
-    | content is not tagged with that competency after the content tags are imported |
-    | content is tagged with a value the destination's competency taxonomy does not have, so the tag is not linked to any competency |
-    | content's tag association for that competency is archived |
-    | content is tagged with a competency of the same value but a different identifier, such as after a rename |
+    | change |
+    | the competency's value was changed, so the content tags import finds no competency with the value the export carries and leaves the subsection with no usable tag for that competency |
+    | the competency's value was given to a different competency in the same taxonomy, so the content tags import tags the subsection with that other competency instead |
 
-Scenario: A group left with no rules is left out, and nothing is created above it
-  Given every rule the file records in one bottom-tier group is skipped
-  When the archive is imported
+Scenario: A group left with no mastery rules is left out, and nothing is created above it
+  Given every mastery rule the file records in one bottom-tier group is on a subsection that is not tagged with the competency on the destination
+  When the course export is imported
   Then the destination has no equivalent of that group
   And when every group for the competency is left out, the destination gets no course-level group and no new shared root for that competency
 
-# Re-importing into a course run that already has rules
+# Importing into a course run that already has mastery rules
 
-Scenario: Re-importing refills the rules the content tag import removed
-  Given a course run was exported
-  And learners have since been evaluated against one of its rules and against none of the others
-  When the same archive is imported back into that course run and the import finishes
-  Then the course run has the groups and rules the archive describes, each exactly once
-  And the rule learners were evaluated against is the same rule as before, with its learner statuses unchanged
-  And the other rules are present again, each in the group the archive puts it in, with no learner status
+Scenario: Importing the same course export again changes nothing further
+  Given a course export was imported into a course run
+  When the same course export is imported into that course run again
+  Then the course run has the same groups and mastery rules as after the first import, each exactly once
 
-Scenario: Rules from different groups are never combined into one group
-  Given a course run with two bottom-tier groups for a competency, both created the usual way on the Competency Management page
-  And learners have been evaluated against a rule in only one of those groups
-  When an archive of that course run is imported back into it
-  Then the group holding the evaluated rule gets back only the rules the archive records for that group
-  And the other group is recreated as a separate group with its own rules and its own way of combining them
+Scenario: A mastery rule the course run is missing is added to the group that holds its siblings
+  Given a course run whose bottom-tier group for a competency holds three mastery rules
+  And a course export of that run taken when the group also held a fourth mastery rule, which the author has since removed
+  When the course export is imported into that course run
+  Then the fourth mastery rule is added to that same group
+  And the three mastery rules already there are unchanged, with their learner statuses
 
-Scenario Outline: A file group with no single clear counterpart in the course run is skipped and logged
-  Given the file records a group below the course-level group for a competency
-  And the course run <situation>
-  When the archive is imported into that course run
-  Then no group is created for the file's group, and no rule from it is added to any group in the course run
-  And the operator log names the file's group and the reason
+Scenario Outline: A file group the course run no longer has is recreated beside the existing groups
+  Given a course run with two live bottom-tier groups for a competency
+  And a course export of that run taken when it also had a third bottom-tier group, which the author has since removed with all of its mastery rules, <how it was removed>
+  When the course export is imported into that course run
+  Then the course run has a live third group again, with the name, way of combining, and mastery rules the file records
+  And the two existing groups are unchanged
+  And <what is left of the removed group>
 
   Examples:
-    | situation |
-    | has a group holding a live rule on some of that group's content and also a live rule on content the file does not record for that group |
-    | has more than one live group holding only rules on content the file records for that group |
+    | how it was removed | what is left of the removed group |
+    | and no learner had been evaluated against them, so the group and its mastery rules were deleted | nothing of the deleted group remains |
+    | after learners had been evaluated against them, so the group and its mastery rules were archived | the archived group and its mastery rules stay archived, with their learner statuses unchanged |
 
-Scenario: A course run group that is the counterpart of more than one file group receives nothing
-  Given the file records two groups below the course-level group for a competency
-  And the course run has one live group holding only rules on content that the file records in both of those groups, such as a single rule on content that appears in each
-  When the archive is imported into that course run
-  Then no group is created for either of the file's groups
-  And the course run's group receives no rule from either of them and is otherwise unchanged
-  And the operator log names each of the file's groups and the reason
+Scenario: A mastery rule the course run holds in a different group than the file records stays where it is
+  Given the author removed a mastery rule from one bottom-tier group and created the same mastery rule again in another bottom-tier group for the same competency
+  And the file records that mastery rule in the first group
+  When the course export is imported into that course run
+  Then the mastery rule exists once, live, in the group the author moved it to
+  And no copy of it is created in the first group
 
-Scenario: An empty group in the course run is never treated as the file's group
-  Given the course run has a live group below the course-level group that holds no rules
-  When the archive is imported into that course run
-  Then the empty group is unchanged and receives no rules from the file
-  And each of the file's groups is matched or created as if the empty group were not there
+Scenario: Two file groups whose mastery rules the author merged into one group both add to that group
+  Given the file records two bottom-tier groups for a competency, one with mastery rules on subsections A and B, the other with mastery rules on subsections C and D
+  And in the course run the author merged them, so one live bottom-tier group holds the mastery rules on A and C, and no mastery rule exists for B or D
+  When the course export is imported into that course run
+  Then the mastery rules on B and D are added to that one group, which then holds A, B, C, and D
+  And no new group is created
 
-Scenario: A matched group whose name differs is still refilled
-  Given a group in the course run is the counterpart of the file's group and combines its rules the same way, but has a different name
-  When the archive is imported into that course run
-  Then the group's missing rules are added to it, and its name is unchanged
-  And no difference is logged for the name
+Scenario: A mastery rule the course run already has keeps its own threshold
+  Given a mastery rule in the course run that learners have been evaluated against requires a grade of at least 80%
+  And the file records that mastery rule with a grade of at least 75%
+  When the course export is imported
+  Then the mastery rule still requires a grade of at least 80%, and its learner statuses are unchanged
 
-Scenario: A matched group that combines its children differently is left as it is
-  Given a group in the course run, at any level, is the counterpart of the file's group but combines its children differently from the file
-  When the archive is imported into that course run
-  Then the group still combines its children the destination's way
-  And nothing the file records in or under that group is added
-  And the operator log notes the difference
+Scenario: Groups that receive a mastery rule keep their own names and ways of combining
+  Given the group in the course run that holds the file group's other mastery rules has a different name and a different logic operator from the ones the file records
+  And the course-level group above it has a different logic operator from the one the file records
+  When the course export is imported into that course run
+  Then the missing mastery rule is added to that group
+  And both groups' names and logic operators are unchanged
 
-Scenario: A surviving rule with a different threshold keeps the destination's threshold
-  Given a rule in the course run that learners have been evaluated against requires a grade of at least 80%
-  And the file records that rule with a grade of at least 75%
-  When the archive is imported
-  Then the rule still requires a grade of at least 80%, and its learner statuses are unchanged
-  And the operator log notes the difference
+Scenario: A file group whose mastery rules are split across two groups in the course run adds nothing
+  Given the file records a bottom-tier group with three mastery rules
+  And the course run holds two of them in two different live bottom-tier groups and has no mastery rule for the third
+  When the course export is imported into that course run
+  Then the third mastery rule is not added anywhere
+  And both groups in the course run are unchanged
 
-Scenario: An archived course-level group is reactivated when the file adds a live rule beneath it
-  Given the course run's course-level group for a competency is archived
-  And it holds an archived bottom-tier group, archived earlier together with its rules, and nothing live
-  And the archive's file records a bottom-tier group for that competency whose content matches no archived group in the course run, so that group has no counterpart there
-  When the archive is imported into that course run
-  Then the course-level group is live again
-  And it holds a new bottom-tier group with the rules the file records for that group
-  And no second course-level group exists for that competency in the course run
-  And the earlier archived bottom-tier group and its rules stay archived
-  And the operator log notes that the course-level group was reactivated
+Scenario: Groups and mastery rules the course export does not describe are left alone
+  Given the course run has a group holding a mastery rule that the course export does not describe
+  When the course export is imported
+  Then that group and mastery rule are unchanged, and so are their learner statuses
 
-Scenario: A course-level group archived together with all its rules stays archived when the file's groups match those archived rules
-  Given the course run's course-level group for a competency was archived through #675, together with every group and rule under it
-  And every bottom-tier group under it holds a rule that learners were evaluated against
-  And an archive of the course run was taken before that archiving
-  When that archive is imported into the course run
-  Then nothing new is created for that competency in the course run
+Scenario: An archived course-level group skips the competency
+  Given the course run's course-level group for a competency is archived, together with every group and mastery rule under it
+  And the course export records mastery rules for that competency
+  When the course export is imported into that course run
+  Then nothing is created for that competency in the course run
   And the course-level group and everything under it stay archived
-  And the operator log names each skipped group and the reason
+  And the other competencies in the file import normally
 
-Scenario Outline: The import never brings back an archived rule or group
-  Given the course run has <archived item>
-  When the archive is imported into that course run
-  Then <outcome>
-  And the archived item is unchanged
-  And the operator log names the skipped item and the reason
-
-  Examples:
-    | archived item | outcome |
-    | a group that is the counterpart of the file's group and holds an archived rule on content the file records as a live rule in that group | the group gets no new live rule on that content, and its other missing rules are added |
-    | an archived bottom-tier group holding rules only on content the file records for one of the file's groups | no group is created for that file group, and no rule from it is added anywhere |
-
-Scenario: Graded groups and rules the archive does not describe are left alone
-  Given the course run has a group holding a rule learners were evaluated against, and the archive does not describe that group
-  When the archive is imported
-  Then that group and rule are unchanged, and so are their learner statuses
-
-Scenario: Importing the same archive again changes nothing further
-  Given an archive was imported into a course run
-  When the same archive is imported into that course run again
-  Then the course run has the same groups and rules as after the first import, each exactly once
-
-Scenario: Importing beside a live source course on the same instance leaves the source unchanged
-  Given an archive exported from a course on this same instance, whose rules are still live
-  When the archive is imported into a different, new course on that instance
-  Then the new course has its own course-level group under the competency's shared root, as an alternative to the source course's group
-  And the source course's groups, rules, and learner statuses are unchanged
-  And changing the new course's rules leaves the source course's rules unchanged
+Scenario: A mastery rule whose earlier counterpart is archived is created fresh
+  Given the course run's course-level group for a competency is live
+  And the course run has an archived mastery rule for that competency on a subsection, archived when the author removed it after learners were evaluated against it
+  And the file records a mastery rule for that competency on that subsection
+  When the course export is imported into that course run
+  Then a new live mastery rule exists for that competency on that subsection, in the group that holds its file siblings or in a new group when none does
+  And the archived mastery rule stays archived, with its learner statuses unchanged
 
 # Learner status
 
 Scenario: The import never touches learner status
   Given learners have mastery statuses in the destination course run
-  When an archive is imported into it
+  When a course export is imported into it
   Then every existing learner status is unchanged, and the import creates no learner status
-  And each rule the import created has no learner status until the next grade for its content is recorded
+  And each mastery rule the import created has no learner status until the next grade for its subsection is recorded
 
-# File problems, failure, and permission
+# File problems and permission
 
-Scenario: An archive without a competency criteria file imports as it does today
-  Given an archive with no competency criteria file, such as one exported from an instance that does not write it
-  When the archive is imported
+Scenario: A course export without a criteria file imports as it does today
+  Given a course export with no criteria file, such as one taken from an instance that does not write it
+  When the course export is imported
   Then the import succeeds as it does today
-  And nothing about competency criteria is logged
 
-Scenario Outline: A competency criteria file the destination cannot use is skipped whole
-  Given an archive whose competency criteria file <problem>
-  When the archive is imported
+Scenario Outline: A criteria file the destination cannot read is skipped whole
+  Given a course export whose criteria file <problem>
+  When the course export is imported
   Then the import succeeds and the author sees no new message
-  And the destination gets no groups or rules from the file
-  And the operator log has a warning saying the file was skipped and why
+  And the destination gets no groups or mastery rules from the file
 
   Examples:
     | problem |
     | cannot be read |
     | is in a newer format version than this instance supports |
-    | is readable but has an entry that does not follow its format version, such as a rule with no content |
 
-Scenario: An unexpected failure part way through leaves no partly recreated groups or rules
-  Given an archive with rules for several competencies
-  And an unexpected error happens after some of the file's groups and rules have been created
-  When the archive is imported
-  Then the destination course has no partly recreated groups or rules from the file
-  And the author sees the import's existing generic failure message
-  And an operator can see the underlying error
+Scenario: One entry that does not follow the format skips only itself
+  Given a course export whose criteria file is readable but holds one mastery rule entry that does not follow its format version, such as one with no subsection
+  When the course export is imported
+  Then the destination has no equivalent of that mastery rule
+  And every other group and mastery rule in the file is imported
 
-Scenario: Recreating the rules needs no permission beyond importing the course
+Scenario: A course author who can import the course can import its mastery rules
   Given a course author permitted to import the course but holding no permission to author competency criteria
-  When the author imports the archive
-  Then the file's rules are recreated in full, and none are dropped for lack of permission
+  When the author imports the course export
+  Then the file's mastery rules are created in full, and none are dropped for lack of permission
 ```
 
 <details>
@@ -319,58 +266,69 @@ This is a suggested approach, not the source of truth. The User Story, Descripti
 
 **Summary**
 
-openedx-core gets one public function that reads the file #695 writes and recreates its criteria for the destination course run, inside one transaction. The function first plans the whole tree in memory, matching each file group to an existing destination group by the content its rules evaluate, then writes only what is new and holds at least one rule. It never edits a surviving group or rule, with one exception: it reactivates an archived shared root or course-level group when it adds a live rule beneath it. openedx-platform calls the function from the course importer right after `tags.csv` has been imported.
+openedx-core gets one public function that reads the competency criteria file #695 writes and adds the criteria it describes to the destination course run, in one transaction and without row locks. The import only adds, and it matches criteria by subsection. When the run already has a live criterion for the same competency and subsection, the import leaves it as it is. When a criterion is missing, the import adds it to the one existing group that holds the rest of its file group's criteria, or to a new group when no group does. Nothing that already exists is renamed, reordered, given a different operator, or reactivated. The one exception is an archived root, which is reactivated when a course-level group is added beneath it, as #717 does for authoring. openedx-platform calls the function from the course importer right after `tags.csv` has been imported.
 
 **Approach**
 
 1. **openedx-platform call site.** Add `import_competency_criteria(data_path, dest_id)` to `ImportManager` in `xmodule/modulestore/xml_importer.py` as a method that does nothing, and implement it on `CourseImportManager`.
-   - Call it from `run_imports` right after the `import_tags` block and before `post_course_import`, outside that block's `try/except`: the handler logs `FileNotFoundError` and `ValueError` at info level and would hide an unexpected error. Studio's import task and the `import` management command both reach `run_imports`. A `COURSE_IMPORT_COMPLETED` receiver cannot do this work, because the event carries only the course key and not the archive path.
-   - The method returns early when `COMPETENCY_CRITERIA_FILE_NAME` is absent from the archive.
-   - Otherwise it makes sure the destination `CourseRun` row exists, the way #694 does: call `openedx_catalog.api.get_course_run()`, and when there is no row, call `create_course_run_for_modulestore_course_with()` with the course's `display_name`. The publish signal that normally creates the row is sent robustly, so a failure in its handler would go unnoticed.
-   - It then passes the file's raw bytes to `openedx_learning.api.import_competency_criteria_for_course(dest_id, contents)`.
-2. **openedx-core public function.** Add `import_competency_criteria_for_course(course_key: CourseKey, contents: bytes) -> CompetencyCriteriaImportResult` to `cbe/api.py`, marked UNSTABLE like #695's export function. It returns the counts of groups created, criteria created, and entries skipped as a frozen dataclass in `data.py`, which the importer logs as one summary line. It raises `CourseRun.DoesNotExist` when the run is missing.
-3. **Parse before writing anything.** `cbe/criteria_file.py`, the module #695 creates, parses and validates the whole file. The function skips the whole file with a warning and returns zero counts when:
-   - the file is not readable JSON (catch `ValueError`, which covers decode errors)
-   - its `version` is newer than this instance supports
-   - any entry is structurally invalid: an unknown `logic_operator` or `source`, a missing key, a criterion with no block, a block that does not form a usage key, or a competency listed twice
+   - Call it in `run_imports` after the `bulk_operations` block that runs `import_tags`, and before `post_course_import`. Keep the call outside that block's `try/except`, because that handler logs `FileNotFoundError` and `ValueError` at info level and would hide an unexpected error. A `COURSE_IMPORT_COMPLETED` receiver cannot do this work, because the event carries the course key but not the path to the course export.
+   - When `COMPETENCY_CRITERIA_FILE_NAME` is absent from the course export, the method returns without logging. Otherwise it passes the file's raw bytes to `openedx_learning.api.import_competency_criteria_for_course(dest_id, contents)`.
+2. **openedx-core public function.** Add `import_competency_criteria_for_course(course_key: CourseKey, contents: bytes) -> None` to `cbe/api.py` and its `__all__`. Leave it without an UNSTABLE marker unless the implementer sees a reason for one; the durable contract is the file format. The function looks up the run with `openedx_catalog.api.get_course_run()`. On `CourseRun.DoesNotExist` it logs a warning naming the course and returns. The import never creates a `CourseRun` row: the publish receiver creates it, nothing else in the import path does, and the import matches that.
+3. **Parse before writing anything.** Add the parser to `cbe/criteria_file.py`, beside #695's serializer. Make it recursive, like the format.
+   - An unreadable file skips the whole file with a warning. Catch `ValueError`, which covers JSON and Unicode decode errors. A `version` newer than this instance supports is handled the same way.
+   - A structurally invalid entry skips only itself, and its siblings still import. A criterion skips itself when it has a missing key, an unknown `source`, or a `block_id` for which `course_key.make_usage_key(block_type, block_id)` raises `InvalidKeyError`. Any other problem inside a competency's entry skips that whole competency, for example an unknown `logic_operator` on one of its groups. A competency the file lists twice is skipped, because the import cannot tell which entry is right.
+4. **Look up each competency.** Find the taxonomy with `openedx_tagging.api.get_taxonomy_by_export_id()`, check it with `is_competency_taxonomy()`, and find the Tag with the taxonomy's `tag_for_external_id()`. Skip the competency when the taxonomy or the Tag is missing or archived, or when the taxonomy is not a competency taxonomy.
+5. **Load the run's existing groups and criteria once.**
+   - Load the run's groups, archived ones included, with one filter on the subtree-course column that #919 adds to every group in a course-scoped subtree. That gives the course-level group and every group below it. Reach each shared root through the course-level group's `parent`.
+   - Load every criterion in those groups, archived ones included, with `select_related` on `object_tag` and `rule_profile`. Index the criteria by Tag and `object_tag.object_id`.
+   - A criterion counts as live only when the criterion, its group, and every group above it are all live.
+6. **Plan each competency in memory first.** The plan reads only the state that step 5 loaded. This matters when the file lists one subsection in two groups, a second association that authoring allows, since `_reject_duplicate_criterion()` rejects a duplicate only inside the same group. On a fresh import, the subsection is then created in both groups instead of being counted as already present the second time.
+   - **Archived course-level group.** When the run's course-level group for the Tag is archived, skip the competency. The import never reactivates a course-level group.
+   - **Dominance.** When a taxonomy ancestor or descendant of the Tag has a live criterion in the run, skip the competency. Reuse the check that `_validate_containment()` makes through `get_courses_with_relative_criteria()`. Step 7 writes competencies one at a time, so this check also finds a relative that the same file added earlier.
+   - **Criteria.** A file criterion is the same as a destination criterion when both have the same Tag and the same object id. Build the object id with `course_key.make_usage_key()`.
+     - When a live destination criterion exists anywhere in the run, leave it as it is, in whatever group it sits. Log when its `_effective_rule()` differs from the file's values.
+     - Otherwise the criterion is missing, including when only an archived destination criterion exists. The import then creates a fresh criterion and leaves the archived one archived, the same way #717 lets authoring add a fresh criterion for content whose earlier criterion was archived.
+     - For a missing criterion, find the live ObjectTag for that object id and Tag, and skip the criterion when that ObjectTag is missing or archived. Do not fall back to matching by tag value. An ObjectTag that the tag import could not match has no Tag, and a renamed value can point at a different Tag.
+   - **Group for the missing criteria.** For each bottom-tier group in the file, collect the live bottom-tier groups under the run's course-level group that hold a live criterion for any subsection that file group lists.
+     - With exactly one such group, add the file group's missing criteria to it. Log when its name or operator differs from the file's.
+     - With two or more, the import cannot tell which destination group the file group corresponds to, so skip the file group's missing criteria and log. This rule only decides which existing group a criterion joins; creating several new groups in one import is fine.
+     - With none, plan a new bottom-tier group with the file's name, `ordering`, and `logic_operator`, and with `course=None`, the way authoring creates one.
+     - `ordering` plays no part in matching, because every group has `ordering` 0 today and the field may be removed later.
+     - A group the file nests below a bottom-tier group goes through the same matching one level down, inside its parent's destination group. No API creates such a group, so only a unit test covers this case.
+   - **Rule profile or override.** Compare the file's `rule_type` and `rule_payload` with the values of the rule profile that `_get_applicable_rule_profile()` returns, which for MVP is the system default. When they are equal, the new criterion uses that rule profile. Otherwise it carries an override with the file's values. The file's `source` does not change the outcome. Validate each planned override with `validate_rule_payload()` and skip any override it rejects, so the next bullet works from the final set.
+   - **Nothing empty.** ADR 0002 forbids persisting an empty group. Plan a new group only when a criterion is added in or beneath it. Create the course-level group, or reactivate an archived root, only when the competency adds at least one criterion.
+7. **Write each competency's plan.** All writes for the whole file happen inside one `transaction.atomic()`, and the import takes no row locks. The transaction only makes the writes commit or roll back together; it does not lock the rows the import reads.
+   - Do not use `select_for_update()`, which would lock the rows the import reads so that a concurrent author has to wait. `AGENTS.md` in openedx-core reserves it as a last resort that needs a comment explaining why a constraint cannot do the job, and here the unique constraints already handle the root and the course-level group. Factor `_create_leaf_group()`'s two `get_or_create()` calls into a helper that both callers use. `get_or_create()` already recovers from the `IntegrityError` a concurrent insert raises, and the helper keeps the derived names in one place. Pass the file's `root_logic_operator` and the course-level group's `logic_operator` as `defaults`, so only a newly created row takes them. Log when an existing row's operator differs from the file's, counting a null operator as OR. The file's root and course-level group names are the source course's, and the import does not use them.
+   - Because nothing is locked, the duplicate check in step 6 and the dominance check are plain reads. Authoring serializes the same checks by locking the Tag row in `associate_competency_criterion()`. So when an author adds a criterion for the same competency in the same run while the import runs, the author's criterion can get past the import's checks as a duplicate. Accept that race and explain it in a code comment.
+   - Reactivate an archived root with `save()`, so that simple-history records the change. Call `get_or_create()` for the run's `CompetencyCourseRun` row, which is meant to exist for every run that has criteria, and do not lock it.
+   - Create new groups parent-first, then the criteria, each with `objects.create()`, so that `save()` runs `full_clean()` and simple-history records every row. Do not call `create_competency_criterion()`, because it rewrites the object's tags through `tag_object()`. The import never changes Tags, ObjectTags, or learner status.
+   - Any exception rolls back the whole file and propagates, so the course import fails.
+8. **Logging.** Log every skip and every difference at info level, or at debug level if the implementer prefers. Each line names the competency, and for a criterion, its block. Only the whole-file skip and the missing `CourseRun` are logged as warnings. End with one info line that counts the groups and criteria created and the entries skipped. Nothing is shown to the author; that is out of scope.
+9. **Docs.** Add these import semantics to #695's format page, `docs/openedx_learning/competency_criteria_file.rst`.
 
-   Rule payloads are validated per rule in step 5.
-4. **Resolve competencies, then lock.** Inside one `transaction.atomic()`, find each taxonomy with `openedx_tagging.api.get_taxonomy_by_export_id()`, check it with `is_competency_taxonomy()`, then find the Tag with the taxonomy's `tag_for_external_id()` method. Skip the competency and log when the taxonomy or the Tag is missing or archived, or when the taxonomy is not a competency taxonomy. Lock the resolved Tag rows with `select_for_update()` in primary-key order. Authoring takes the same lock in `associate_competency_criterion()`, and the fixed order keeps two concurrent imports from deadlocking.
-5. **Plan in memory first.** Whether a root is reactivated, a course-level group is created, or a nested group is kept depends on whether any rule ends up beneath it, and ADR 0002 forbids persisting an empty group. A null `logic_operator` equals OR at every level.
-   - **Root.** Look for the Tag's groups with `parent=None`, archived ones included. When there is more than one, skip the competency and log. When the root's operator differs from the file's, keep the destination's operator, log the difference, and continue.
-   - **Course-level group.** Look for the Tag's group for this run under that root. When its operator differs from the file's, leave it as it is, add nothing under it, and log. The root and the course-level group are the only rows the import ever reactivates, and only when the plan adds a live rule beneath them. Reactivation matters for a re-import whose tag step deleted the last live rule, after which #895 archived the emptied course-level group: authoring cannot add under an archived course-level group once #717 lands, so without reactivation that rule would be lost for good.
-   - **Nested groups, with the same rule at every depth.** The candidates for a file group are the existing child groups of its matched parent that hold at least one rule somewhere beneath them; a candidate with no rules is ignored. Matching ignores `ordering`.
-     - A live candidate matches when every live rule beneath it evaluates content the file records under that file group. An archived candidate matches when every rule beneath it does.
-     - When exactly one live candidate matches, refill it. A different name is ignored. A different operator means nothing is added in or under that group, and the difference is logged.
-     - When exactly one archived candidate matches, skip the file group and log.
-     - When nothing matches, plan a new group with the file's name, ordering, and operator, and with `course=None`, as authoring does.
-     - When a candidate partly overlaps the file group, when more than one candidate matches, or when one candidate is matched by more than one file group, skip the file group or groups and log.
-   - **Criteria.** Rebuild each object id with `course_key.make_usage_key(block_type, block_id)`, or use the course key itself when `block_type` is `"course"`. Look for the live ObjectTag for that object, the Tag's taxonomy, and that Tag. Criteria the file lists directly on the course-level group are handled the same way, with the course-level group as their group.
-     - When the ObjectTag is missing, archived, or tied to a different Tag, skip the criterion and log, with no fallback to matching by value: an unmatched `create_invalid` ObjectTag has no Tag at all, and a renamed value can tie it to a different Tag.
-     - In a matched group, an archived rule on the same association means the criterion is skipped and logged. A live rule on the same association is left as it is, and is logged only when its `_effective_rule()` differs from the file's.
-   - **Rule.** Use an override verbatim. For `source: "rule_profile"`, use the profile the create path would pick when that profile's `rule_type` and `rule_payload` equal the file's; otherwise use an override carrying the file's values. Factor `create_competency_criterion()`'s lookup (taxonomy-scoped profile, else system default) into one private helper that both call. Validate every planned override with `validate_rule_payload()`, and skip and log any that are rejected, so that pruning empty groups sees the final set.
-6. **Write.**
-   - Reactivate planned containers with `save()` rather than a queryset update, so that simple-history records the change.
-   - Create groups parent-first with `objects.create()`, because each child needs its parent's primary key and `bulk_create` does not return keys on MySQL.
-   - A new root or course-level group takes the name authoring derives (factor the name logic out of `_create_leaf_group()`), because the name in the file is the source course's.
-   - Create criteria last with `simple_history.utils.bulk_create_with_history`. That function skips `save()` and its `full_clean()`, which is why step 5 validates.
-   - The import never creates, changes, or deletes learner status, Tags, or ObjectTags.
-7. **Docs.** Add these import semantics to #695's format page.
+Tests must cover, beyond the Acceptance Criteria:
 
-Tests must cover:
-- Fresh imports: into a course on another instance, with and without an existing root; into a new run on the same instance next to the live source course.
-- Re-import after the tag import has deleted ungraded rules: rules are refilled into the matched surviving groups, the survivors are untouched, and a repeated import gives the same result.
-- The #895 sequence: the course-level group is reactivated and refilled.
-- A deliberately archived branch (#675): the course-level group stays archived.
-- Every skip: a missing or non-competency taxonomy; a missing or archived Tag; a missing, archived, Tag-less, or renamed ObjectTag; an archived rule; a match to an archived sibling; a partial overlap; an ambiguous match; a differing operator at each level; an override the destination rejects.
-- Rule profiles: matching values assign the profile, differing values become an override, and a live taxonomy-scoped profile on the destination is the one compared.
-- Bad files: a malformed file or a newer version writes nothing, and the course import still succeeds.
-- Failure and depth: a failure mid-write rolls everything back, and nesting deeper than three levels works.
-- openedx-platform: a missing file does nothing, a missing `CourseRun` is created, and an unexpected error fails the import task.
+Entries the import skips, or failures:
+
+- each structurally invalid entry, where only that criterion or competency is skipped
+- a criterion whose subsection is not in the destination course, whose ObjectTag is archived, or whose ObjectTag has no Tag
+- an override that `validate_rule_payload()` rejects
+- the dominance skip, including a relative added earlier from the same file
+- a missing `CourseRun`, and a failure partway through that rolls everything back
+- openedx-platform: a missing file does nothing, and an unexpected error fails the import
+
+Shapes that import cleanly:
+
+- a group nested below a bottom-tier group, created through the model, and a criterion the file lists directly on the course-level group
+- a subsection listed in two file groups, created in both groups on a fresh import. Authoring allows this: `_reject_duplicate_criterion()` rejects a second criterion for the same competency and subsection only inside the same group
+- a new root created with the file's operator, and an existing root or course-level group whose operator differs from the file's, which is kept and logged, with a null operator treated as OR
+- a live bottom-tier group with no criteria, which is never matched
 
 Out of scope:
-- an association that stays archived because the import no longer carries its tag (the guardrail series)
-- the tag-import delete path (#779) and the pruning of emptied groups (#895)
+
+- showing the author, on the import page, which entries were skipped or differ. The import page shows success or one failure message, and a `tags.csv` error is only logged today, so skips here are logged the same way. Layering does not forbid an author-facing message; a warning channel on the import page would be new work.
+- course-final-grade criteria, taxonomy-scoped rule profiles, and creating groups nested below a bottom-tier group through the API
+- the tag import's difference logic, and the cleanup of criteria whose subsection tag the course export dropped (#895, #779)
 - library copy (#697, #698)
 - user-facing docs (#652)
 
@@ -378,26 +336,50 @@ Out of scope:
 
 | File | Change |
 | --- | --- |
-| src/openedx_learning/applets/cbe/api.py | modified: import_competency_criteria_for_course, shared rule-profile and group-name helpers |
-| src/openedx_learning/applets/cbe/criteria_file.py | modified: parser and validation |
-| src/openedx_learning/applets/cbe/data.py | modified: CompetencyCriteriaImportResult |
+| src/openedx_learning/applets/cbe/api.py | modified: `import_competency_criteria_for_course`, plus the root and course-level group helper factored out of `_create_leaf_group()` |
+| src/openedx_learning/applets/cbe/criteria_file.py | modified: parser |
 | tests/openedx_learning/applets/cbe/test_criteria_file_import.py | new |
 | docs/openedx_learning/competency_criteria_file.rst | modified: import semantics |
-| openedx-platform: xmodule/modulestore/xml_importer.py | modified: import_competency_criteria hook and call |
+| openedx-platform: xmodule/modulestore/xml_importer.py | modified: `import_competency_criteria` hook and call |
 | openedx-platform: xmodule/modulestore/tests/test_xml_importer.py | modified |
 
 **Additional context**
 
-- The work is two PRs. The openedx-core PR goes first and needs #695's `criteria_file.py`. The openedx-platform PR then raises the openedx-core requirement, and should merge together with #695's openedx-platform PR.
-- The lookups use the `archived` fields from #776, so #776 is needed even for a fresh import.
-- The re-import case also depends on #778 and #779, because without them tag import raises `ProtectedError` before this code runs, and on #895, which prunes the groups that tag import empties.
-- The `CourseRun` row normally exists by this step: `course_published` is sent when the first `bulk_operations` block of the import closes, and `_listen_for_course_publish` in `openedx/core/djangoapps/content/course_overviews/signals.py` creates the row.
-- Prior art: #694 for creation order and copying live rows only; `associate_competency_criterion()` and `_create_leaf_group()` for the Tag row lock and the derived names; #717 for reactivating an archived root.
+- The work is two PRs. The openedx-core PR goes first and needs #695's `criteria_file.py`. The openedx-platform PR then raises the openedx-core requirement. It can land independently of #695's openedx-platform PR: a criteria file that no importer reads yet is ignored, and an importer that finds no file does nothing.
+- #919 lands first. Step 5 loads a run's groups with the subtree-course column #919 adds; without it, the only way to find a run's bottom-tier groups is to walk down through `parent` one level at a time.
+- #895 ships with this ticket and #695. It changes a tag re-import to apply only the differences between the course export's tags and the course's tags. As a result, an unchanged re-import removes no criterion, and a criterion is missing at this step only when the author removed it, or when the course export dropped its subsection's tag.
+- The lookups use the `archived` fields that #776 adds, so #776 is needed even for a fresh import.
+- #717 also changes `_create_leaf_group()`, to reactivate an archived root and to reject an archived course-level group, and makes the duplicate check count only live criteria. The import follows the same three rules, so whichever of the two tickets lands second reuses the other's helper.
+- The `CourseRun` row normally exists by this step. `course_published` is sent when the first `bulk_operations` block of the import closes, and `_listen_for_course_publish` in `openedx/core/djangoapps/content/course_overviews/signals.py` creates the row.
 
 </details>
 
-## Open Questions
+<details>
+<summary>Appendix: how the import treats content, tags, and criteria differently</summary>
 
-- (architect, final review) Confirm the group matching rule for re-import. Every group has `ordering` 0 because no create path sets it, so the match by ordering that the Description's pseudo code states would match every file group to every surviving group. The drafted rule in Approach step 5 matches on content instead: a destination sibling holding at least one rule matches a file group when every live rule beneath it is on content the file records for that group; an archived sibling matches when every rule beneath it is, and the file group is then skipped; an empty sibling never matches; a partial overlap, more than one matching sibling, or one sibling matched by more than one file group skips the file group or groups and logs. Alternatives: pair siblings positionally in ordering-then-creation order, or skip the refill for any competency whose course-level group survives.
-- (architect, final review) Confirm how archived containers are handled. The drafted rule reactivates an archived shared root, and an archived course-level group for this run, only when the import adds a live rule beneath it, and never un-archives a nested group or a rule. The alternative is to skip the competency whenever its course-level group is archived. In the re-import sequence where #895 archives an emptied course-level group, that alternative loses the deleted rule for good, because authoring cannot add under an archived course-level group (#717). The drafted rule diverges from #717's authoring rule, so #717 may need the same decision. It also means an author's #675 archive can come partly undone: the import cannot tell a #675 archive from the automatic archive #895 makes, so re-importing an archive taken before the #675 archive recreates the ungraded part of that branch live (tag import deletes the ungraded archived rules, #895 removes their emptied groups, the file's groups then have no counterpart and are created, and the course-level group is reactivated). Recommended: accept this and state it in the format doc and in #652.
-- (architect, final review) Should this ticket be split? As drafted it is about 3.5 to 4 developer-days. The seam is whether the destination run already has a course-level group for the competency. Fresh import stays here (about 2 days) and skips a competency whose course-level group already exists. The re-import merge (content-anchored matching, survivor comparison, archived siblings and rules, course-level group reactivation; about 1.5 to 2 days, openedx-core only) becomes a companion ticket whose dependencies are exactly the re-import ones: #776, #778, #779, and #895.
+A course import does not treat competency criteria the way it treats course content and content tags. Content and tags are imported as "make the course run look like the course export". Criteria are imported as "add what the run is missing, and never take anything away". The difference is deliberate, and the reason is learner status: a criterion can have mastery results recorded against it, and a subsection or a tag association cannot.
+
+The table compares the three layers on the same questions. The content column describes the split modulestore importer as it works today. The tag column describes the tag import after #895. The criteria column describes this ticket.
+
+| Question | Subsections (content) | Tag associations (tags.csv, after #895) | Criteria and groups (this ticket) |
+| --- | --- | --- | --- |
+| What is the course export's role? | The source of truth. The run is rewritten to match it. | The source of truth. Only differences are applied, but the end state matches the export. | A list of suggestions. Anything already in the run wins. |
+| Something in the export that the run lacks | Created. | Created. | Created, in the group holding its siblings, or in a new group. |
+| Something in the run that the export lacks | Becomes an orphan: out of the outline, never deleted. | Removed. A block the export does not list loses all its associations, which cascades to its criteria. | Left alone. The import never removes a criterion or a group. The tag removal in the previous column is what takes a rule away. |
+| Same item in both, but different | The export's version replaces the run's: fields, children, position. | The export's tag set replaces the run's for that block. | The run's version is kept: threshold, name, operator, and which group it sits in. |
+| Item moved to a different parent | Follows the export. One copy, under the export's parent. | Not applicable. An association has no parent. | Stays where the author put it. The export's group placement is ignored. |
+| Author's edits since the export | Overwritten, including drafts. | Overwritten. | Kept. |
+| Archived item in the run | Not applicable. Content has no archive state. | Revived if the export carries it again (#779). | Stays archived. A fresh criterion is created beside it, and an archived course-level group blocks the whole competency. |
+| Learner history | Not affected by the import. Grades key on the usage key, which survives. | None attached. | The reason for every row above: statuses hang off a criterion, so it is never replaced or moved. |
+| Importing the same export twice | The second import changes nothing. | The second import changes nothing. | The second import changes nothing. |
+
+The two places where the lack of parity shows up most:
+
+- An author who re-imports a course to reset it gets reset content and reset tags, but keeps every threshold, group name, operator, and group placement changed since the export. Only rules whose subsection lost its tag go away, and only through the tag import.
+- A subsection the export drops disappears from the outline, loses its tags, and loses its rule, all through the content and tag imports. The criteria import plays no part in removal. That is consistent with #895 owning cleanup, but it means a rule survives a re-import only if its tag does.
+
+Parity would be wrong in the "archived item" and "same item, but different" rows. Replacing a criterion that has learner statuses would either orphan those statuses or delete history, which is what the archive rules exist to prevent. Parity is missing without a strong reason in the "moved to a different parent" row: the import could follow the file's group placement for a rule with no learner status, the way content follows the export. This ticket chose one rule for every rule, regardless of history, because that is simpler to explain and to test.
+
+An alternative considered and left out of this ticket: treat the course export as the source of truth when the course run has no competency statuses at all, by deleting the run's criteria and groups and recreating them from the file, and fall back to the add-only behavior above once any status exists. It would give an unlaunched run the same reset semantics as content and tags. It is left out because the two behaviors would differ only for an author who edits rules after exporting and then re-imports into the same unlaunched run, and because it adds a second code path and a mode switch that an author cannot see. It can be added later without changing anything this ticket does.
+
+</details>
