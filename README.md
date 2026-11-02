@@ -153,9 +153,13 @@ the other various tasks.
 
 ## License
 
-Apache License 2.0. See [LICENSE](LICENSE). Copyright 2026 Unicon, Inc.
+Copyright 2026 Unicon, Inc.
+
+Except where otherwise noted, material in this repository is licensed under the
+[Apache License 2.0](LICENSE) to the extent Unicon holds the applicable rights.
 
 Most of this repo was written during Unicon's work for Axim Collaborative on competency-based
 education in Open edX. The `.claude/github-issues/` folder reproduces issue text from
-`openedx/openedx-core` for reference. That repository is the source of truth for it, copyright
-stays with whoever holds it, and it is not covered by this license.
+`openedx/openedx-core` and `openedx/openedx-platform` for reference. The upstream issues are
+the source of truth for that text. Reproduced third-party material remains subject to its
+applicable terms and is not relicensed by this repository.
