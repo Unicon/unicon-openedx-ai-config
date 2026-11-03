@@ -1,6 +1,6 @@
 # [Follow-up BE] Remove the ENABLE_COMPETENCY_MASTERY_TRACKING setting
 
-GitHub: pending (openedx/openedx-core, sub-issue of #725; the code change is in openedx/openedx-platform)
+GitHub: https://github.com/openedx/openedx-core/issues/924 (#924, OPEN; sub-issue of #725; the code change is in openedx/openedx-platform)
 Cached: 2026-11-02
 
 ## User Story
