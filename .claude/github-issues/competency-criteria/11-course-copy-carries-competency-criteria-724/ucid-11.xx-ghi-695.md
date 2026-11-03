@@ -1,4 +1,4 @@
-# [BE] Include Competency Criteria in Course Export
+# [NTH - BE] Include Competency Criteria in Course Export
 
 GitHub: https://github.com/openedx/openedx-core/issues/695 (#695, OPEN)
 Cached: 2026-10-20
