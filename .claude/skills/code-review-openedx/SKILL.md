@@ -26,7 +26,8 @@ session fulfills it.
 **Shape and timing.** The review runs in four phases: a short inline phase in which the
 orchestrator pins the target, has one Sonnet sub-agent extract the tickets, reads the extracts
 and the diff, and writes one shared brief; one
-dispatch wave in which five sub-agents work in parallel from that brief; an inline phase in
+dispatch wave in which five sub-agents, and a sixth from another model family when one can be
+started, work in parallel from that brief; an inline phase in
 which the orchestrator verifies, sorts, and presents; and an explanation phase in which the
 orchestrator writes the findings out for the engineer who implemented the change, has a Sonnet
 sub-agent clean that text up, and gates it for accuracy. Nothing in the wave waits on anything
@@ -107,6 +108,8 @@ missing:
   older snapshot.
 - A sub-agent's finding is a hypothesis. Read its citation against the actual code at the head
   SHA before it becomes a finding of this review.
+- Every file the review produces (the ticket extracts, the shared brief, the explanation drafts,
+  and the final review) is stored in `./pr-reviews`.
 - The review is read-only on the checkout under review. Anything that runs code or changes
   files, such as running tests, merging with `main`, or breaking a code path to watch a test
   fail, happens in a temporary git worktree that is removed afterwards.
@@ -124,16 +127,18 @@ missing:
 | B3 | Mechanical checks in a temporary worktree: the merge with `main` and its migration graph and import linter, targeted tests and linters, the premise lookups | `general-purpose`, Sonnet, high | 35 |
 | B4 | Behavior in a temporary worktree: map tests to criteria and break-and-restore each load-bearing test, enumerate and probe error paths and bounded writes, rerun the pre-existing form of edited tests, the lean-test checks | `general-purpose`, Sonnet, high | 35 |
 | B5 | Architecture, ADR adherence, framework-boundary leaks, cross-repository placement, callers, the data-model invariants table | `software-architect`, Opus, xhigh | 35 |
+| B6 | Adversarial second opinion from a different model family; skipped, with the user told, when it cannot be started | a GPT-6.1-Sol agent, delegated to a ChatGPT agent | 35 |
 | C | Build the tables from B's results, verify every candidate at the head SHA, sort, present | the top-level session, inline | 12 tool calls |
 | D1 | Write the explanation of the findings for the engineer who implemented the change, from the C6 output | the top-level session, inline | 1 tool call |
 | D2 | Run `clean-up-text` steps 1 to 5 and 7 on that explanation | `general-purpose`, Sonnet, medium-high | 25 |
 | D3 | The accuracy gate, `clean-up-text` step 6, on the cleaned explanation | `doc-accuracy-reviewer`, Sonnet, high | 15 |
 
-Pass `model` explicitly on every dispatch, and dispatch all five B agents in one message with
-`run_in_background: false`, so the wave runs concurrently and the orchestrator waits for all of
-them. Give each sub-agent the shared brief and its remit, never this session's history. Tell it
-in the brief that it cannot dispatch, that it has a tool-call budget, and that it must return a
-"Needs research" item for anything it cannot do itself. Fulfill "Needs research" items yourself
+Pass `model` explicitly on every dispatch, and dispatch the five B agents, and B6 when it can be
+started, in one message with `run_in_background: false`, so the wave runs concurrently and the
+orchestrator waits for all of them. Give each sub-agent but B6 the shared brief and its remit,
+never this session's history. Tell it in the brief that it cannot dispatch, that it has a
+tool-call budget, and that it must return a "Needs research" item for anything it cannot do
+itself. Fulfill "Needs research" items yourself
 in phase C: by reading the installed source in the venv first, and by a web lookup in a
 `general-purpose` Sonnet sub-agent with a budget of 5 only when the venv cannot answer and the
 item decides a `Bug` or `Gap`.
@@ -165,7 +170,7 @@ a criterion, flag the conflict and ask; do not assume the criterion changed.
 Once the ticket, its parent, and the tickets the PR body or the ticket names as siblings or
 consumers are identified, dispatch one `general-purpose` Sonnet sub-agent at medium-high effort,
 budget 15, with `run_in_background: false`, to fetch each of them live with `gh` and write one
-extract file per ticket in the scratchpad. The extract has, in this order: the ticket number,
+extract file per ticket in `./pr-reviews`. The extract has, in this order: the ticket number,
 title, and `updated_at`; the User Story, word for word; the Acceptance Criteria, word for word
 and numbered; the UX Design section in full, with its links; then the Description, Context, and
 Open Questions sections rewritten as the behavior and constraints they state, with every
@@ -194,10 +199,10 @@ the comments and docstrings the diff adds or changes: default settings, transact
 and locking, validation order, what a cited precedent does, what a cited ADR or ticket says,
 which constraints exist, which tests cover what. You only list them here; B3 verifies them.
 
-**A4. The shared brief.** One file, at most 150 lines, that every B agent reads first: the facts
-from A1 and A2 with the diff's path, the commits on `main` with their SHAs, the user story and
-the criteria, the claims, the repository's rule locations from the table below, the
-sibling-ticket extracts with one line each, the environment (venv, `PYTHONPATH` to the
+**A4. The shared brief.** One file in `./pr-reviews`, at most 150 lines, that every B agent
+reads first: the facts from A1 and A2 with the diff's path, the commits on `main` with their
+SHAs, the user story and the criteria, the claims, the repository's rule locations from the
+table below, the sibling-ticket extracts with one line each, the environment (venv, `PYTHONPATH` to the
 worktree's `src/`, test command, the module `__file__` check), the read-only and no-dispatch
 rules, the budget, and the output format:
 findings with Title, Severity (`Bug`, `Gap`, `Question`, `Suggestion`, `Nit`), Anchor
@@ -350,6 +355,20 @@ or ADR on:
 - anything else with a concrete impact that the remits above do not name. The listed dimensions
   are where defects usually are, not the complete set.
 
+**B6. Adversarial review (a GPT-6.1-Sol agent, delegated to a ChatGPT agent).** A different
+model spots different defects than the Claude agents above, so this agent does not get this
+skill's instructions. Write its prompt yourself, from the diff's path, the criteria, the ticket
+extracts, and the PR's facts, and ask it to attack the change: find the input, state, ordering,
+concurrency, or lifecycle sequence that breaks it, and the claim in the diff that is false. Do
+not give it the shared brief, the remits above, or the severity scheme, so that it does not
+repeat their checks. Give it the read-only rule, its budget, and an output format of title,
+`file:line`, the failing input or sequence, and what it checked. Its findings are hypotheses:
+phase C verifies each one at the head SHA against the criteria of C4 and C5, exactly as it does
+for any other sub-agent's finding, and the findings that hold go into the final review. When
+the delegation is not possible, for example because no ChatGPT agent can be started in this
+environment, skip B6, record the skip under "Checks run and skipped", and tell the user in the
+chat response.
+
 ## Phase C: verify, sort, present (orchestrator, inline, at most 12 tool calls)
 
 **C1. Acceptance criteria.** Build the required table from B4's mapping and your own reading of
@@ -384,7 +403,7 @@ the merge decision, such as a claim about test coverage or about which constrain
 **C3. Invariants.** Take B5's table, read each gap row's enforcement claim at the head SHA, and
 apply the rules in B5's remit to turn the gaps into findings.
 
-**C4. Verify before asserting.** For every candidate from B1 to B5, confirm: it is introduced,
+**C4. Verify before asserting.** For every candidate from B1 to B6, confirm: it is introduced,
 worsened, or exposed by the change; it has an evidence source read at the head SHA, not from
 memory; it names a concrete impact; and its severity matches the evidence. For a `Bug`, also
 confirm the reproduction path, the affected input or state, and that the path is reachable in
@@ -443,7 +462,8 @@ catches; issues on lines the change did not modify, unless the change exposes th
 
 Lead each finding with the point, then the mechanism, in one to three sentences. Keep the tone
 of one engineer to another: direct, specific, no praise padding and no "strengths" section. A
-`Bug` or a `Gap` means the verdict is not "yes". Keep the two axes separate: a clean convention
+finding that only the B6 agent raised is marked as raised by that agent. A `Bug` or a `Gap`
+means the verdict is not "yes". Keep the two axes separate: a clean convention
 pass does not soften a criterion `Gap`, and full criteria coverage does not excuse a layering
 violation. If nothing is wrong, say so plainly, with the tables that show it.
 
@@ -456,7 +476,7 @@ change, and anyone else who did not sit in the review, cannot follow it without 
 Phase D produces the text they can follow. It is part of the deliverable, not an optional
 summary: a review without it is not finished.
 
-**D1. Draft (orchestrator, inline, one file in the scratchpad).** Write the findings out for one
+**D1. Draft (orchestrator, inline, one file in `./pr-reviews`).** Write the findings out for one
 reader: the engineer who implemented the change, who knows the framework but not this
 codebase's history, the ticket thread, or the sibling tickets. The draft has these parts, in
 this order:
@@ -535,7 +555,7 @@ needs from the review. Append to it, at the end of the file:
 When the user asked questions that are an integral part of the review, the answers are part of
 the review in that file: write them into the D1 draft, in their own section before the action
 list, so the cleanup and the gate cover them. Your response in chat is only a link to the cleaned
-file, nothing more.
+file, plus one sentence saying that B6 was skipped and why when it was.
 
 ## Red flags
 
