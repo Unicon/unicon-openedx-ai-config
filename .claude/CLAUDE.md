@@ -5,15 +5,56 @@ and community plugins. Treat public APIs as contracts and keep changes small.
 
 ## Where to run
 
-Start Claude Code from the workspace root: the folder that holds `openedx-core`,
-`frontend-app-authoring`, and the other repositories as children, with this `.claude/`
-symlinked into it (setup: see the README). Claude Code reads `settings.json` only from the
-working directory, and discovers project skills and agents by walking up from the working
-directory to the repository root, no further. A session started inside one of the
-repositories still loads this file from the parent folder but sees no team skills, agents,
-or settings. If the working directory is inside one of the repositories rather than the
-workspace root, say so at the start of the session and suggest restarting from the
-workspace root.
+The user starts Claude Code from the workspace folder, not from inside one of the
+repositories. Claude Code reads `settings.json` only from the working directory, and finds
+project skills and agents by walking up from the working directory to the nearest repository
+root, no further. A session started inside a repository still loads this file from the
+parent folder, but sees none of the team's skills, agents, or settings.
+
+### The folders involved
+
+- **Workspace folder:** the folder on your machine that holds the Open edX repositories as
+  subfolders. This file calls it `openedx/`. Yours may have another name, such as `axim/`.
+- **Repository:** a git repository cloned into the workspace folder, such as
+  `openedx-core/`, `openedx-platform/`, or `frontend-app-authoring/`.
+- **The `.claude/` symlink:** `openedx/.claude/` is a symlink, a link that points to
+  `unicon-openedx-ai-config/.claude/`, so both paths show the same files. The README's
+  setup steps create it.
+- **Working directory:** the folder Claude Code starts in. That is the folder the user
+  `cd`s into before running `claude`, or the folder they open in VS Code.
+
+```text
+openedx/                        <- workspace folder: start Claude Code here
+├── .claude/                    <- symlink to unicon-openedx-ai-config/.claude/
+├── unicon-openedx-ai-config/
+│   └── .claude/                <- the real folder the symlink points to
+├── openedx-core/               <- repository: no .claude/ symlink in here
+│   └── AGENTS.md
+├── frontend-app-authoring/     <- repository: no .claude/ symlink in here
+│   └── AGENTS.md
+└── ...                         <- other repositories (optional)
+```
+
+If the working directory is inside a repository rather than the workspace folder, say so
+at the start of the session and suggest restarting from the workspace folder.
+
+## Each repository's own AI config
+
+A task can involve two AI configs: this setup in the workspace folder's `.claude/`, and the
+AI config of the repository the task touches, which is an `AGENTS.md` in that repository's
+top folder. `openedx-core` and `frontend-app-authoring` each have one, and other
+repositories such as `openedx-platform` (formerly `edx-platform`) may add one.
+openedx-core's covers commands, database and concurrency rules, package layering, applet
+rules, and the per-app API module conventions.
+
+Before you work in a repository, read its `AGENTS.md` as well as this setup. Treat that
+`AGENTS.md`, not this setup, as the accurate summary of facts about the repository, but
+don't expect it to always be up to date. When any document under `.claude/`, including this
+`CLAUDE.md`, conflicts with that `AGENTS.md`, follow `AGENTS.md` and treat the disagreement
+as a stale line here to fix.
+
+If that `AGENTS.md` tells you to read further AI config in the same repository, do so, and
+where it conflicts with this workspace setup, follow the repository's config.
 
 ## Which skill to use
 
@@ -210,12 +251,6 @@ bundled into this change.
 
 ## Architecture
 
-- The root `AGENTS.md` of the repository the task touches is the source of truth for that
-  repository's facts. Read it before working there. `openedx-core` and
-  `frontend-app-authoring` each have one; openedx-core's covers commands, database and
-  concurrency rules, package layering, applet rules, and the per-app API module
-  conventions. When this file or any document under `.claude/` disagrees with that
-  `AGENTS.md`, follow `AGENTS.md` and treat the disagreement as a stale line here to fix.
 - Never import from `openedx-platform`. Code here is the lower layer.
 - Respect the layering in `.importlinter`; `lint-imports` enforces it. Don't loosen a
   rule to fix the build.
