@@ -62,8 +62,15 @@ mkdir openedx
 cd openedx
 ```
 
-**2. Set up your Open edX repositories inside it** with
-[Tutor](https://github.com/overhangio/tutor).
+**2. Clone the Open edX repos as siblings inside it.** Fork a repo first on GitHub and clone
+your fork's URL instead if you intend to push commits or open a PR from it. Otherwise a plain
+clone is fine, and you can switch to a fork later without redoing anything.
+
+```
+git clone https://github.com/openedx/openedx-core.git
+git clone https://github.com/openedx/openedx-platform.git
+git clone https://github.com/openedx/frontend-app-authoring.git
+```
 
 `openedx-proposals` is Open edX's governance docs — reference-only, always a plain clone, no
 need to fork it:
@@ -131,8 +138,8 @@ the other various tasks.
 [T3 Code](https://t3.codes/) is a desktop app that runs Claude Code and Codex agents side by
 side, using the Claude and ChatGPT subscriptions you already have. T3 Code calls each agent
 service it connects to a provider. An agent running in T3 Code can delegate a task to an agent
-from the other provider: a Claude agent can hand implementation to a GPT agent, for example,
-and review the result when it comes back.
+from the other provider. For example, a Claude agent reviewing a change can hand that change to
+a GPT agent and check the GPT agent's findings when they come back.
 
 T3 Code is optional, but recommended for code reviews. [AI Code Reviews](#ai-code-reviews)
 explains why.
@@ -164,12 +171,6 @@ that CLI.
 whatever parent folder you have for your Open edX setup that contains `openedx-core` or
 `frontend-app-authoring` as subfolders. Agents then start there and read the symlinked
 `.claude/` folder, the same way the VS Code panel does.
-
-To delegate work, ask for it in your prompt. For example, select Claude Opus in T3 Code and send
-the message below. It shows the shape of a delegating prompt, not a recommended prompt.
-
-> Write an implementation plan for the ticket I'm working on. Then delegate implementation to a
-> new GPT-6.1-Sol agent. Then you should code review the implementation.
 
 ## AI Code Reviews
 
