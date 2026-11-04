@@ -209,9 +209,11 @@ the review.
   missing. Skip this for trivial changes like renames or typo fixes.
 - **Before a new PR goes to a human reviewer:** the `pre-human-review` skill. It runs
   `backend-code-review` or `frontend-code-review` in a separate Claude Code session (pass
-  `--model` and `--effort` to choose; the default is Opus at `xhigh`), asks you to decide each
-  finding, fixes the ones you agree with, and attaches the review and a fix report to the PR.
-  It needs `gh` and an open PR, because the review fetches both from GitHub.
+  `--model` and `--effort` to choose; the default and the project's floor is Fable at
+  `medium`), asks you to decide each finding, fixes the ones you agree with, and attaches the
+  review and a fix report to the PR. Run the skill itself in a session on at least Opus at
+  `xhigh`; it stops and asks otherwise. It needs `gh` and an open PR, because the review
+  fetches both from GitHub.
 - **Reviewing a diff or PR:** the `frontend-code-review` or `backend-code-review` skill as appropriate.
   Run it in T3 Code to include an adversarial review from a ChatGPT model; see
   [AI Code Reviews](#ai-code-reviews). For a frontend PR, `frontend-code-review` first hands you a Markdown file with the PR's component
