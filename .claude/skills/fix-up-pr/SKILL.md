@@ -174,6 +174,9 @@ changed code. In a frontend repository, use that repository's own tools instead.
   rather than on an import error or an unrelated assertion. Revert the break immediately
   afterward and verify the tree is clean. A test that passes against broken code is worse
   than no test.
+- Every mock a test sets up is actually requested by the code under test, and the test's
+  name claims only what its assertions check. A matcher that matches anything
+  (`toHaveTextContent('')`) or a request filter that never matches counts as no assertion.
 - No test asserts behavior that contradicts the acceptance criteria. When one does, either
   the test is stale or the criterion is, and the supersession question from step 2 decides
   which.
@@ -218,6 +221,13 @@ a boundary between apps, or the migration story, stop and discuss it with the de
 Recommend that they run that one item on a strong model with the `software-architect`
 sub-agent rather than folding it into this pass.
 
+After the accepted items are fixed, re-read every comment and docstring in the whole PR
+diff against the final code, not only the lines you just edited. A fix in one commit
+often makes a comment written in another one false. Delete or correct a comment whose
+claim no longer matches the code, one that only restates the identifier or type below
+it, and one that sends the reader to a file, component, or issue number they cannot see
+from this repository.
+
 ## 7. Determine the blast radius and check security
 
 Work out what the change can affect beyond its own diff, and say so explicitly:
@@ -246,6 +256,12 @@ One section per PR, plus a summary across the stack when there is one. Cover the
 acceptance-criteria table from step 2, what you ran and what it did, tests added or fixed,
 review comments grouped by what happened to each, the blast radius, and the security
 findings.
+
+Before anything is pushed, check the PR description against the final diff and draft
+the corrected text: every bullet describes code the diff still contains, the testing
+steps can be run against this diff, no placeholder is left, the dependency status is
+current, and any change outside the feature's own folder (a renamed shared component, an
+app-wide behavior change) is called out for reviewers of the other features it touches.
 
 State the gaps plainly: criteria you could not verify, tests you did not add, testing
 instructions you could not run. A gap named is useful; a gap glossed over is not.
