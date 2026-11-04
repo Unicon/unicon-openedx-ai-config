@@ -177,8 +177,8 @@ Apply these editorial principles, they are the method:
   Don't apply this to the human-written sections; flag it there as a finding instead.
 - **No line numbers.** Name files and functions; the implementer navigates. Drop stale or
   fragile precision.
-- **GitHub issue numbers only.** Replace any internal ticket ID or spreadsheet reference
-  with the equivalent GitHub issue number, or drop it if there's no public equivalent a
+- **GitHub issue URLs only.** Replace any internal ticket ID, spreadsheet reference, or
+  bare `#618` with the full GitHub issue URL, or drop it if there's no public equivalent a
   reader outside the team could open.
 - **Bullets for enumerables.** Anything you can count (out-of-scope items, files) is a
   list, not a bold-studded paragraph. Reserve bold for the few things that must not be

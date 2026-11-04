@@ -63,11 +63,13 @@ new design.
   community plugins. It formalizes core teaching-and-learning concepts behind stable in-process
   Python APIs, alongside `openedx-events` and `openedx-filters`. It is the lower layer; the
   dependency arrow is one-way and it must never import from `openedx-platform`.
-- Layering, enforced by `.importlinter` (never loosen a rule to pass a build): `openedx_content`
-  (highest) depends down through `openedx_tagging`, `openedx_django_lib`, to `openedx_core` (a
-  version shell). Inside `openedx_content`, applets are bounded contexts layered so the public
-  `api` facade sits at the top and `publishing` is the base; `components` and `containers` are
-  peers that must not import each other. Treat `.importlinter` as authoritative and check it
+- Layering, enforced by `.importlinter` (never loosen a rule to pass a build), from highest to
+  lowest: `openedx_learning` (learner-domain features, the CBE applet), `openedx_content`
+  (authored content), `openedx_catalog` (the enrollable things), `openedx_tagging` (generic, and
+  it must never learn that CBE exists), `openedx_django_lib`, and `openedx_core` (a version
+  shell). Inside `openedx_content`, applets are bounded contexts layered so the public `api`
+  facade sits at the top and `publishing` is the base; `components` and `containers` are peers
+  that must not import each other. Treat `.importlinter` as authoritative and check it
   before adding any import. Source is under `src/`.
 - Domain: a `LearningPackage` namespaces publishable content. A `PublishableEntity` has a stable
   identity and append-only immutable versions; separate `Draft` and `Published` pointers mean
@@ -93,7 +95,8 @@ Durable resources to consult when grounding a judgment:
   Proposed, Obsolete, or Superseded, so do not trust one as current without it. For broader
   Open edX architecture decisions, the OEPs at `../openedx-proposals` are the source of record.
 - `.importlinter` (layering), `README.rst`, the relevant `src/openedx_*/` app and its `api.py`,
-  `src/openedx_django_lib/id_fields.py` for identifier fields, and `CLAUDE.md` for conventions.
+  `src/openedx_django_lib/id_fields.py` for identifier fields, `AGENTS.md` at the openedx-core
+  root for commands, database rules, and layering, and `CLAUDE.md` for conventions.
 
 ## Context hygiene
 

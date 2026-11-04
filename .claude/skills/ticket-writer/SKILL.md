@@ -320,11 +320,11 @@ the code:
   a required **Approach** (pseudo code or numbered steps, real file/class/function/endpoint
   names, each step saying what happens and, where it isn't obvious, why), an optional
   **Files to create and modify** table (one line per file, marked new or modified), and an
-  optional **Additional context** (prior-art files, ADR links, GitHub issue numbers not
+  optional **Additional context** (prior-art files, ADR links, GitHub issue URLs not
   already in the human Context). Hold it to the bar of an Axim engineer who has two
   minutes: short enough to approve before code is written, nothing a competent developer
   on this codebase would do without being told, companion-ticket work marked out of scope
-  and referenced by GitHub issue number, no Example Resolution Prompt or other closing
+  and referenced by GitHub issue URL, no Example Resolution Prompt or other closing
   implementation-plan prompt. **Technical Details is required, not optional**, even a small
   ticket gets a short Approach (the one exception is a design spike, which has no Technical
   Details at all). Wrap the whole section in one collapsible `<details>` block per the

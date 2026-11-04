@@ -59,34 +59,37 @@ open to extract any of them into its own repo later without breaking
 | `openedx_content` | **Implemented (most developed)** | Authoring/content models: the publishing/versioning framework, components, containers, media/assets, collections. |
 | `openedx_tagging` | **Implemented** | Standalone tagging library (taxonomies, tags, object tags). No Open edX-specific deps. |
 | `openedx_catalog` | **Implemented (newer)** | `CourseRun`, `CatalogCourse`, and core course metadata. |
-| `openedx_learning` | **PLANNED — not yet in `src/`** | Learner-facing models. Intended home for CBE/competency criteria and Learning Pathways (applets). |
+| `openedx_learning` | **Implemented (newest)** | Learner-domain features as applets. The `cbe` applet (competency criteria and learner status) is on disk at `src/openedx_learning/applets/cbe/`; Pathways has ADRs but no applet yet. |
 | `openedx_django_lib` | **Implemented** | Shared Django utilities: identifier field helpers (`fields`, `id_fields`), managers, validators, collations, admin utils. Not a "real" app. |
 | `openedx_core` | **Implemented (shell)** | Empty package that only exposes `__version__`. Depends on nothing. |
 
-> **Watch out:** the CBE/competency work and the `openedx_learning` app are currently
-> **design-stage (ADRs only)** — `src/openedx_learning/` does not yet exist. Don't
-> assume those models are in the codebase. See the companion doc.
+> **Watch out:** the companion doc describes the CBE data model from the ADRs. The `cbe`
+> applet now exists, so verify any model or field name against
+> `src/openedx_learning/applets/cbe/` before relying on it.
 
 ### Top-level layering (`.importlinter`)
 
-`root_packages` covered by the linter: `openedx_content`, `openedx_tagging`,
-`openedx_django_lib`, `openedx_core`. Layering (higher may import lower, never the
-reverse):
+All six packages are `root_packages` in the linter. Layering (higher may import lower,
+never the reverse):
 
 ```
-openedx_content        # highest level today
+openedx_learning       # learner-domain features (CBE); nothing below may import it
   ↓
-openedx_tagging        # simple & fundamental; should not depend on other real apps
+openedx_content        # authored, versioned content; may hold FKs to catalog models
+  ↓
+openedx_catalog        # the enrollable things; knows nothing about content
+  ↓
+openedx_tagging        # simple & fundamental; must never learn that CBE exists
   ↓
 openedx_django_lib     # Django utilities; no dependency on the real apps above
   ↓
 openedx_core           # empty version shell; depends on nothing
 ```
 
-`openedx_catalog` is not yet listed in `.importlinter` `root_packages` (it is newer).
-Expect the contract to grow as apps mature.
+The comments in `.importlinter` explain each boundary; `AGENTS.md` at the repo root
+summarizes them.
 
-## 4. The "Applets" pattern (inside `openedx_content`)
+## 4. The "Applets" pattern (inside `openedx_content` and `openedx_learning`)
 
 Historically Learning Core used many tiny Django apps (`components`, `collections`,
 `publishing`, …). That made individual apps simple but made **refactors, renames, and
@@ -95,6 +98,9 @@ ordering, long `INSTALLED_APPS`). So those apps were merged into a **single Djan
 app, `openedx_content`**, with internal boundaries preserved via **"Applets."**
 Full reasoning + the tricky migration choreography:
 [0010-merge-authoring-apps-into-openedx-content.rst](docs/openedx_content/decisions/0010-merge-authoring-apps-into-openedx-content.rst).
+`openedx_learning` follows the same pattern: one Django app whose `cbe` applet lives at
+`src/openedx_learning/applets/cbe/`, with app-level `api.py`, `models.py`, `models_api.py`,
+and `rules.py` glue modules that re-export from it.
 
 - A Django **app = a DDD Subdomain**; an **applet = a DDD Bounded Context**. (Called
   "applet" to avoid colliding with Django Contexts / Python context managers.)
@@ -332,7 +338,7 @@ applies only the **Language** tag. Full detail in the companion doc →
 | [docs/openedx_core/decisions/](docs/openedx_core/decisions/) | repo-wide | Purpose of the repo; the rename to openedx-core. |
 | [docs/openedx_content/decisions/](docs/openedx_content/decisions/) | `openedx_content` | Content flexibility, extensibility, identifiers, app-label prefix (obsolete), static assets, public API conventions, generalized containers, units, selectors, the applet merge. |
 | [docs/openedx_tagging/decisions/](docs/openedx_tagging/decisions/) | `openedx_tagging` | Tagging design (see companion doc). |
-| [docs/openedx_learning/decisions/](docs/openedx_learning/decisions/) | `openedx_learning` (planned) | CBE competency criteria: location, model, versioning (see companion doc). |
+| [docs/openedx_learning/decisions/](docs/openedx_learning/decisions/) | `openedx_learning` | CBE competency criteria: location, model, versioning, mastery concurrency (see companion doc); Pathways and pathway items. |
 
 Each folder's `index.rst` just globs the ADRs. Several ADRs carry a **Status** line
 (Proposed / Accepted / Superseded / Obsolete / Rejected) and a 2026-04-02 changelog —
