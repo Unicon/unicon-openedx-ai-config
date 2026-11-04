@@ -159,11 +159,6 @@ Scenario: Selecting an already-associated subsection does not create a duplicate
   Then no second criterion is created for it
   And I can tell from the panel that it is already associated with this competency, rather than seeing an unexplained failure
 
-Scenario: A rule box with no content yet
-  Given a rule box has no criteria
-  When I view it in the associations panel
-  Then it shows an empty state indicating that no content has been selected into it yet
-
 Scenario: The association cannot be created
   Given a bottom-tier group and a rule box within it are in focus
   When I select a gradable subsection and the system cannot create the association, including because it would break a competency dominance rule
@@ -318,11 +313,11 @@ This section is background and a suggested approach, not the ticket's source of 
 | `criteria-groups/LogicOperatorSelect.tsx` | The shared operator control, with any/all labels on a group card and And/Or labels on a connector, editable only when given an `onChange`. |
 | `criteria-groups/GroupConnector.tsx` | The connector drawn between two adjacent sibling bottom-tier groups, bound to their shared course-level group's operator. |
 | `criteria-groups/ScoreThresholdField.tsx` | The closed-state score label and its editable popover, and the only place the percentage/fraction conversion happens. |
-| `criteria-groups/CriterionChipList.tsx` | The chips inside one rule box, including the empty state for a rule box with no criteria. |
+| `criteria-groups/CriterionChipList.tsx` | The chips inside one rule box. |
 | `criteria-groups/CriterionChip.tsx` | One chip: the associated subsection's display name. |
 | `criteria-groups/CourseGroupList.test.tsx` | The four panel states and the two emptiness cases. |
 | `criteria-groups/CourseGroupSection.test.tsx` | Header naming, card ordering, connector count and shared value, and independent collapse. |
-| `criteria-groups/RuleBoxList.test.tsx` | Rule box derivation and ordering, chip distribution, the empty state, and an unmatched focus key. |
+| `criteria-groups/RuleBoxList.test.tsx` | Rule box derivation and ordering, chip distribution, and an unmatched focus key. |
 | `criteria-groups/RuleBox.test.tsx` | Override and default scores rendering identically, read-only rendering, and scroll-into-view on focus. |
 
 </details>
@@ -334,7 +329,7 @@ This section is background and a suggested approach, not the ticket's source of 
 | `data/api.ts` | Add `getCompetencyCriteriaGroups`, `getDefaultCompetencyRuleProfile`, and `createCompetencyCriterion`. |
 | `data/apiHooks.ts` | Add the `competencyQueryKeys` factory, `useCompetencyCriteriaGroups`, `useDefaultCompetencyRuleProfile`, `useContentDisplayNames` wrapping `useGetContentHits` from `@src/search-manager`, `useCourseTaggingPermissions` batching a `courses.manage_tags` check across the page's course ids through `@src/authz`, and `useCreateCompetencyCriterion`, invalidating the groups query on success. |
 | `data/types.ts` | Add the course-level and bottom-tier group response types, `CompetencyCriterion`, `GradeRulePayload`, the rule profile type, the derived `RuleBox` type, and the create-request payload type. |
-| `messages.ts` | Add strings for the panel's loading and failed-load states, the "From within" header, the collapse/expand toggle's accessible label, the any/all and And/Or labels, the score display, the empty rule box state, the association error, and the already-associated notice. |
+| `messages.ts` | Add strings for the panel's loading and failed-load states, the "From within" header, the collapse/expand toggle's accessible label, the any/all and And/Or labels, the score display, the association error, and the already-associated notice. |
 
 </details>
 <details>
