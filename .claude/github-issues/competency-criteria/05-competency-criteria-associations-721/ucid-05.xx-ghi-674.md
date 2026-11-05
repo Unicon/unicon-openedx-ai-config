@@ -19,9 +19,9 @@ No endpoint exists today to remove a `CompetencyCriterion`. Per ADR 0002 Decisio
 
 **Requested change**
 
-A new endpoint, nested under the existing criterion's group, that removes a `CompetencyCriterion`:
+A new endpoint, nested under the criterion's competency, that removes a `CompetencyCriterion`:
 
-- Resolves the criterion from the URL (`group_id` and `criterion_id`); 404 if the criterion doesn't exist, or exists but does not belong to the given `group_id`.  
+- Resolves the criterion from the URL (the competency's `tag_id` and `criterion_id`); 404 if the criterion doesn't exist, or exists but does not belong to a group under the given `tag_id`.  
 - Checks whether any `StudentCompetencyCriteriaStatus` row references this criterion.  
   - If none exists: hard-deletes the `CompetencyCriterion` row.  
   - If any exists: sets `archived=True` on the row instead (no hard delete), leaving it in place for learner-status traceability.  
@@ -57,7 +57,7 @@ These scenarios are verifiable via Postman.
 Scenario: Hard-delete a criterion with no learner status
   Given a CompetencyCriterion exists under a group, with no StudentCompetencyCriteriaStatus row referencing it
   And the requesting user has studio write access to the criterion's course and view access to the competency's taxonomy
-  When a DELETE request is sent to the remove-criterion endpoint for that criterion's group_id and criterion_id
+  When a DELETE request is sent to the remove-criterion endpoint for that criterion's competency tag_id and criterion_id
   Then the response returns status code 200
   And the response body includes "id" matching the removed criterion and "archived" as false
   And a subsequent DELETE to the same URL returns status code 404
@@ -71,9 +71,18 @@ Scenario: Archive instead of hard-delete when learner status exists
 
 Scenario: Repeat removal of an already-archived criterion is idempotent
   Given a CompetencyCriterion was previously archived via this endpoint
+  And a StudentCompetencyCriteriaStatus row still references it
   When a DELETE request is sent again to the same criterion's URL
   Then the response returns status code 200
   And the response body is unchanged ("archived" still true)
+
+Scenario: Repeat removal of an archived criterion hard-deletes it once no learner status references it
+  Given a CompetencyCriterion was previously archived via this endpoint
+  And every StudentCompetencyCriteriaStatus row that referenced it has since been removed, for example because the learner's account was deleted
+  When a DELETE request is sent again to the same criterion's URL
+  Then the response returns status code 200
+  And the response body includes "id" matching the criterion and "archived" as false
+  And the CompetencyCriterion row no longer exists in the database
 
 Scenario: A shared tagged-object association survives when another criterion still references it
   Given a gradeable subsection is tagged with a competency and referenced by two CompetencyCriterion rows in two different groups
@@ -137,9 +146,9 @@ Scenario: A group with its own direct learner status is archived, not hard-delet
   And the response body's "archived" is false (the criterion itself was hard-deleted)
   And the CompetencyCriteriaGroup row still exists in the database with archived=true
 
-Scenario: Reject removal for a criterion/group mismatch
-  Given a CompetencyCriterion exists under group A
-  When a DELETE request is sent to the remove-criterion endpoint using group B's id and that criterion's id
+Scenario: Reject removal for a criterion/competency mismatch
+  Given a CompetencyCriterion exists under a group belonging to competency A
+  When a DELETE request is sent to the remove-criterion endpoint using competency B's tag id and that criterion's id
   Then the response returns status code 404
 
 Scenario: Reject removal for a criterion that does not exist
@@ -180,7 +189,7 @@ Scenario: Reject removal without permission
 | `src/openedx_learning/applets/cbe/api.py` | Add `delete_competency_criterion(criterion_id: int, user) -> CriterionDeletionResult`, plus an internal ancestor-cascade helper that walks `parent_id` deciding hard-delete vs. archive vs. stop at each level, and the `oel_tagging_objecttag` removal on the hard-delete path. |
 | `src/openedx_learning/applets/cbe/rest_api/v1/serializers.py` | Add `archived` as a read-only field on `CompetencyCriterionSerializer`. |
 | `src/openedx_learning/applets/cbe/rest_api/v1/views.py` | Add `CompetencyCriterionDeleteView(generics.GenericAPIView)`. |
-| `src/openedx_learning/applets/cbe/rest_api/v1/urls.py` | Register `criteria-groups/<int:group_id>/criteria/<int:criterion_id>/`. |
+| `src/openedx_learning/applets/cbe/rest_api/v1/urls.py` | Register `competencies/<int:tag_id>/criteria/<int:criterion_id>/`. |
 | `src/openedx_learning/applets/cbe/rest_api/v1/tests/test_views.py` | Extend with removal / archive / cascade / idempotency / permission / 404 tests. |
 
 ### Implementation Notes
@@ -198,7 +207,7 @@ Ancestor-cascade helper (walks `parent_id` upward one group at a time, stopping 
 - **On an archive event** at group `G`: if `G` has any remaining non-archived child (criterion or child group), stop. Otherwise, set `G.archived = True`, save, and recurse on `G.parent` (if any) as an archive event.  
 - **On a hard-delete event** at group `G`: if `G` has at least one non-archived child remaining, stop. If `G`'s only remaining children are archived, set `G.archived = True`, save, and recurse on `G.parent` as an archive event. If `G` has zero children left at all: check `StudentCompetencyCriteriaGroupStatus.objects.filter(competency_criteria_group_id=G.id).exists()` — if a row exists, archive `G` (same as above) and recurse as an archive event; otherwise `.delete()` `G` and recurse on `G.parent` (if any) as a hard-delete event.
 
-`CompetencyCriterionDeleteView(generics.GenericAPIView)` at `DELETE /api/cbe/v1/criteria-groups/<int:group_id>/criteria/<int:criterion_id>/`: resolve the criterion scoped to `group_id` (`get_object_or_404(CompetencyCriterion, pk=criterion_id, competency_criteria_group_id=group_id)` — a mismatch between the URL's `group_id` and the criterion's actual group is a 404, not a 400, since it's a resource-identification failure, not a payload-validation one), then call `api.delete_competency_criterion(criterion_id, request.user)` and return `Response({"id": result.id, "archived": result.archived}, status=200)`. The view does not call `self.check_object_permissions()`: `oel_tagging.can_tag_object` is checked inline inside `delete_competency_criterion()`, the same pattern \#665 uses in `associate_competency_criterion()`, not a DRF permission class.
+`CompetencyCriterionDeleteView(generics.GenericAPIView)` at `DELETE /api/cbe/v1/competencies/<int:tag_id>/criteria/<int:criterion_id>/`, following the `competencies/<tag_id>/criteria/` URL family \#665 created and the tag-plus-criterion addressing the Studio caller (\#710) uses: resolve the criterion scoped to `tag_id` (`get_object_or_404(CompetencyCriterion, pk=criterion_id, group__tag_id=tag_id)` — a mismatch between the URL's `tag_id` and the competency the criterion's group belongs to is a 404, not a 400, since it's a resource-identification failure, not a payload-validation one), then call `api.delete_competency_criterion(criterion_id, request.user)` and return `Response({"id": result.id, "archived": result.archived}, status=200)`. The view does not call `self.check_object_permissions()`: `oel_tagging.can_tag_object` is checked inline inside `delete_competency_criterion()`, the same pattern \#665 uses in `associate_competency_criterion()`, not a DRF permission class.
 
 The lookup queryset used to find the criterion for this view deliberately does **not** filter `archived=False` — unlike the future read/list path, this endpoint must be able to find an already-archived row to make the idempotent-repeat-DELETE case work (return the same 200 rather than a 404).
 
@@ -212,15 +221,15 @@ Test strategy: unit tests for `delete_competency_criterion()` (hard-delete path,
 
 ### Example Resolution Prompt
 
-> Implement \#674: a `DELETE`\-only endpoint that removes a `CompetencyCriterion`, in `openedx-core`. Assume \#613 has landed `CompetencyCriteriaGroup`/`CompetencyCriterion`/`StudentCompetencyCriteriaGroupStatus` models, the archived-field ticket has landed `archived` on both `CompetencyCriteriaGroup` and `CompetencyCriterion`, and \#665 has landed `create_competency_criterion()`, `CompetencyCriterionSerializer`, `CompetencyCriterionCreateView`, and `rest_api/v1/urls.py` registering `criteria-groups/<int:group_id>/criteria/`.  
+> Implement \#674: a `DELETE`\-only endpoint that removes a `CompetencyCriterion`, in `openedx-core`. Assume \#613 has landed `CompetencyCriteriaGroup`/`CompetencyCriterion`/`StudentCompetencyCriteriaGroupStatus` models, the archived-field ticket has landed `archived` on both `CompetencyCriteriaGroup` and `CompetencyCriterion`, and \#665 has landed `create_competency_criterion()`, `CompetencyCriterionSerializer`, `CompetencyCriterionCreateView`, and `rest_api/v1/urls.py` registering `competencies/<int:tag_id>/criteria/`.  
 > 
 
 > 1. In `src/openedx_learning/applets/cbe/api.py`, add `delete_competency_criterion(criterion_id: int, user)`. Resolve the `CompetencyCriterion` (let `DoesNotExist` propagate). Resolve the course by parsing the criterion's `ObjectTag.object_id` via `UsageKey.from_string` and resolving the `CourseRun` via `openedx_catalog.api.get_course_run()`, the same parse-and-resolve \#665 already does for creation; build `ObjectTagPermissionItem(taxonomy=<the criterion's group's competency tag's taxonomy>, object_id=<that course's key>)` and check `user.has_perm("oel_tagging.can_tag_object", ...)` inline, raising `PermissionDenied` on failure. If no `StudentCompetencyCriteriaStatus` row references `criterion_id`: inside `transaction.atomic()`, delete the criterion, remove its `oel_tagging_objecttag` via `openedx_tagging.api.tag_object()`'s read-merge-write if no other `CompetencyCriterion` still references it, then run the ancestor-cascade walk starting at the criterion's former group as a hard-delete event. Otherwise, set `archived = True`, save, touch neither the `ObjectTag` nor the group directly, and run the ancestor-cascade walk starting at the criterion's group as an archive event. The walk: on an archive event, if the current group has no non-archived children left, archive it and recurse upward as an archive event, else stop; on a hard-delete event, if the group has zero children left, archive it instead of deleting it when a `StudentCompetencyCriteriaGroupStatus` references it directly, else delete it and recurse upward as a hard-delete event; if the group's only remaining children are archived, archive it and recurse upward as an archive event; if it still has a non-archived child, stop. Return a small result carrying `id` and `archived` (the criterion's own values only).  
-> 2. In `src/openedx_learning/applets/cbe/rest_api/v1/views.py`, add `CompetencyCriterionDeleteView(generics.GenericAPIView)`. Implement `delete()`: resolve the criterion via `get_object_or_404(CompetencyCriterion, pk=self.kwargs["criterion_id"], competency_criteria_group_id=self.kwargs["group_id"])` (this makes a group/criterion mismatch a 404), call `api.delete_competency_criterion(criterion_id, request.user)`, return `Response({"id": result.id, "archived": result.archived}, status=200)`. Do not call `self.check_object_permissions()`: `oel_tagging.can_tag_object` is checked inline inside `delete_competency_criterion()`, the same pattern \#665 uses in `associate_competency_criterion()`, not a DRF permission class.  
-> 3. In `src/openedx_learning/applets/cbe/rest_api/v1/urls.py`, register `path("criteria-groups/<int:group_id>/criteria/<int:criterion_id>/", views.CompetencyCriterionDeleteView.as_view(), name="competency-criterion-delete")`.  
+> 2. In `src/openedx_learning/applets/cbe/rest_api/v1/views.py`, add `CompetencyCriterionDeleteView(generics.GenericAPIView)`. Implement `delete()`: resolve the criterion via `get_object_or_404(CompetencyCriterion, pk=self.kwargs["criterion_id"], group__tag_id=self.kwargs["tag_id"])` (this makes a competency/criterion mismatch a 404), call `api.delete_competency_criterion(criterion_id, request.user)`, return `Response({"id": result.id, "archived": result.archived}, status=200)`. Do not call `self.check_object_permissions()`: `oel_tagging.can_tag_object` is checked inline inside `delete_competency_criterion()`, the same pattern \#665 uses in `associate_competency_criterion()`, not a DRF permission class.  
+> 3. In `src/openedx_learning/applets/cbe/rest_api/v1/urls.py`, register `path("competencies/<int:tag_id>/criteria/<int:criterion_id>/", views.CompetencyCriterionDeleteView.as_view(), name="criterion-delete")`.  
 > 4. In `src/openedx_learning/applets/cbe/rest_api/v1/serializers.py`, add `archived` as a read-only field on `CompetencyCriterionSerializer` so it appears in the create endpoint's response too.
 
 >   
-> Return 200 with `{"id": ..., "archived": false}` on hard-delete, 200 with `{"id": ..., "archived": true}` on archive, 200 (same body) on a repeat call against an already-archived row, 404 if the criterion doesn't exist or doesn't belong to `group_id`, 403 if the caller lacks `oel_tagging.can_tag_object` (studio write access to the criterion's course plus taxonomy view access on the competency's taxonomy). The ancestor-cascade walk must run all the way to the root group, not just the immediate parent, stopping only once a level still has active content of its own.
+> Return 200 with `{"id": ..., "archived": false}` on hard-delete, 200 with `{"id": ..., "archived": true}` on archive, 200 (same body) on a repeat call against an already-archived row while a learner status still references it, 200 with `archived: false` on a repeat call once no learner status references it any more (the row is hard-deleted at that point), 404 if the criterion doesn't exist or doesn't belong to a group under `tag_id`, 403 if the caller lacks `oel_tagging.can_tag_object` (studio write access to the criterion's course plus taxonomy view access on the competency's taxonomy). The ancestor-cascade walk must run all the way to the root group, not just the immediate parent, stopping only once a level still has active content of its own.
 
 </details>

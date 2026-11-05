@@ -178,7 +178,7 @@ A rule box has no database row, so deleting one calls #674 once for each criteri
 
 **Approach**
 
-1. Add `deleteCompetencyCriterion(groupId, criterionId)` to `data/api.ts`, calling #674's `DELETE /api/cbe/v1/criteria-groups/<group_id>/criteria/<criterion_id>/`. #710 needs the same function, so whichever ticket lands first adds it. Do not loop over #710's `useDeleteCompetencyCriterion`, which refreshes the panel after every request.
+1. Add `deleteCompetencyCriterion(tagId, criterionId)` to `data/api.ts`, calling #674's `DELETE /api/cbe/v1/competencies/<tag_id>/criteria/<criterion_id>/`. #710 needs the same function, so whichever ticket lands first adds it. Do not loop over #710's `useDeleteCompetencyCriterion`, which refreshes the panel after every request.
 2. Add `useDeleteRuleBox(tagId)` to `data/apiHooks.ts`: a `useMutation` with a `mutationKey`, taking `{ groupId, ruleKey, criterionIds }`.
    - `mutationFn` awaits one request at a time in a `for` loop. Parallel requests are unsafe: #674 removes a Rule Group only when a request finds it empty, and two concurrent requests each still see the other's criterion, so neither removes the group and an empty group stays stored.
    - Count a 404 as a success: #674 returns 404 for a criterion that is already gone, for example because another author removed it. On the first other rejected request, stop and throw an error that records how many requests succeeded before it.
