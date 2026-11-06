@@ -11,7 +11,7 @@ As a course author, I want to move the bar between the associations panel and th
 
 ## Description
 
-The Competency Management page stacks two panels on its right side: the associations panel, labeled "Competency Criteria Associations," above the content panel, labeled "Courses & Content." We need to add the horizontal bar between them (named ResizeBar in the Figma design) so an author can drag it, or use the keyboard, to make one panel taller and the other shorter by the same amount. The two panels together always fill the viewport height, each panel scrolls on its own when its content is taller than its space, and neither panel can be resized below a minimum height, so neither disappears. The panels start at an even 50/50 split, and the chosen split is remembered across page visits.
+The Competency Management page stacks two panels on its right side: the associations panel, labeled "Competency Criteria Associations," above the content panel, labeled "Courses & Content." We need to add the horizontal bar between them (named ResizeBar in the Figma design) so an author can drag it, or use the keyboard, to make one panel taller and the other shorter by the same amount. The two panels together always fill the height of the larger panel area on the right, each panel scrolls on its own when its content is taller than its space, and neither panel can be resized below a minimum height, so neither disappears. The panels start at an even 50/50 split, and the chosen split is remembered across page visits.
 
 ## Context
 
