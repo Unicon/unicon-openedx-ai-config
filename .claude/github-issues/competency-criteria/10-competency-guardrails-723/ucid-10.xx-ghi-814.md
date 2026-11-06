@@ -1,4 +1,4 @@
-# [FE] Treat an archived tag as no longer part of its taxonomy on create, import, and export
+# [BE] Treat an archived tag as no longer part of its taxonomy on create, import, and export
 
 GitHub: https://github.com/openedx/openedx-core/issues/814 (#814, OPEN)
 Cached: 2026-09-21
