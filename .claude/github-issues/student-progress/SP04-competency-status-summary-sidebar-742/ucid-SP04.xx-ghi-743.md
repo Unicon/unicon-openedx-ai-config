@@ -7,7 +7,7 @@ Cached: 2026-09-21
 As a learner, I want to be able to see a high level summary of my overall status on the top level competencies assessed in my course in order to understand the big picture of my progress.
 
 ## Description
-This ticket will replace the placeholder student competency status right hand side with the real one, which will consist of a card titled "Course Progress" with a subtitle of "Focus Areas". Underneath that will be a box stating the tag name of each competency for which a card displayed in the central competency in #734 along with the same status displayed as part of #740. In a course with no competency criteria, nothing from this ticket renders in the right column.
+This ticket will replace the placeholder student competency status right hand side with the real one, which will consist of a card titled "Course Progress" with a subtitle of "Focus Areas". Underneath that will be a box stating the tag name of each competency for which a card displayed in the central competency status section in #734 along with the same status displayed as part of #740. In a course with no competency criteria, nothing from this ticket renders in the right column.
 
 ## Context
 - #734 already contains the calculation for what the top level competencies are, because they are the competencies for which cards are created in this ticket.
@@ -24,34 +24,27 @@ Blocked by #734, #739, and #740.
 
 ## Acceptance Criteria
 
-These scenarios use #734's terms (competency criteria panel, card, card heading, breadcrumb, tag row), #740's status pill, and these terms:
+These scenarios use #734's terms (competency criteria panel, card, card heading, breadcrumb), #740's terms (tag row, status pill), and these terms:
 
 - The Course Progress card is the card this ticket adds to the top of the Progress tab's right column. Anything another ticket renders inside it, such as #755's Recommended Next Action notice, is part of the card.
 - A Focus Area row is one entry under the card's "Focus Areas" heading. It shows a competency's name and that competency's status pill. It has no target icon.
 - A card heading's status is what #740 shows at the right end of that card's header in the competency criteria panel. It is "Available" when a hidden score masks the competency, and there is no pill when the learner's status can't be loaded.
 - The scenarios use this taxonomy, "Workplace Skills":
-  - Critical Thinking, with the children Analysis, Evaluation, and Inference
+  - Critical Thinking
+      - Analysis
+      - Evaluation
+      - Inference
   - Communication
-  - Problem Solving, with the children Problem Definition and Strategy Selection. Root Cause Analysis is a child of Problem Definition.
+  - Problem Solving
+      - Problem Definition
+        - Root Cause Analysis
+      - Strategy Selection
 - Unless a scenario says otherwise:
   - The course's criteria use tags from "Workplace Skills" only.
   - Every subsection shows its score to the learner, so no status is masked.
-  - The learner views the Progress tab at a wide desktop width. At that width the main column and the right column sit side by side, and the certificate status panel appears in the right column.
+  - The learner views the Progress tab at a desktop width, where the main column and the right column sit side by side.
 
 ```gherkin
-Scenario Outline: The Course Progress card's place on the page at each screen width
-  Given a course with competency criteria
-  When the learner opens the course's Progress tab at <width>
-  Then a card headed "Course Progress", with a "Focus Areas" heading above its rows, appears <place>
-  And the certificate status panel and the related links still appear, and behave as they do on a site without the plugin
-  And the page doesn't scroll horizontally
-
-  Examples:
-    | width                                                                                                               | place                                                                                                                                  |
-    | a wide desktop width                                                                                                | at the top of the right column, above the certificate status panel and the related links                                               |
-    | a tablet width, where the two columns sit side by side and the certificate status panel appears in the main column | at the top of the right column, above the related links, with nothing else above it in that column                                     |
-    | a phone-sized viewport, where the right column stacks below the main column                                         | below all of the main column's content, including the certificate status panel and the detailed grades, and above the related links |
-
 Scenario Outline: Each row reads the heading of one card, which can be a tag above the one with criteria
   Given the course has competency criteria on <criteria>, and on no other tag
   When the learner opens the course's Progress tab
@@ -65,7 +58,6 @@ Scenario Outline: Each row reads the heading of one card, which can be a tag abo
     | second-level tags under one parent                                              | "Analysis" and "Inference"                     | Critical Thinking  |
     | a tag two levels deep, whose card has a breadcrumb                              | "Root Cause Analysis"                          | Problem Definition |
     | two branches that merge into one card                                           | "Strategy Selection" and "Root Cause Analysis" | Problem Solving    |
-    | a tag with criteria above another tag with criteria, after a taxonomy re-import | "Problem Solving" and "Root Cause Analysis"    | Problem Solving    |
 
 Scenario: The rows follow the cards' order
   Given the course has competency criteria on "Communication", "Analysis", "Inference", and "Root Cause Analysis"
@@ -103,14 +95,6 @@ Scenario: Nothing from the Course Progress card appears while the competency cri
   When the learner opens the course's Progress tab
   Then no card, heading, row, loading indicator, or placeholder from the Course Progress card appears
   And the certificate status panel and the related links appear without waiting for it
-
-Scenario: Row names appear with the cards, and statuses fill in without changing once shown
-  Given a course with competency criteria
-  And the learner's competency statuses arrive after the course's criteria and outline
-  When the learner opens the course's Progress tab
-  Then the Course Progress card appears when the competency criteria panel's cards appear, with every row's name and no status pill on any row
-  And once the statuses arrive, every row shows its status pill
-  And no row shows a status, such as "Available", that later changes to a different one
 
 Scenario Outline: Rows show their names without statuses when the learner's statuses can't be loaded
   Given a course with competency criteria
@@ -168,19 +152,32 @@ Scenario: Tags with the same name in two taxonomies get separate rows with their
   Then a "Communication" row showing "Demonstrated" appears under the "Workplace Skills" subheading
   And a "Communication" row showing "Available" appears under the "Accounting Standards" subheading
 
-Scenario: Every card gets a plain-text row, and long names wrap beside the status pill
-  Given a course whose competency criteria panel shows 15 cards, some headed by names long enough to need more than one line in the right column
+Scenario: Every card gets a plain-text row, and a long name is cut short with its full name available via tooltip
+  Given a course whose competency criteria panel shows 15 cards, some headed by names too long to fit on one line beside their status pill in the right column
   When the learner opens the course's Progress tab
   Then the Course Progress card shows 15 Focus Area rows, with no "show more" control and no scrolling area of its own
   And no row's name is a link
-  And each row's status pill stays whole and keeps its place at the right edge of the row
-  And a long name wraps onto more lines on the left, beside the pill, instead of being cut off, ending in an ellipsis, or running under the pill
-  And when a row is too narrow to fit the pill beside the name's longest word, the name breaks within that word, and the pill neither moves from the right edge nor shrinks
+  And every row is one line tall, with its status pill whole and at the right edge of the row
+  And a name that doesn't fit ends in an ellipsis instead of wrapping onto another line or running under the pill
+  And hovering over, or moving keyboard focus to, a cut-short name shows its full name in a tooltip
+  And a name that fits shows no tooltip
+
+Scenario Outline: The Course Progress card is first in the right column at every screen width
+  Given a course with competency criteria
+  When the learner opens the course's Progress tab at <width>
+  Then a card headed "Course Progress", with a "Focus Areas" heading above its rows, appears <place>
+  And the certificate status panel and the related links still appear, and behave as they do on a site without the plugin
+  And the page doesn't scroll horizontally
+
+  Examples:
+    | width                                                               | place                                                                                                                     |
+    | a width where the main column and the right column sit side by side | at the top of the right column, above everything else in that column, including the certificate status panel when it is there |
+    | a width where the right column stacks below the main column         | below all of the main column's content, and above everything else in the right column                                   |
 
 Scenario Outline: Course staff viewing a learner see the same rows and statuses that learner sees
   Given the course has competency criteria on "Communication" and "Inference", so its cards are headed "Communication" and "Critical Thinking"
   And a learner in content group A has a competency status of Demonstrated for "Communication" and for "Inference"
-  And "Group B Project", a subsection under "Communication", is restricted to content group B, so the learner's own Progress tab shows the "Communication" row as "Demonstrated"
+  And "Group B Project", a subsection under "Communication", is restricted to content group B, so it has no score of the learner's to hide and masks nothing, and the learner's own Progress tab shows the "Communication" row as "Demonstrated"
   And "Unit 3 Quiz", a subsection under "Inference", is set to show assessment results only once it is past due, and its due date hasn't passed, so the learner's own Progress tab shows the "Critical Thinking" row as "Available"
   And the staff member has no competency statuses of their own
   When a member of course staff <view>
@@ -205,7 +202,7 @@ Scenario: A screen reader user can move through the card by headings and hears e
   Then they hear "Course Progress" as a level 2 heading, the level the stock "Course completion" and "Grades" card titles use
   And they hear "Focus Areas" as a level 3 heading, and each taxonomy subheading as a level 4 heading
   And they hear each taxonomy's rows as a list, announced with its number of items
-  And they hear each row's competency name followed by its status, each status once, with no separate announcement from the status icon
+  And they hear each row's full competency name, even when it is cut short on screen, followed by its status, each status once, with no separate announcement from the status icon or the tooltip
   And no Focus Area row is announced as a heading
 ```
 
@@ -216,18 +213,27 @@ This is a suggested approach, not the source of truth. The User Story, Descripti
 
 **Summary**
 
-The sidebar widget calls the same two hooks the main competency panel calls, `useCompetencyCards` from #734 and `useCompetencyStatuses` from #739, through the plugin's single query client, so the two widgets share every request and the sidebar shows the same masked statuses as the card headings. It renders a "Course Progress" card with one "Focus Areas" row per card in the main panel, showing that card's heading name and its status oval, grouped under a heading per taxonomy when the course uses more than one. It renders nothing whenever the main panel renders nothing.
+The sidebar widget calls the same two hooks the main competency panel calls, `useCompetencyCards` from #734 and `useCompetencyStatuses` from #739, through the plugin's single query client, so the two widgets share every request and the sidebar shows the same masked statuses as the card headings. It renders a "Course Progress" card with one "Focus Areas" row per card in the main panel, showing that card's heading name and its status pill on one line, grouped under a heading per taxonomy when the course uses more than one. A name too long for its row ends in a CSS ellipsis and gets a tooltip. The widget renders nothing whenever the main panel renders nothing, and a tutor-mfe pull request moves tutor-mfe's pinned package version to the release that includes this ticket.
 
 **Approach**
 
 1. **Widget.** Replace the body of #829's placeholder `CompetencyProgressSummary` in `src/CompetencyProgressSummary.jsx`. Keep the component's name, its named export from `src/index.jsx`, and its widget id `competency_progress_summary`, because operators import the component and target the id in their own `pluginSlots` configuration. #829's `getPluginSlots` already registers the widget in `org.openedx.frontend.learning.progress_tab_certificate_status_side_panel.v1` at priority 20 with `keepDefault` true, so the slot configuration stays as it is. That slot renders the stock certificate status only at large widths but renders plugin widgets at every width, so the widget needs no width check of its own.
 2. **Data.** The widget reads `{ courseId, targetUserId }` from `useProgressRouteParams` and calls `useCompetencyCards(courseId)` and `useCompetencyStatuses(courseId, targetUserId)`, exactly as `CompetencyProgressPanel` does. The two widgets sit in different slots with no common ancestor the plugin controls, so the module-level client from `src/data/queryClient.js` is the only state they share; identical query keys on that one client make react-query send each request once for both widgets. `useCompetencyStatuses` also brings #740's masking, including its staff-route rule, with no new code.
-3. **When the card renders.** Return null unless `CompetencyProgressPanel` would render cards, that is, unless both of #734's queries have data and the criteria response is non-empty. #734 keeps that check inside `CompetencyProgressPanel`; move it into `useCompetencyCards` so both widgets share one rule rather than two copies, and keep it identical to the panel's gate, including the placement readiness #839 adds, so the sidebar never renders when the panel does not. Returning null while loading, in a course without criteria, and after a criteria or outline failure is what keeps #755's notice, and its #754 request, from mounting in those cases.
+3. **When the card renders.** Return null unless `CompetencyProgressPanel` would render cards, that is, unless both of #734's queries have data and the criteria response is non-empty. #734 keeps that check inside `CompetencyProgressPanel`; move it into `useCompetencyCards` so both widgets share one rule rather than two copies, and the sidebar never renders when the panel does not. Returning null while loading, in a course without criteria, and after a criteria or outline failure is what keeps #755's notice, and its #754 request, from mounting in those cases.
 4. **Card.** `CourseProgressCard` in `src/CourseProgressCard.jsx` takes plain props: #734's taxonomy sections, and the tag status map, which the widget passes as `statuses.tags` once `isPending` is false and as null otherwise. It renders a Paragon `Card` with "Course Progress" as an `h2` and "Focus Areas" as an `h3`, both from `src/messages.js`, as real heading elements, because Paragon's `Card.Header` renders its `title` and `subtitle` props as `div`s. Keep the Focus Areas heading and its rows in one block, so #755 can add `RecommendedNextAction` after that block, inside the card, without restructuring it. Do not export `CourseProgressCard` from `src/index.jsx`.
 5. **Rows.** Render one list item per card, in the order of #734's sections and of the cards within them, showing the card heading tag's `value` and keyed by its `id`. The row label is the card heading exactly as #734 computed it; this ticket adds no label logic. With more than one taxonomy section, give each section an `h4` with the taxonomy name, followed by that section's own list. With one section, render one list and no `h4`. Safari's VoiceOver drops list semantics from a list styled with `list-unstyled`, so check that the rows still announce as a list there.
-6. **Status.** Each row shows #739's `StatusOval` with the heading tag's status from the map and no `percentGraded`, so the colors, icons, and labels match the card headings exactly. A row shows no oval when the map is null, which covers both pending and failed statuses, or when the tag is missing from the map, which is how #740 represents an unknown status. Lay the row out as a flex row: the name grows, can shrink (`min-width: 0`, as an inline style, since no utility class sets it), and breaks long words (`text-break`), while the oval does not shrink and stays at the right edge at every width.
+6. **Status and long names.** Each row is a one-line flex row holding the name and #739's `StatusOval`.
+   - The pill is `StatusOval` with the heading tag's status from the map and no `percentGraded`, so the colors, icons, and labels match the card headings exactly. A row shows no pill when the map is null, which covers both pending and failed statuses, or when the tag is missing from the map, which is how #740 represents an unknown status. The pill gets `flex-shrink-0`, so it stays whole at the right edge.
+   - `FocusAreaName` in `src/FocusAreaName.jsx` renders the name as a `span` with `text-truncate` and `flex-grow-1`, as a direct child of the flex row. The `overflow: hidden` that `text-truncate` sets also lets a flex item shrink below its text's width, so the span needs no `min-width: 0`, but only while the class sits on the flex item itself rather than on an element inside it. CSS truncation keeps the full name in the DOM, so a screen reader reads it whole. Paragon's `Truncate` doesn't fit: it renders nothing in Paragon 23, and `Truncate.Deprecated` replaces the element's text and puts `aria-label` on a `div`.
+   - A `ResizeObserver` on the span sets `isTruncated` to `scrollWidth > clientWidth`. A single check at mount goes stale, because the pill arrives after the name and narrows it, and the column narrows with the window. Only a truncated name gets `tabIndex={0}` and a tooltip. The AC needs that flag anyway, because a name that fits shows no tooltip, and it keeps names that fit out of the tab order.
+   - The tooltip is Paragon's `Tooltip` in a Paragon `Overlay` whose `show` the component controls, as #751 does for its sunburst card. Paragon's `OverlayTrigger` hides a tooltip as soon as the pointer leaves the trigger, so the pointer can never reach the tooltip, which WCAG 1.4.13 requires. While the name is truncated, show the tooltip on mouse enter and on focus. Hide it on blur, and after a short delay when the pointer leaves the name or the tooltip, a delay that entering either one cancels. `rootClose` makes Escape and a click elsewhere call `onHide`, so a keyboard user can dismiss the tooltip without moving focus.
+   - Give the `Tooltip` its required `id`, plus `role="none"` and `aria-hidden`. react-overlays points the target's `aria-describedby` at any open overlay that has an `id` and `role="tooltip"`, so without the override a screen reader would read the name a second time.
+   - jsdom does no layout and has no `ResizeObserver`, so tests stub `ResizeObserver`, `scrollWidth`, and `clientWidth` to put a name in the truncated state.
 7. **Test cases beyond the AC:**
-   - Render `CompetencyProgressPanel` and `CompetencyProgressSummary` together in one tree, on the learner route and again on the staff route. Once the ovals appear, assert that #733's criteria, the course outline, #738's statuses, and the Progress API were each requested exactly once. This catches the two callers building different query keys, for example `targetUserId` passed as a number in one and as a string in the other, which would otherwise silently double every request.
+   - Render `CompetencyProgressPanel` and `CompetencyProgressSummary` together in one tree, on the learner route and again on the staff route. Once the pills appear, assert that #733's criteria, the course outline, #738's statuses, and the Progress API were each requested exactly once. This catches the two widgets building different keys for the two requests that depend on the learner, #738's statuses and the Progress API, for example the sidebar falling back to the signed-in user's id on the learner route, where `useProgressRouteParams` gives no `targetUserId`. A mismatch like that would otherwise silently double those requests.
+   - A course with criteria on both "Problem Solving" and its grandchild "Root Cause Analysis" shows exactly one row, reading "Problem Solving", the same single card #734's merge rule gives the main panel. #902 rejects criteria on both an ancestor and its descendant on Studio re-import, but admin edits and data from before #902 can still produce them.
+   - When #738's statuses and the Progress API's scores arrive after the criteria and the outline, the card appears at the same time as the main panel's cards, with every row's name and no pill. Once both arrive, every row shows its pill, and no row shows a status that later changes.
+8. **tutor-mfe pin.** Once a package release includes this ticket, open a pull request to `overhangio/tutor-mfe` that moves the pinned package version #828 adds to that release. Verify it on a Learning MFE image rebuilt from that branch, by opening the Progress tab of a course with criteria. Until a tutor-mfe release includes that pull request, Tutor sites show #829's placeholder where this card goes.
 
 Out of scope:
 
@@ -237,21 +243,24 @@ Out of scope:
 
 **Files to create and modify**
 
-Paths are relative to the root of the plugin repository from #810.
+Paths are relative to the root of the plugin repository from #810, except the last row, which is in `overhangio/tutor-mfe`.
 
 | File | Change |
 | --- | --- |
 | `src/CompetencyProgressSummary.jsx` | modified: the real widget replaces #829's placeholder |
 | `src/CourseProgressCard.jsx` | new |
+| `src/FocusAreaName.jsx` | new: the truncated name and its tooltip |
 | `src/messages.js` | modified |
-| `src/data/apiHooks.js` | modified: the readiness check moves into `useCompetencyCards` |
-| `src/CompetencyProgressPanel.jsx` | modified: reads the readiness check from `useCompetencyCards` |
+| `src/data/apiHooks.js` | modified: the panel's render check moves into `useCompetencyCards` |
+| `src/CompetencyProgressPanel.jsx` | modified: reads the render check from `useCompetencyCards` |
+| `tutormfe/plugin.py` | modified: wherever #828 declares the package's pinned version, most likely this file, otherwise `tutormfe/templates/mfe/build/mfe/Dockerfile` |
 
 **Additional context**
 
 - Figma for the case with two taxonomies, with rows grouped under a heading per taxonomy: https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=1562-27227
 - In frontend-app-learning, `src/course-home/progress-tab/ProgressTab.jsx` lays out the right column, and `src/plugin-slots/ProgressTabCertificateStatusSidePanelSlot/` shows the width-gated stock content.
-- Tutor sites show this card only after tutor-mfe's pinned package version (#828) moves to a release that includes this ticket. Until then they show #829's placeholder.
+- Showing #829's placeholder on Tutor sites for one tutor-mfe release is an accepted tradeoff. Sites that install the package without tutor-mfe get this card as soon as they upgrade the package.
+- Step 6's statements about `Truncate`, `OverlayTrigger`, and `aria-describedby` were read from Paragon 23.20.3, which uses react-bootstrap 1.6.8 and react-overlays 5.2.1. The Learning MFE asks for Paragon `^23.4.5`, so expect the same behavior, but recheck it if the plugin resolves other versions.
 - Known limitations, which #744 documents:
   - A row whose heading tag has no criteria of its own takes its status from #643's roll-up, so it reads "Available" until #643 ships.
   - A single subsection with a hidden score anywhere under a card's heading makes that row read "Available", because #740 spreads masking to every ancestor tag.
@@ -259,7 +268,3 @@ Paths are relative to the root of the plugin repository from #810.
   - A site that writes its own `pluginSlots` instead of calling `getPluginSlots` must register the widget by hand.
 
 </details>
-
-## Open Questions
-
-- (architect, final review) Should #743 be added to #828's dependencies? #828 installs the package into tutor-mfe once #829 and #734 have landed, and #734 keeps #829's sidebar placeholder registered. That placeholder is throwaway English that prints the course id, and the learner id on the staff route, on every course's Progress tab until this ticket replaces it. A tutor-mfe release pinned between #734 and #743 would show it on every Tutor site, which also fails #828's own checklist item that courses without criteria show the Progress tab unchanged. Alternatives: have #734 drop the sidebar registration until this ticket adds it back, or accept the placeholder on Tutor sites for one release. Recommended: add #743 to #828's dependencies.
