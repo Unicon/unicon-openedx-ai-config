@@ -277,6 +277,7 @@ The tests must cover these edge cases:
 - the error boundary hiding the notice when rendering throws;
 - the `pageshow` reset when `persisted` is true;
 - one translated word order that differs from English.
+8. **tutor-mfe pin.** Once a package release includes this ticket, open a pull request to `overhangio/tutor-mfe` that moves the pinned package version #828 adds to that release, and verify it on a Learning MFE image rebuilt from that branch. Until a tutor-mfe release includes that pull request, Tutor sites show the Course Progress card without the Recommended Next Action notice.
 
 Out of scope:
 
@@ -296,6 +297,7 @@ Paths are relative to the root of the plugin repository from #810.
 | `src/data/api.js` | modified: add `getRecommendedNextAction` |
 | `src/data/apiHooks.js` | modified: add `useRecommendedNextAction` |
 | The Course Progress card component from #743 | modified: render `RecommendedNextAction` |
+| `tutormfe/plugin.py` in `overhangio/tutor-mfe` | modified: wherever #828 declares the package's pinned version, most likely this file, otherwise `tutormfe/templates/mfe/build/mfe/Dockerfile` |
 
 **Additional context**
 

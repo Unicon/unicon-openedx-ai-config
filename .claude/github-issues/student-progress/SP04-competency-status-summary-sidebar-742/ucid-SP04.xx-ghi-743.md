@@ -240,14 +240,14 @@ Out of scope:
 
 **Files to create and modify**
 
-Paths are relative to the root of the plugin repository from #810, except the last row, which is in `overhangio/tutor-mfe`.
+Paths are relative to the root of the plugin repository from #810.
 
 | File | Change |
 | --- | --- |
 | `src/CompetencyProgressSummary.jsx` | modified: the real widget replaces #829's placeholder |
 | `src/CourseProgressCard.jsx` | new |
 | `src/messages.js` | modified |
-| `tutormfe/plugin.py` | modified: wherever #828 declares the package's pinned version, most likely this file, otherwise `tutormfe/templates/mfe/build/mfe/Dockerfile` |
+| `tutormfe/plugin.py` in `overhangio/tutor-mfe` | modified: wherever #828 declares the package's pinned version, most likely this file, otherwise `tutormfe/templates/mfe/build/mfe/Dockerfile` |
 
 **Additional context**
 

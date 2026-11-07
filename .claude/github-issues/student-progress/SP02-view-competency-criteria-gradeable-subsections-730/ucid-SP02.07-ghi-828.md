@@ -33,8 +33,8 @@ The deliverable is a change to tutor-mfe's image build and default slot configur
 - `overhangio/tutor-mfe`: its `README.rst` documents every `mfe-*` patch hook, and `tutormfe/templates/mfe/build/mfe/env.config.jsx` shows where a registered slot configuration is rendered in the generated file and what wraps it.
 - #829 replaces #810's generic placeholder component with the two starter CBE widgets and adds `example.env.config.jsx` for local development. This ticket installs the package after #829 and #734 have landed.
 - A way for operators to leave the widgets out of the Learning MFE build is a nice-to-have, not a requirement, since the goal is to build CBE into the core rather than bolt it on. Add it only if it takes little effort.
+- Nobody bumps the pinned package version on a cadence. Each later ticket that ships a package release (#739, #740, #839, #743, #747, #751, and #755) moves the pin to its own release as its last step, with a pull request to `overhangio/tutor-mfe`.
 
 ## Open Questions
 
 - (implementer) Will tutor-mfe call the slot configuration function the package exports (#829) and pass it the placement setting's value, and will it install and import the package only for the Learning MFE? The package's slot configuration imports `@openedx/frontend-plugin-framework`, which the other MFEs don't necessarily have. If tutor-mfe can't do either, #829 and #839 need a different way to register the widgets.
-- (implementer) Who bumps tutor-mfe's pinned package version when later tickets ship a new package release, and on what cadence? #743 bumps the pin for its own release as its last step; the question stays open for #839 and later tickets.

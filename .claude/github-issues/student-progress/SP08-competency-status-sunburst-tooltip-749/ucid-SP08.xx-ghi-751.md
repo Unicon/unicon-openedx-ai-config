@@ -367,6 +367,7 @@ Each chart has one hover state, set by event delegation on #747's `<svg>`. That 
      - moving onto the card, and the hide delay;
      - Escape, and what reopens the card afterward;
      - a tap, a tap on another segment, a tap on the same segment, and a tap outside.
+9. **tutor-mfe pin.** Once a package release includes this ticket, open a pull request to `overhangio/tutor-mfe` that moves the pinned package version #828 adds to that release, and verify it on a Learning MFE image rebuilt from that branch. Until a tutor-mfe release includes that pull request, Tutor sites show the sunbursts without hover or tap behavior.
 
 Out of scope:
 - keyboard navigation of the segments;
@@ -394,6 +395,7 @@ Paths are relative to the root of the plugin repository from #810.
 | `src/Sunburst.jsx` | modified: delegated pointer handlers, `data-dimmed`, the in-segment icon, the hover card |
 | `src/ruleText.js` | modified: extract `recognizeRule` |
 | `src/messages.js` | modified |
+| `tutormfe/plugin.py` in `overhangio/tutor-mfe` | modified: wherever #828 declares the package's pinned version, most likely this file, otherwise `tutormfe/templates/mfe/build/mfe/Dockerfile` |
 
 **Additional context**
 

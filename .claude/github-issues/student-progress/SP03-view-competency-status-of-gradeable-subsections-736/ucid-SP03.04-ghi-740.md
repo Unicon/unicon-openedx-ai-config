@@ -222,6 +222,7 @@ Each card heading shows the learner's status for its tag in #739's `StatusOval`,
    - A masked tag whose stored status is unknown shows "Available".
    - On the staff route, a named row missing from `section_scores` doesn't mask its tags, and a row whose `show_grades` is false still does.
    - A placeholder criterion whose subsection is in `section_scores` with `show_grades` false masks its tags. One whose subsection is missing from `section_scores`, such as a staff-only or other-group subsection, doesn't.
+8. **tutor-mfe pin.** Once a package release includes this ticket, open a pull request to `overhangio/tutor-mfe` that moves the pinned package version #828 adds to that release, and verify it on a Learning MFE image rebuilt from that branch. Until a tutor-mfe release includes that pull request, Tutor sites show the card headings and tag rows without statuses.
 
 Out of scope:
 
@@ -238,6 +239,7 @@ Paths are relative to the root of the plugin repository from #810.
 | `src/CompetencyCard.jsx` | modified: heading pill and tag row pills |
 | `src/TagStatusPill.jsx` | new |
 | `src/messages.js` | modified |
+| `tutormfe/plugin.py` in `overhangio/tutor-mfe` | modified: wherever #828 declares the package's pinned version, most likely this file, otherwise `tutormfe/templates/mfe/build/mfe/Dockerfile` |
 
 **Additional context**
 
