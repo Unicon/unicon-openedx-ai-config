@@ -161,7 +161,7 @@ Scenario: No competency shows a status when the learner's statuses can't be load
 
 Scenario Outline: A staff member viewing a learner's progress sees the same statuses the learner sees on their own Progress tab
   Given a learner in content group A, whose competency status is Demonstrated for "Communication" and for "Inference", a tag row in the "Critical Thinking" card
-  And "Group B Project", a subsection under "Communication", is restricted to content group B, so the learner's own Progress tab shows it as a placeholder row and "Communication" as "Demonstrated"
+  And "Group B Project", a subsection under "Communication", is restricted to content group B, so the learner's own Progress tab shows it as a placeholder row, which has no score of the learner's to hide and masks nothing, and "Communication" as "Demonstrated"
   And "Unit 3 Quiz", a subsection under "Inference", is set to show assessment results only once it is past due, and its due date hasn't passed, so the learner's own Progress tab shows "Inference" and "Critical Thinking" as "Available"
   And the staff member has no competency statuses of their own
   When a member of course staff <view>
@@ -189,9 +189,9 @@ Scenario: Status labels are legible against their background
 Scenario: Statuses stay readable beside long names on a small screen
   Given a card whose heading and a tag row inside it both have names long enough to fill a phone-width card
   When the learner opens the course's Progress tab at a phone-sized viewport
-  Then the heading's status pill wraps onto its own line when it doesn't fit beside the heading name
+  Then the heading's name is cut short with an ellipsis, with its full name in a tooltip on hover and on keyboard focus, and its status pill stays whole beside it on one line
   And the tag row's pill wraps onto more lines, keeping the name, the pipe, and the status inside it
-  And no name or status is cut off, overlaps another, or extends past the card's edge
+  And no tag row name or status is cut off, overlaps another, or extends past the card's edge
 ```
 
 <details>
@@ -213,7 +213,7 @@ Each card heading shows the learner's status for its tag in #739's `StatusOval`,
    - On the staff route, "Group B Project" is a named row. The Progress API leaves it out of the learner's `section_scores`, and #739's rule masks a named row that is missing from `section_scores`. That mask would spread to the tags above it, so "Communication" would read "Available".
 
    So when `targetUserId` is set, `buildCompetencyStatuses` leaves `masked` false for a named row that is missing from `section_scores`. Its oval still reads "Available", as #739 specifies. A row whose `show_grades` is false still masks, because the Progress API computes `show_grades` for the learner. Erring toward showing staff more is safe: masking exists so that some learners don't see results before others, and course staff can already see grades in the Gradebook. Masquerade needs nothing, because #734's outline is already the masqueraded learner's and `targetUserId` is unset.
-4. **Headings.** `CompetencyCard` looks up the card's heading tag `id` (#734) and renders #739's `StatusOval` without `percentGraded`, so a Demonstrated heading reads "Demonstrated" rather than a score, inside the heading element at the right end of the header. That way a screen reader moving by heading hears the status together with the name. Breadcrumb entries show nothing.
+4. **Headings.** `CompetencyCard` looks up the card's heading tag `id` (#734) and renders #739's `StatusOval` without `percentGraded`, so a Demonstrated heading reads "Demonstrated" rather than a score, inside the heading element at the right end of the header. That way a screen reader moving by heading hears the status together with the name. The name renders through #734's `TruncatedName` as the heading's `flex-grow-1` item, with the pill as a `flex-shrink-0` sibling, so a long name ends in an ellipsis with its full name in the tooltip and the pill stays whole beside it. Breadcrumb entries show nothing.
 5. **Tag rows.** `TagStatusPill` renders the target icon, the name, an `aria-hidden` pipe, and the status label as visible text, all inside one outlined pill tinted by status. Paragon has no component for this. `Chip` is the closest: without `onClick` it renders as a non-interactive `div`, and it supports `iconBefore`, but it has no tinted variants and its label never wraps (`.pgn__chip__label` sets `white-space: nowrap` with an ellipsis). Build `TagStatusPill` on `Chip`: per status, override its border and background custom properties and `--pgn-color-chip-label-base`, which also colors the icon, so the status text meets the contrast scenario; set `--pgn-size-chip-border-radius` to `var(--pgn-size-badge-border-radius-pill)`, because `Chip`'s default radius (`0.375rem`) is much squarer than the design's fully rounded pill; and let the label wrap. Without `onClick`, `Chip`'s `iconBefore` renders a plain `Icon` with no text alternative, so give the target icon its text alternative in an `sr-only` sibling, as #734 requires. Call out the Paragon gap in the PR description so it can be raised upstream.
 6. **Failure.** When #739's hook returns null `statuses`, headings get no pill and rows get no pipe or status. That includes a Progress API failure while #738 succeeds: without the Progress API the mask can't be computed, and showing #738's statuses unmasked could reveal a hidden result.
 7. **Test cases beyond the AC:**

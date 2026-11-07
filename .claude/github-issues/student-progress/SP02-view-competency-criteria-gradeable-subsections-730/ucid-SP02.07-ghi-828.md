@@ -37,4 +37,4 @@ The deliverable is a change to tutor-mfe's image build and default slot configur
 ## Open Questions
 
 - (implementer) Will tutor-mfe call the slot configuration function the package exports (#829) and pass it the placement setting's value, and will it install and import the package only for the Learning MFE? The package's slot configuration imports `@openedx/frontend-plugin-framework`, which the other MFEs don't necessarily have. If tutor-mfe can't do either, #829 and #839 need a different way to register the widgets.
-- (implementer) Who bumps tutor-mfe's pinned package version when later tickets (#839, #743, and others) ship a new package release, and on what cadence?
+- (implementer) Who bumps tutor-mfe's pinned package version when later tickets ship a new package release, and on what cadence? #743 bumps the pin for its own release as its last step; the question stays open for #839 and later tickets.

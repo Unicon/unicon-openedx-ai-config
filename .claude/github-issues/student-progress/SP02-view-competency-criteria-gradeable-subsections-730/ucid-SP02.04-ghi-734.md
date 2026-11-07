@@ -337,7 +337,8 @@ Scenario: The panel reflows on a small screen
   Given a course with competency criteria
   When the learner opens the course's Progress tab at a phone-sized viewport
   Then the cards fill the width of the main column and stack one above another
-  And long tag names, breadcrumbs, group lines, rule lines, and subsection names wrap onto more lines instead of being cut off
+  And a long card heading name is cut short with an ellipsis, with its full name in a tooltip on hover and on keyboard focus, and a heading name that fits shows no tooltip
+  And long breadcrumbs, tag names in rows, group lines, rule lines, and subsection names wrap onto more lines instead of being cut off
   And the page doesn't scroll horizontally
 ```
 
@@ -367,7 +368,7 @@ The panel makes two requests through a react-query client the plugin owns: #733'
    - `useCourseCompetencyCriteria(courseId)`.
    - `useCourseOutline(courseId, { enabled })`.
    - `hasCompetencyCriteria(data)`, which is true when #733's criteria array is non-empty.
-   - `useCompetencyCards(courseId)`, which runs the transform below inside `useMemo`.
+   - `useCompetencyCards(courseId)`, which runs the transform below inside `useMemo` and returns the taxonomy sections together with `isReady`, true once both queries have data and the criteria response is non-empty.
 
    Enable the outline query only when `hasCompetencyCriteria` is true, so a course without competency criteria costs one request. Leave `targetUserId` out of both query keys, because neither response depends on which learner is being viewed. #839's "in place of" option is out of scope; #839 reuses `useCourseCompetencyCriteria` and `hasCompetencyCriteria`.
 5. **Transform.** `buildCompetencyCards(criteriaResponse, outline)` lives in `src/data/buildCompetencyCards.js` and works in five steps:
@@ -384,7 +385,12 @@ The panel makes two requests through a react-query client the plugin owns: #733'
    - A bottom-tier group's `logic_operator` reads AND as "all", and OR or null as "any". The course-level group's operator appears between bottom-tier groups, with null read as OR, per ADR 0002.
    - The placeholder row's text is one ICU plural message, so translators control the singular and plural forms.
    - Write the strings in `src/messages.js` in sentence case, and uppercase them with Paragon's `text-uppercase` class, so translators don't receive all-caps source strings.
-7. **Components.** `CompetencyProgressPanel` keeps its name and takes no props. It reads `courseId` from `useProgressRouteParams` and calls `useCompetencyCards`. It returns null unless both queries have data and the criteria response is non-empty; that single check covers loading, either request failing, and an empty result. `CompetencyCard` and `CriteriaGroupList` take the transform's output as plain props. The transform needs no try/catch, because the slot's error boundary and #829's `SilentErrorFallback` already contain a render-time throw.
+7. **Components.** `CompetencyProgressPanel` keeps its name and takes no props. It reads `courseId` from `useProgressRouteParams` and calls `useCompetencyCards`. It returns null unless `useCompetencyCards` reports `isReady`; that single check covers loading, either request failing, and an empty result, and #743's sidebar widget reads the same flag. `CompetencyCard` and `CriteriaGroupList` take the transform's output as plain props. The transform needs no try/catch, because the slot's error boundary and #829's `SilentErrorFallback` already contain a render-time throw.
+   - `CompetencyCard` renders the heading's name through `TruncatedName` in `src/TruncatedName.jsx`, which keeps a name on one line and cuts it short with an ellipsis: a `span` with Paragon's `text-truncate` class, as a `flex-grow-1` item of the heading's flex row. CSS truncation keeps the full name in the DOM, so a screen reader reads it whole. Paragon's `Truncate` doesn't fit: it renders nothing in Paragon 23, and `Truncate.Deprecated` replaces the element's text and puts `aria-label` on a `div`. #740 places the status pill beside this name, and #743 reuses the component for its Focus Area rows.
+   - A `ResizeObserver` on the span sets `isTruncated` to `scrollWidth > clientWidth`, because a single check at mount goes stale when the column narrows with the window, or when #740's pill arrives and narrows the name. Only a truncated name gets `tabIndex={0}` and a tooltip, which keeps names that fit out of the tab order.
+   - The tooltip is Paragon's `Tooltip` in a Paragon `Overlay` whose `show` the component controls. Paragon's `OverlayTrigger` hides a tooltip as soon as the pointer leaves the trigger, so the pointer can never reach the tooltip, which WCAG 1.4.13 requires. While the name is truncated, show the tooltip on mouse enter and on focus. Hide it on blur, and after a short delay when the pointer leaves the name or the tooltip, a delay that entering either one cancels. `rootClose` makes Escape and a click elsewhere call `onHide`, so a keyboard user can dismiss it without moving focus.
+   - Give the `Tooltip` its required `id`, plus `role="none"` and `aria-hidden`. react-overlays points the target's `aria-describedby` at any open overlay that has an `id` and `role="tooltip"`, so without the override a screen reader would read the name a second time.
+   - jsdom does no layout and has no `ResizeObserver`, so tests stub `ResizeObserver`, `scrollWidth`, and `clientWidth` to put a name in the truncated state.
 8. **Packaging and wiring.** Add `@tanstack/react-query` to `package.json` as a peer dependency at `"^5"`, because passing the client as `useQuery`'s second argument is v5 API. The Learning MFE on master already depends on v5, so the package reuses the host's copy. Both registrations in #829's `getPluginSlots` stay as they are; #829's sidebar placeholder remains visible until #743 replaces it.
 
 **Files to create and modify**
@@ -396,6 +402,7 @@ Paths are relative to the root of the plugin repository from #810.
 | `src/CompetencyProgressPanel.jsx` | modified: the real panel replaces #829's placeholder |
 | `src/CompetencyCard.jsx` | new: breadcrumb, heading, heading's own groups, child rows, nested path rows under an ancestor with criteria |
 | `src/CriteriaGroupList.jsx` | new: bottom-tier groups, separators, rule lines, subsections, placeholder rows |
+| `src/TruncatedName.jsx` | new: a one-line name with an ellipsis, and a tooltip only when it is cut short |
 | `src/ruleText.js` | new: `formatRuleText` |
 | `src/messages.js` | new |
 | `src/data/api.js` | new |
@@ -406,6 +413,7 @@ Paths are relative to the root of the plugin repository from #810.
 
 **Additional context**
 
+- Step 7's statements about `Truncate`, `OverlayTrigger`, and `aria-describedby` were read from Paragon 23.20.3, which uses react-bootstrap 1.6.8 and react-overlays 5.2.1. The Learning MFE asks for Paragon `^23.4.5`, so expect the same behavior, but recheck it if the plugin resolves other versions.
 - ADR 0002 in openedx-core, `docs/openedx_learning/decisions/0002-competency-criteria-model.rst`, is the source for the Grade rule payload and the `logic_operator` semantics.
 - #672 defines how the Competency Management page derives and orders rule boxes. Its code lives in frontend-app-authoring's `src/taxonomy/competency-management/`.
 - In openedx-platform, `openedx/core/djangoapps/content/learning_sequences/views.py` (`CourseOutlineView`) defines the outline response, and `openedx/core/djangoapps/content/learning_sequences/api/processors/` defines what a learner's outline leaves out.
