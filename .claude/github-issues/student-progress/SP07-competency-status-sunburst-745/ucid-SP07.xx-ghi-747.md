@@ -10,10 +10,10 @@ As a learner, I want to see at a glance how the subsection assignments and sub-c
 Above the competency status cards in the main column of the Progress page, add one sunburst per taxonomy that the course's competency criteria use, with a single legend. A course whose criteria use three or more taxonomies shows no sunbursts for now.
 
 Sunburst:
-- The center of the sunburst says "COMPETENCIES DEMONSTRATED".
+- The center of the sunburst says "COMPETENCIES DEMONSTRATED", except on a chart too small for the caption to fit.
 - The rings correspond to how #734 lays out that taxonomy's cards. The innermost ring has one segment per card heading, and each further ring is one nesting depth of the rows inside the cards. Breadcrumb ancestors above a card heading are not drawn.
 - The outermost ring is for the subsection assignments, and it is thinner than the competency rings. A competency with no rows beneath it extends its segment outward to meet the subsection ring, so every subsection segment sits in that one outer ring.
-- Within each ring, children share their parent's angle equally. Segments run clockwise from 12 o'clock in the order the cards display them.
+- Within each ring, children share their parent's angle equally. Segments run clockwise from 12 o'clock in the order the cards display them, and counterclockwise in a right-to-left language.
 
 Legend:
 - Each segment is filled with its status's color.
@@ -25,7 +25,7 @@ Legend:
 
 ## Context
 - Corresponds with the UXD Spike #769
-- The tooltip is out of scope for this ticket because it will be built in #751.
+- Hover and tap behavior (tooltip, highlight, in-segment status icon) is out of scope for this ticket because #751 builds it.
 - Blocked by #734, #739, #740
 
 ## UX Design
@@ -33,6 +33,7 @@ Legend:
 @illiphilli, please add the UX design screenshot(s) and the Figma link for this ticket.
 
 - Figma: TBD
+  - [Landing](https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=983-3817)
   - [Six Deep](https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=1089-4395)
   - [Two taxonomies](https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=1562-27227)
   - [Sizes and legend](https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=1564-13187)
@@ -48,6 +49,26 @@ These scenarios use #734's terms (card, card heading, tag row, path row, breadcr
 - A segment is drawn as a status when it is filled with that status's color from the legend.
 - Unless a scenario says otherwise, the course's criteria use one taxonomy, the learner's statuses and scores have loaded, and no status is masked.
 
+Several scenarios use "the example course", the course from #734's Description. Its taxonomy and criteria are:
+
+```
+- Critical Thinking
+    - Analysis (criteria in this course)
+    - Evaluation
+    - Inference (criteria in this course)
+- Communication (criteria in this course)
+    - Written Communication
+    - Oral Communication
+    - Audience Awareness
+- Problem Solving
+    - Problem Definition
+        - Root Cause Analysis (criteria in this course)
+    - Strategy Selection
+    - Solution Testing
+```
+
+#734 shows the example course as three cards: a "Communication" card with Communication's own rules and subsections and no tag rows; a "Critical Thinking" card with "Analysis" and "Inference" as tag rows, and no row for "Evaluation" because it has no criteria in this course; and a "Problem Definition" card with a "Root Cause Analysis" tag row and a "Problem Solving" breadcrumb above the heading.
+
 ```gherkin
 Scenario: One sunburst and one legend appear above the cards
   Given a course whose competency criteria all use tags from "Workplace Skills"
@@ -58,6 +79,7 @@ Scenario: One sunburst and one legend appear above the cards
 
 Scenario Outline: The center caption is the same whatever the learner's progress
   Given a course with competency criteria
+  And the sunburst is large enough for its center caption to fit
   And <progress>
   When the learner opens the course's Progress tab
   Then the center of the sunburst reads "COMPETENCIES DEMONSTRATED", with no count or percentage
@@ -66,6 +88,12 @@ Scenario Outline: The center caption is the same whatever the learner's progress
     | progress                                                   |
     | the learner hasn't submitted anything in the course        |
     | the learner has demonstrated every competency in the chart |
+
+Scenario: The center caption is hidden on a chart too small for it
+  Given a course with competency criteria
+  When the learner views the Progress tab at a width that makes a sunburst too small for its center caption to fit
+  Then that sunburst's center is empty
+  And its rings, segments, and legend are unchanged
 
 Scenario: A course using two taxonomies shows one named sunburst per taxonomy and one shared legend
   Given a course with competency criteria on tags from "Workplace Skills" and from "Accounting Standards", and each taxonomy has a top-level tag named "Communication" with criteria in this course
@@ -83,7 +111,7 @@ Scenario: A course using three or more taxonomies shows no sunburst
   And each taxonomy's heading and cards appear as usual
 
 Scenario: The rings follow the cards, starting from the card headings
-  Given the taxonomy and course criteria from #734's Description example, which give a "Communication" card with no tag rows, a "Critical Thinking" card with "Analysis" and "Inference" rows, and a "Problem Definition" card with a "Root Cause Analysis" row under a "Problem Solving" breadcrumb
+  Given the example course
   When the learner opens the course's Progress tab
   Then the innermost ring has three segments, one per card heading: "Communication", "Critical Thinking", and "Problem Definition"
   And the second ring has "Analysis" and "Inference" beneath "Critical Thinking", and "Root Cause Analysis" beneath "Problem Definition"
@@ -92,7 +120,7 @@ Scenario: The rings follow the cards, starting from the card headings
   And the subsection ring is narrower than each competency ring
 
 Scenario: A competency with no tag rows beneath it reaches out to the subsection ring
-  Given the course from #734's Description example
+  Given the example course
   When the learner opens the course's Progress tab
   Then the "Communication" segment extends from the innermost ring across the second ring's position to the subsection ring
   And Communication's subsection segments sit in the same outermost ring as every other subsection segment
@@ -117,17 +145,12 @@ Scenario: Six competency rings are all drawn, with no cap
   And the course has competency criteria on "Strategy Selection", "Level 6 A", and "Level 6 B" only, so #734 shows one "Problem Solving" card with "Problem Definition", "Level 3", "Level 4", and "Level 5" as nested path rows
   When the learner opens the course's Progress tab
   Then the sunburst has six competency rings and the subsection ring
-  And "Level 6 A" and "Level 6 B" are segments in the sixth competency ring, beneath "Level 5"
+  And the first ring is "Problem Solving", spanning the whole circle
+  And the second ring is "Strategy Selection" and "Problem Definition", each spanning half of the circle
+  And the "Strategy Selection" segment extends from the second ring to the subsection ring
+  And in the "Problem Definition" half, the third ring is "Level 3", the fourth is "Level 4", and the fifth is "Level 5", each spanning the whole half
+  And the sixth ring is "Level 6 A" and "Level 6 B", each spanning a quarter of the circle, beneath "Level 5"
   And no ring is left out and no level is combined with another
-
-Scenario: A card heading with criteria of its own shares its angle between its own subsections and its rows (Ref 1)
-  Given "Root Cause Analysis" is a child of "Problem Definition", which is a child of "Problem Solving", a top-level tag
-  And "Problem Solving" and "Root Cause Analysis" both have criteria in this course and "Problem Definition" has none, so #734 shows one "Problem Solving" card whose own groups list two subsections first, followed by a "Problem Definition" path row with "Root Cause Analysis" nested under it
-  When the learner opens the course's Progress tab
-  Then the sunburst has three competency rings: "Problem Solving", then "Problem Definition", then "Root Cause Analysis"
-  And Problem Solving's two own subsection segments and the "Problem Definition" segment each span a third of Problem Solving's angle
-  And over its two own subsections, the "Problem Solving" segment extends outward across the second and third rings' positions to the subsection ring
-  And Problem Solving's own subsection segments sit in the subsection ring, clockwise before the subsection segments beneath "Problem Definition"
 
 Scenario: Children share their parent's angle equally in every ring
   Given a "Critical Thinking" card with tag rows "Analysis", which has three subsections, and "Inference", which has one
@@ -238,17 +261,6 @@ Scenario: The gaps between segments match the background behind the sunburst
   When the learner opens the course's Progress tab
   Then the gaps between segments show the same color as the area behind the sunburst, not white
 
-Scenario Outline: The sunburst doesn't respond to the pointer or to touch
-  Given a course with competency criteria
-  When <action>
-  Then no tooltip, highlight, fade, or icon appears, and the sunburst and the rest of the page stay as they were
-
-  Examples:
-    | action                                       |
-    | the learner moves the pointer over a segment |
-    | the learner clicks a segment                 |
-    | the learner taps a segment on a touch screen |
-
 Scenario: Keyboard focus passes over the sunburst
   Given a course with competency criteria
   When a keyboard user presses Tab to move through the Progress tab
@@ -274,13 +286,6 @@ Scenario Outline: The sunburst stays hidden when the learner's statuses can't be
     | data                              |
     | the learner's competency statuses |
     | the learner's subsection scores   |
-
-Scenario: A failure while drawing the sunburst doesn't hide the cards
-  Given the learner's statuses load, but drawing the sunburst fails, for example because the data has a shape the chart doesn't expect
-  When the learner opens the course's Progress tab
-  Then no sunburst and no legend appear
-  And the taxonomy headings and cards appear as usual
-  And the failure is reported to the site's logging service
 
 Scenario Outline: Course staff viewing a learner see the sunburst that matches that page's cards
   Given a learner in content group A, whose competency status is Demonstrated for "Communication" and for "Inference", a tag row in the "Critical Thinking" card
@@ -308,7 +313,7 @@ Scenario: A screen reader user hears each sunburst as one image, and the cards c
   Given a course with competency criteria
   When a screen reader user moves through the top of the competency criteria panel
   Then they hear each sunburst once, as an image whose text alternative says it summarizes their competency statuses and that the cards below list every competency and its status
-  And when there are two sunbursts, each one's text alternative also names its taxonomy
+  And when there are two sunbursts, each one's text alternative also names its taxonomy, and the taxonomy name shown above each chart is not announced separately
   And they hear no individual segment
   And they hear the legend's four status names as text, each once, with no separate announcement for the legend's icons
   And every competency and subsection the sunburst draws appears in the cards as text, with the same status wherever the card shows one
@@ -328,17 +333,17 @@ A pure function turns each taxonomy section from #734's `useCompetencyCards`, pl
 1. **Node tree.** `buildSunburstTree(section, statuses)` in `src/data/buildSunburstTree.js` takes one taxonomy section and the `statuses` from `useCompetencyStatuses`. It returns the section's nodes in reading order, with angles in radians and rings as indexes. It works only in angles and ring indexes, never pixels or SVG, so a later drill-in or chart library can reuse it.
    - Each card heading is a tag node in ring 0. Each row, path rows included, is a tag node one ring deeper than the row or heading it sits under.
    - Each criterion is one subsection node in the outer ring. A subsection under two tags, or in two groups under one tag, therefore gets one node per criterion.
-   - A tag node's children are its own subsections first, then its child rows, in card order. Its own subsections go group by group and rule box by rule box: the named subsections in outline order, then that rule box's hidden criteria. Each child gets an equal share of its parent's angle, and the card headings share the full circle equally.
+   - A tag node's children are its own subsections first, then its child rows, in card order. Its own subsections go group by group and rule box by rule box: the named subsections in outline order, then the criteria for that rule box's hidden subsections. Each child gets an equal share of its parent's angle, and the card headings share the full circle equally.
    - Each tag node records the angle span its own subsections cover. The drawing step extends the tag's segment out to the subsection ring over that span. A tag with no rows therefore extends across its whole angle, and a heading with both its own subsections and rows (#734 Ref 1) extends only over its own subsections.
-   - A tag node's status is `statuses.tags.get(tagId)`, and a subsection node's is `statuses.criteria.get(criterionId).status` (#739's criteria entries are objects with `status`, `percentGraded`, and `masked`). A missing entry, which covers every hidden criterion and any unknown status, is drawn as Available.
+   - A tag node's status is `statuses.tags.get(tagId)`, and a subsection node's is `statuses.criteria.get(criterionId).status` (#739's criteria entries are objects with `status`, `percentGraded`, and `masked`). A missing entry, which covers every criterion for a hidden subsection and any unknown status, is drawn as Available.
    - For #751, every node carries four things:
-     - an `id` namespaced by kind (`tag-12`, `criterion-12`), hidden criteria included, because tag ids and criterion ids are separate id spaces;
+     - an `id` namespaced by kind (`tag-12`, `criterion-12`), criteria for hidden subsections included, because tag ids and criterion ids are separate id spaces;
      - `ancestorIds`;
-     - `source`, a reference to the #734 card or row for a tag node, or to the named row or hidden criterion for a subsection node;
+     - `source`, a reference to the #734 card or row for a tag node, or to the named row or hidden-subsection criterion for a subsection node;
      - `entry`, the raw #739 map entry for the node (or null when there is none), so #751 can tell an unknown or missing status from a real Available one and can read a subsection's `percentGraded`.
-2. **Hidden criterion ids.** `buildCompetencyCards` gives each rule box a count of its hidden criteria. Have it also carry those criteria's ids, in `id` order, beside the count. Each hidden segment then has an id, and the cards keep rendering the count as they do.
+2. **Ids for hidden subsections' criteria.** `buildCompetencyCards` gives each rule box a count of the criteria whose subsections are hidden from the learner. Have it also carry those criteria's ids, in `id` order, beside the count. Each hidden subsection's segment then has an id, and the cards keep rendering the count as they do.
 3. **Geometry.** `src/sunburstGeometry.js` takes the nodes, the ring count, and a diameter in pixels, and returns each node's path string and centroid.
-   - The ring count is the deepest tag ring plus one. The radii are a center hole, a competency band split equally among the rings, and a thinner subsection ring. Take the ratios from the Sizes and legend frame. A Ref 2 merge can produce six competency rings; they are drawn thin, with no cap.
+   - The ring count is the deepest tag ring plus one. The radii are a center hole, a competency band split equally among the rings, and a thinner subsection ring. Take the ratios from the Sizes and legend frame. A Ref 2 merge can produce up to six competency rings, and six is the hard maximum because a taxonomy is at most six levels deep (`TAXONOMY_MAX_DEPTH` is 5 in `openedx_tagging/models/base.py`, counting from depth 0). They are drawn thin, with no cap.
    - A plain segment is two arcs and two lines. A Ref 1 heading is one path of three arcs and three lines, so no seam is drawn inside one segment.
    - A segment that spans the full circle, such as the only card in a taxonomy or a tag with one subsection, must be drawn as two half arcs, because an SVG arc whose start and end points coincide draws nothing. Set the large-arc flag when a span exceeds half the circle.
    - The centroid is the segment's angular midpoint, at the mid-radius of the band the segment covers across its whole angle.
@@ -348,26 +353,23 @@ A pure function turns each taxonomy section from #734's `useCompetencyCards`, pl
    - Each segment is a `<path>` with `data-segment-id`, `data-status`, and `data-ring`.
    - The fill comes from #739's shared status map as an inline style, so a later Paragon token drops in.
    - Each path is stroked 2px in `var(--pgn-color-body-bg)`, the page background behind the panel, which #734 places directly in the main column rather than in a Card. The strokes draw the gaps, so #751's `fill-opacity` fade leaves the gaps unchanged.
-   - The center caption is an `aria-hidden` HTML element over the hole, so it wraps in long translations and can take Paragon's `text-uppercase`. Hide it when the diameter is under 320px.
+   - The center caption is an `aria-hidden` HTML element over the hole, so it wraps in long translations and can take Paragon's `text-uppercase`. Hide it when the diameter is under 320px, the threshold from the Sizes and legend frame. Before fixing that number, confirm the caption fits the hole at 320px in the final font and ring ratios; if it doesn't, raise the threshold rather than shrink the text.
 5. **Layout and legend.** `CompetencySunbursts` in `src/CompetencySunbursts.jsx` measures its own width with a `ResizeObserver`. It renders nothing for three or more sections.
    - One section: the diameter follows the column, from 240 to 420px.
-   - Two sections: the charts sit side by side at (width minus 40px) / 2, up to 420px each, when that gives each chart at least 280px. Otherwise they stack, up to 320px each. Each chart has its taxonomy name above it as plain text, not a heading, so heading navigation still lands only on #734's taxonomy headings.
+   - Two sections: the charts sit side by side at (width minus 40px) / 2, up to 420px each, when that gives each chart at least 280px. Otherwise they stack, up to 320px each. Each chart has its taxonomy name above it as plain text, not a heading, so heading navigation still lands only on #734's taxonomy headings. The name is `aria-hidden`, because the chart's text alternative already names the taxonomy, so a screen reader hears it once.
    - A chart is never wider than the column, so nothing scrolls sideways.
    - `SunburstLegend` in `src/SunburstLegend.jsx` is one list placed after all the charts, which puts it centered under side-by-side charts and under the last of stacked ones. It has four entries in the Description's order: icons from the status map marked `aria-hidden`, labels as text, wrapping with Bootstrap's flex utilities.
 6. **Mounting and states.** `CompetencyProgressPanel` renders `CompetencySunbursts` above the taxonomy sections and passes it the sections and `statuses` it already has, so there is no new request, hook, or slot.
    - `CompetencySunbursts` is only the `ErrorBoundary` from `@edx/frontend-platform/react`, with an empty fragment as `fallbackComponent`, as #755 does, around an inner `CompetencySunburstsContent` in the same file.
    - The inner component does all the work in step 5 and builds the trees: measuring the width, laying out the charts, and rendering the legend. Keeping all of it inside the boundary is what makes a throw anywhere in the chart hide only the chart and never the cards.
    - It renders nothing while `isPending` is true or `statuses` is null.
-7. **Tests beyond the AC.**
+7. **Tests beyond the AC.** These cover cases the Acceptance Criteria leave out or that QA can't set up by hand.
    - Pure tests for `buildSunburstTree`:
-     - equal shares at each level;
-     - extension spans for a tag without rows and for a Ref 1 heading;
-     - the order of own subsections, rule boxes, outline positions, and hidden criteria;
-     - a Ref 2 merge with six rings;
-     - a subsection under two tags as two nodes, each with its own status;
-     - hidden and unknown statuses drawn as Available;
-     - ids on hidden nodes.
-   - Geometry tests: a full-circle segment, a span over half the circle, a centroid, and mirroring.
+     - the order of a tag's own subsections: group by group, rule box by rule box, the named subsections in outline order, then the criteria for that rule box's hidden subsections;
+     - ids on the nodes for hidden subsections;
+     - a card heading with criteria of its own and rows beneath it (#734 Ref 1). This layout can exist only where a taxonomy re-import moved tags after criteria were created, which #902 will reject, so it is not an Acceptance Criteria scenario. With "Problem Solving" and its grandchild "Root Cause Analysis" (through "Problem Definition") both holding criteria: Problem Solving spans the whole circle and has three equal children, its two own subsections and then the "Problem Definition" row; over the first two thirds, the Problem Solving segment extends out to the subsection ring and its two own subsections sit there; over the last third, ring 2 is "Problem Definition", ring 3 is "Root Cause Analysis", and Root Cause Analysis's subsections sit in the subsection ring.
+   - Geometry tests: a full-circle segment, a span over half the circle, and a centroid.
+   - A throw inside the chart, for example from data of a shape the chart doesn't expect: `CompetencySunbursts` renders nothing, the cards still render, and the mocked `logError` is called. `ErrorBoundary` does the logging itself in `componentDidCatch`, so no logging code is needed in the chart.
    - Render tests count each ring's segments by `data-ring` and check each segment's `data-status`. Don't snapshot path strings.
    - jsdom has no `ResizeObserver`, so mock it.
 8. **tutor-mfe pin.** Once a package release includes this ticket, open a pull request to `overhangio/tutor-mfe` that moves the pinned package version #828 adds to that release, and verify it on a Learning MFE image rebuilt from that branch. Until a tutor-mfe release includes that pull request, Tutor sites show the panel without the sunbursts.
@@ -386,7 +388,7 @@ Paths are relative to the root of the plugin repository from #810.
 | File | Change |
 | --- | --- |
 | `src/data/buildSunburstTree.js` | new |
-| `src/data/buildCompetencyCards.js` | modified: hidden criterion ids on each rule box |
+| `src/data/buildCompetencyCards.js` | modified: ids of the hidden subsections' criteria on each rule box |
 | `src/sunburstGeometry.js` | new |
 | `src/Sunburst.jsx` | new |
 | `src/SunburstLegend.jsx` | new |
@@ -397,7 +399,8 @@ Paths are relative to the root of the plugin repository from #810.
 
 **Additional context**
 
-- Design references: the four Figma frames linked under UX Design, plus [a row with no criteria of its own](https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=1559-12397). The [Sunburst Explorer](https://d3v8e8hqzoulm1.cloudfront.net/axim/sunburst-explorer/) prototype opens on this ticket's static mode.
+- Design decisions: the designer's [wrap-up of the #769 spike](https://github.com/openedx/openedx-core/issues/769#issuecomment-6511807677) records every decision above in one place.
+- Design references: the five Figma frames linked under UX Design, plus [a row with no criteria of its own](https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=1559-12397). The [Sunburst Explorer](https://d3v8e8hqzoulm1.cloudfront.net/axim/sunburst-explorer/) prototype opens on this ticket's static mode.
 - The colors and icons are #768's Option G. The Available fill (`#CBD5E1`) is 1.48:1 against the white gaps and page, below WCAG 1.4.11's 3:1 for graphics. For comparison, Demonstrated is 3.14:1, Partially Attempted 6.03:1, Not Demonstrated 11.27:1, and the Available icon's dashed ring 6.69:1. This is accepted for MVP because the cards below give every status as text.
 - #748 should document:
   - what the rings follow;
@@ -410,10 +413,3 @@ Paths are relative to the root of the plugin repository from #810.
 - More than two competency rings come from #734's card merges (Ref 2), which #666 allows. #733's response order sets the card order that the segments follow.
 
 </details>
-
-## Open Questions
-
-- (architect, final review) How should the chart handle six competency rings? #734's merge rule (Ref 2) can nest path rows five deep under a card heading, which #666 allows, so a follow-up that closes the re-import loophole would still not make two rings the maximum. At the 240px minimum diameter each ring is about 9px wide. Approach step 3 accepts thin rings with no cap, which the designer also leans toward. Alternatives: let the minimum diameter grow with the ring count (for example at least 24px per ring), or cap the rings and roll deeper levels into their row's segment.
-- (architect, final review) Should the center caption be hidden on charts narrower than 320px? The designer's Sizes and legend frame hides it there, and Approach step 4 follows that frame, but the Description says the center "says COMPETENCIES DEMONSTRATED" and the Acceptance Criteria say it reads that in every state. If the hiding stands, the Description's center bullet needs a qualifier and the caption scenario needs a small-chart exception. The alternative is to show the caption at every size in smaller type.
-- (architect, final review) Where should the hidden criterion ids per rule box be added? #734's transform gives each rule box only a count of hidden criteria, and this ticket needs an id on every hidden segment (and #751 a reference to each hidden criterion). Approach step 2 adds the ids in this ticket. If #734 has not been built yet, adding them there is cheaper, and step 2 and its files-table row drop out of this ticket.
-- (architect, final review) With two taxonomies, is the name above each chart plain text or a heading? Approach step 5 uses plain text so heading navigation still lands only on #734's taxonomy headings. A heading would duplicate those in the heading outline.
