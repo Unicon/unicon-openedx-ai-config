@@ -70,9 +70,15 @@ Scenario: Close the tooltip when the pointer moves away
   Then the tooltip closes
 
 
-Scenario: Close the tooltip when keyboard focus moves away
+Scenario: Keep the tooltip open while moving between the chip and its remove (✕) button
+  Given a criterion chip's tooltip is open because the chip has keyboard focus
+  When keyboard focus moves to the chip's remove (✕) button
+  Then the tooltip remains open
+
+
+Scenario: Close the tooltip when keyboard focus leaves the chip
   Given a criterion chip's tooltip is open
-  When keyboard focus moves to another element on the page
+  When keyboard focus moves to an element outside the chip and its remove (✕) button
   Then the tooltip closes
 
 
