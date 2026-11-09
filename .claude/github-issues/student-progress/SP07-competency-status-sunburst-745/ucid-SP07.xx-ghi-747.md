@@ -42,9 +42,10 @@ Legend:
 
 ## Acceptance Criteria
 
-These scenarios use #734's terms (card, card heading, tag row, path row, breadcrumb, named row, placeholder row) and #739's and #740's statuses, plus these definitions:
+These scenarios use #734's terms (card, card heading, breadcrumb, named row, placeholder row) and #739's and #740's statuses, plus these definitions:
 
-- The competency rings are the sunburst's inner bands. The innermost holds one segment per card heading, and each further ring holds the tag rows and path rows at the next nesting depth inside the cards. The subsection ring is the outermost band and holds one segment for each subsection the cards count, including each subsection counted in a placeholder row.
+- A tag row is a row inside a card for a tag other than the card heading, shown with the target icon before its name. A tag row for a tag with criteria in this course has its groups and subsections under it; a tag row for a tag with no criteria of its own in this course has nothing beneath it.
+- The competency rings are the sunburst's inner bands. The innermost holds one segment per card heading, and each further ring holds the tag rows at the next nesting depth inside the cards. The subsection ring is the outermost band and holds one segment for each subsection the cards count, including each subsection counted in a placeholder row.
 - A segment's angle is the share of the circle it spans.
 - A segment is drawn as a status when it is filled with that status's color from the legend.
 - Unless a scenario says otherwise, the course's criteria use one taxonomy, the learner's statuses and scores have loaded, and no status is masked.
@@ -132,9 +133,9 @@ Scenario: A card below the top of a deep taxonomy draws only the card's own leve
   Then the sunburst has two competency rings: "Level 5", spanning the whole circle, and "Level 6" beneath it
   And no segment is drawn for "Level 1", "Level 2", "Level 3", or "Level 4"
 
-Scenario: A merged card draws its path rows as rings (Ref 2)
+Scenario: A merged card draws its rows for tags without criteria as rings (Ref 2)
   Given "Problem Definition" and "Strategy Selection" are children of "Problem Solving", a top-level tag, and "Root Cause Analysis" is a child of "Problem Definition"
-  And the course has competency criteria on "Strategy Selection" and "Root Cause Analysis" only, so #734 shows one "Problem Solving" card with a "Strategy Selection" row and a "Problem Definition" path row with "Root Cause Analysis" nested under it
+  And the course has competency criteria on "Strategy Selection" and "Root Cause Analysis" only, so #734 shows one "Problem Solving" card with a "Strategy Selection" row and a "Problem Definition" row, for a tag with no criteria of its own, with "Root Cause Analysis" nested under it
   When the learner opens the course's Progress tab
   Then the sunburst has three competency rings: "Problem Solving"; then "Strategy Selection" and "Problem Definition"; then "Root Cause Analysis", beneath "Problem Definition"
   And the "Strategy Selection" segment extends from the second ring to the subsection ring
@@ -142,7 +143,7 @@ Scenario: A merged card draws its path rows as rings (Ref 2)
 Scenario: Six competency rings are all drawn, with no cap
   Given "Problem Solving" is a top-level tag whose children include "Strategy Selection" and "Problem Definition"
   And below "Problem Definition" is one tag per level, "Level 3", "Level 4", and "Level 5", and "Level 5" has two children, "Level 6 A" and "Level 6 B"
-  And the course has competency criteria on "Strategy Selection", "Level 6 A", and "Level 6 B" only, so #734 shows one "Problem Solving" card with "Problem Definition", "Level 3", "Level 4", and "Level 5" as nested path rows
+  And the course has competency criteria on "Strategy Selection", "Level 6 A", and "Level 6 B" only, so #734 shows one "Problem Solving" card with "Problem Definition", "Level 3", "Level 4", and "Level 5" as nested rows, none of them with criteria of its own
   When the learner opens the course's Progress tab
   Then the sunburst has six competency rings and the subsection ring
   And the first ring is "Problem Solving", spanning the whole circle
@@ -191,7 +192,7 @@ Scenario Outline: Each competency segment is drawn in the status the cards show 
     | tag                  | kind           | status              | label               |
     | "Critical Thinking"  | a card heading | none recorded       | Available           |
     | "Analysis"           | a tag row      | Partially Attempted | Partially Attempted |
-    | "Problem Definition" | a path row     | Demonstrated        | Demonstrated        |
+    | "Problem Definition" | a tag row for a tag with no criteria of its own | Demonstrated | Demonstrated |
 
 Scenario Outline: Each subsection segment is drawn in the status its row's oval shows
   Given "Quiz 1" appears by name under "Analysis", under a rule line reading "AT 80% OR BETTER"
@@ -206,17 +207,6 @@ Scenario Outline: Each subsection segment is drawn in the status its row's oval 
     | the learner scored 12 of 20 points on Quiz 1, so their recorded status is Not Demonstrated          | Not Demonstrated    |
     | the learner scored 19 of 20 points on Quiz 1, so their recorded status is Demonstrated              | Demonstrated        |
     | Quiz 1's results are set never to be shown, and the learner's recorded status on it is Demonstrated | Available           |
-
-Scenario Outline: A segment whose status the page doesn't recognize is drawn as Available
-  Given the platform returns a status for <item> that the page doesn't recognize, so the cards show no status for it
-  When the learner opens the course's Progress tab
-  Then <segment> is drawn as Available
-  And the legend still lists exactly four statuses
-
-  Examples:
-    | item                                                  | segment                |
-    | "Analysis", a tag row in the "Critical Thinking" card | the "Analysis" segment |
-    | "Quiz 1", a subsection under "Analysis"               | the "Quiz 1" segment   |
 
 Scenario: A competency is drawn in its own status even when every subsection under it is Not Demonstrated
   Given the learner's recorded status is Not Demonstrated on each subsection under "Analysis"
@@ -331,7 +321,7 @@ A pure function turns each taxonomy section from #734's `useCompetencyCards`, pl
 **Approach**
 
 1. **Node tree.** `buildSunburstTree(section, statuses)` in `src/data/buildSunburstTree.js` takes one taxonomy section and the `statuses` from `useCompetencyStatuses`. It returns the section's nodes in reading order, with angles in radians and rings as indexes. It works only in angles and ring indexes, never pixels or SVG, so a later drill-in or chart library can reuse it.
-   - Each card heading is a tag node in ring 0. Each row, path rows included, is a tag node one ring deeper than the row or heading it sits under.
+   - Each card heading is a tag node in ring 0. Each row, including a row for a tag with no criteria of its own, is a tag node one ring deeper than the row or heading it sits under.
    - Each criterion is one subsection node in the outer ring. A subsection under two tags, or in two groups under one tag, therefore gets one node per criterion.
    - A tag node's children are its own subsections first, then its child rows, in card order. Its own subsections go group by group and rule box by rule box: the named subsections in outline order, then the criteria for that rule box's hidden subsections. Each child gets an equal share of its parent's angle, and the card headings share the full circle equally.
    - Each tag node records the angle span its own subsections cover. The drawing step extends the tag's segment out to the subsection ring over that span. A tag with no rows therefore extends across its whole angle, and a heading with both its own subsections and rows (#734 Ref 1) extends only over its own subsections.
@@ -367,7 +357,8 @@ A pure function turns each taxonomy section from #734's `useCompetencyCards`, pl
    - Pure tests for `buildSunburstTree`:
      - the order of a tag's own subsections: group by group, rule box by rule box, the named subsections in outline order, then the criteria for that rule box's hidden subsections;
      - ids on the nodes for hidden subsections;
-     - a card heading with criteria of its own and rows beneath it (#734 Ref 1). This layout can exist only where a taxonomy re-import moved tags after criteria were created, which #902 will reject, so it is not an Acceptance Criteria scenario. With "Problem Solving" and its grandchild "Root Cause Analysis" (through "Problem Definition") both holding criteria: Problem Solving spans the whole circle and has three equal children, its two own subsections and then the "Problem Definition" row; over the first two thirds, the Problem Solving segment extends out to the subsection ring and its two own subsections sit there; over the last third, ring 2 is "Problem Definition", ring 3 is "Root Cause Analysis", and Root Cause Analysis's subsections sit in the subsection ring.
+     - a status the page doesn't recognize, returned by the platform for "Analysis" (a tag row) or for "Quiz 1" (a subsection): the segment is drawn as Available and the legend still lists four statuses. QA can't produce an unrecognized status without mocking the response, so this is a test rather than an Acceptance Criteria scenario;
+     - a card heading with criteria of its own and rows beneath it (#734 Ref 1). This layout can exist only where a taxonomy re-import moved tags after criteria were created. #902 will reject that on re-import, and only Django admin edits or data from before #902 can still produce it, so QA can't stage it and it is tested here rather than as an Acceptance Criteria scenario. With "Problem Solving" and its grandchild "Root Cause Analysis" (through "Problem Definition") both holding criteria: Problem Solving spans the whole circle and has three equal children, its two own subsections and then the "Problem Definition" row; over the first two thirds, the Problem Solving segment extends out to the subsection ring and its two own subsections sit there; over the last third, ring 2 is "Problem Definition", ring 3 is "Root Cause Analysis", and Root Cause Analysis's subsections sit in the subsection ring.
    - Geometry tests: a full-circle segment, a span over half the circle, and a centroid.
    - A throw inside the chart, for example from data of a shape the chart doesn't expect: `CompetencySunbursts` renders nothing, the cards still render, and the mocked `logError` is called. `ErrorBoundary` does the logging itself in `componentDidCatch`, so no logging code is needed in the chart.
    - Render tests count each ring's segments by `data-ring` and check each segment's `data-status`. Don't snapshot path strings.
@@ -413,3 +404,12 @@ Paths are relative to the root of the plugin repository from #810.
 - More than two competency rings come from #734's card merges (Ref 2), which #666 allows. #733's response order sets the card order that the segments follow.
 
 </details>
+
+## Open Questions
+
+- (@arbrandes) Hand-rolled SVG or TanStack Charts for the sunburst? This ticket and #751 are written for hand-rolled SVG, with Paragon `Overlay` for #751's tooltip, while the designer's Sunburst Explorer prototype uses TanStack Charts 1.1. Adolfo, please confirm you are fine with hand-rolled SVG, or say if you would rather take the dependency.
+
+  | Option | For | Against |
+  | --- | --- | --- |
+  | Hand-rolled SVG (planned) | No new dependency. Paragon tokens and the shared status colors apply directly. A static chart is a few arcs per segment, and #751's hit-testing is pointer events on the paths. | Tooltip positioning is ours, through Paragon `Overlay`. Keyboard navigation of segments, if ever wanted, would be hand-built. |
+  | TanStack Charts 1.1 | A sunburst mark with `rootId` and `visibleDepth` covers a later drill-in without a rewrite. Keyboard navigation (arrow keys, Enter) and a tooltip slot are built in, and hit-testing and positioning come with it. | A young library (version 1.1, MIT) as a new dependency. In the designer's prototype, hover state inside the chart definition made the tooltip flicker, there is no built-in tooltip delay, a custom tooltip body loses the default card styling, and the thinner subsection ring needs a second mark. |

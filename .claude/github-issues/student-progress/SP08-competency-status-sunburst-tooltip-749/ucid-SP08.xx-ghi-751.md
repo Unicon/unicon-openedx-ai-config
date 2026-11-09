@@ -7,7 +7,7 @@ Cached: 2026-09-21
 As a learner, when I hover over or tap a segment of the sunburst, I want to see more information about what that segment represents in order to understand where I stand on it and what it takes to demonstrate it.
 
 ## Description
-This ticket implements the tooltips and hover highlight for the sunburst built in #747. Hovering with a pointer or tapping a segment shows its tooltip; tapping another segment switches, and tapping outside or pressing Escape dismisses it. There are 2 cases of tooltips:
+This ticket implements the tooltips and hover highlight for the sunburst built in #747. Hovering with a pointer or tapping a segment shows its tooltip beside that segment. Tapping another segment switches, and tapping outside or pressing Escape dismisses it. There are 2 cases of tooltips:
 
 Tooltip for Competency Tag segment:
 - Display the competency tag name.
@@ -21,7 +21,7 @@ Tooltip for Subsection Assignment segment:
 - Display the competency criterion status just like how it looks in its card row below.
 - For a subsection hidden from the learner, display "A subsection that isn't visible to you" and no status.
 
-While a segment is hovered or tapped, its status icon is drawn inside the segment. Also while a segment is hovered or tapped, there is a faded overlay for all the other segments in that sunburst except for this one, its ancestors, and its descendants.
+While a segment is hovered or tapped, its status icon is drawn inside the segment when the segment is wide enough to hold it. Also while a segment is hovered or tapped, there is a faded overlay for all the other segments in that sunburst except for this one, its ancestors, and its descendants, and when the page shows two sunbursts, the whole other sunburst fades too.
 
 ## Context
 - Corresponds to UXD Spike #750
@@ -29,7 +29,7 @@ While a segment is hovered or tapped, its status icon is drawn inside the segmen
 
 ## UX Design
 
-@illiphilli, please add the UX design screenshot(s) and the Figma link for this ticket.
+@illiphilli, please add the UX design screenshot(s) and the Figma link for this ticket. The three tooltip frames still need: the in-segment status icon (the 18px card icon with a 2px white ring and a light shadow) on the hovered segment; a Demonstrated assignment frame showing the percent in the oval; a phone frame; and the Option G Available icon in place of the hollow circle in the competency frame's icon row.
 
 - Figma: TBD
   - [Competency tooltip](https://www.figma.com/design/VqDdtf3NOsUihle6SNS6Kw/-Course-Level----Student-Progress?node-id=1244-26891)
@@ -39,19 +39,33 @@ While a segment is hovered or tapped, its status icon is drawn inside the segmen
 
 ## Acceptance Criteria
 
-These scenarios use #734's, #739's, #740's, and #747's terms (card heading, tag row, path row, named row, placeholder row, oval, segment, competency ring, subsection ring, "drawn as"), and these:
+These scenarios use #734's, #739's, #740's, and #747's terms (card heading, named row, placeholder row, oval, segment, competency ring, subsection ring, "drawn as"), and these:
 
-- The tooltip is the card that appears beside a segment the learner hovers over or taps. A competency tooltip is the one for a card heading's, tag row's, or path row's segment. An assignment tooltip is the one for a subsection segment.
+- A tag row is a row inside a card for a tag other than the card heading, shown with the target icon before its name. A tag row for a tag with criteria in this course has its groups and subsections under it; a tag row for a tag with no criteria of its own in this course has nothing beneath it.
+- The tooltip is the card that appears beside a segment the learner hovers over or taps. A competency tooltip is the one for a card heading's or tag row's segment. An assignment tooltip is the one for a subsection segment.
 - A hidden subsection's segment is the segment #747 draws for a subsection the card counts in a placeholder row.
 - A segment's subtree is every segment beneath it, out to the subsection ring.
 - While a segment is hovered or tapped, a segment is lit when it keeps its full color and faded when it is drawn paler.
 - Unless a scenario says otherwise, the course's criteria use one taxonomy, the learner's statuses load, no status is masked, and the learner uses a mouse. The "Critical Thinking" card has tag rows "Analysis" and "Inference", "Quiz 3" appears under both, and the sunburst also has a "Communication" segment.
 
 ```gherkin
-Scenario: Hovering a segment shows its tooltip beside the point where the pointer entered
-  When the learner moves the pointer onto the "Analysis" segment
-  Then the tooltip for "Analysis" appears beside the point where the pointer entered the segment
-  And when the learner moves the pointer to another point inside the "Analysis" segment, the tooltip stays where it first appeared instead of following the pointer
+Scenario: The tooltip appears beside the hovered segment's center and stays there
+  When the learner rests the pointer on the "Analysis" segment
+  Then the tooltip for "Analysis" appears beside the "Analysis" segment's status icon, 20px from the icon
+  And when the learner moves the pointer to another point inside the "Analysis" segment, the tooltip stays where it is instead of following the pointer
+  And the tooltip appears in that same place whichever edge of the "Analysis" segment the pointer entered from
+
+Scenario: The first tooltip waits for a short pause, and moving between segments switches at once
+  Given no tooltip is showing
+  When the learner moves the pointer onto the "Analysis" segment and keeps it there
+  Then no segment fades and no tooltip appears for the first 250ms
+  And then the tooltip for "Analysis" appears, together with the highlight and the status icon
+  And when the learner then moves the pointer onto the "Inference" segment, the tooltip for "Inference" replaces it with no pause
+
+Scenario: Passing the pointer quickly across the sunburst shows nothing
+  Given no tooltip is showing
+  When the learner moves the pointer across the sunburst and off it again within 250ms
+  Then no tooltip appears and no segment fades
 
 Scenario Outline: The hovered segment, the segments above it, and its whole subtree stay lit
   When the learner hovers over <hovered>
@@ -64,11 +78,14 @@ Scenario Outline: The hovered segment, the segments above it, and its whole subt
     | the "Analysis" segment                  | "Analysis", "Critical Thinking", and every subsection segment beneath "Analysis"        | "Inference", the "Quiz 3" segment beneath "Inference", and "Communication"                    |
     | the "Quiz 3" segment beneath "Analysis" | that "Quiz 3" segment, "Analysis", and "Critical Thinking"                              | the "Quiz 3" segment beneath "Inference" and the other subsection segments beneath "Analysis" |
 
-Scenario: Only the hovered sunburst fades
+Scenario: Hovering a segment in one sunburst fades the whole other sunburst, but never the legend
   Given a course with criteria on tags from "Workplace Skills" and "Accounting Standards", so two sunbursts appear
   When the learner hovers over a segment in the "Accounting Standards" sunburst
-  Then the segments outside the hovered branch fade in the "Accounting Standards" sunburst only
-  And every segment in the "Workplace Skills" sunburst and every legend entry keep their full color
+  Then the segments outside the hovered branch fade in the "Accounting Standards" sunburst
+  And every segment in the "Workplace Skills" sunburst fades
+  And every legend entry keeps its full color
+  And only one tooltip shows on the page
+  And when the learner then hovers over a segment in the "Workplace Skills" sunburst, its tooltip replaces the first one, and every segment in the "Accounting Standards" sunburst fades instead
 
 Scenario Outline: The hovered segment shows its status icon at its center
   Given <segment> is drawn as <status>
@@ -85,23 +102,35 @@ Scenario Outline: The hovered segment shows its status icon at its center
     | the "Quiz 3" segment beneath "Inference"         | Not Demonstrated    |
     | a hidden subsection's segment beneath "Analysis" | Available           |
 
-Scenario: The status icon keeps its size on a thin segment
-  Given a tag with 40 subsections in this course, so each of its subsection segments is narrower than the status icon
-  When the learner hovers over one of those subsection segments
-  Then the segment's status icon appears at the same size as on any other segment, centered on the segment
-  And where the icon is wider than the segment, it overlaps the faded segments beside it
+Scenario Outline: The status icon appears only on a segment at least 22px long through its middle
+  Given <segment> is <length> long, measured along the arc halfway between its inner and outer edges
+  When the learner hovers over that segment
+  Then <icon>
+  And the segment is lit, and its tooltip appears beside the center of the segment and shows its status
+
+  Examples:
+    | segment                                                           | length            | icon                                                                             |
+    | a subsection segment beneath "Analysis", which has 40 subsections | shorter than 22px | no status icon appears in or over the segment                                    |
+    | the "Quiz 3" segment beneath "Analysis"                           | 22px or longer    | its status icon appears at its center, at the same size as on any other segment |
 
 Scenario: Moving the pointer to a neighboring segment switches the tooltip and highlight
-  Given the tooltip for "Analysis" is showing
+  Given the tooltip for "Analysis" is showing, and it doesn't cover the "Inference" segment
   When the learner moves the pointer directly onto the neighboring "Inference" segment, across the gap between them
   Then the tooltip for "Inference" replaces the one for "Analysis", without every segment returning to full color in between
   And the lit and faded segments, and the icon, change to follow "Inference"
 
-Scenario: The learner can move the pointer onto the tooltip without it closing
-  Given the tooltip for "Analysis" is showing
-  When the learner moves the pointer from the "Analysis" segment onto the tooltip
-  Then the tooltip and the highlight stay as they are while the pointer is over the tooltip
+Scenario Outline: The learner can move the pointer from a segment onto its tooltip without it closing or switching
+  Given the tooltip for <segment> is showing
+  When the learner moves the pointer from the center of that segment straight onto the tooltip, however slowly
+  Then the tooltip and the highlight stay as they are the whole way, even where other segments lie between the segment and the tooltip
+  And they stay as they are while the pointer is anywhere over the tooltip
   And when the pointer then leaves the tooltip for somewhere other than a segment, the tooltip closes and every segment returns to full color
+
+  Examples:
+    | segment                                                           |
+    | the "Critical Thinking" segment, in the innermost ring            |
+    | the "Quiz 3" segment beneath "Analysis", in the subsection ring   |
+    | a subsection segment beneath "Analysis", which has 40 subsections |
 
 Scenario: Moving the pointer off the sunburst closes the tooltip
   Given the tooltip for "Analysis" is showing
@@ -122,7 +151,7 @@ Scenario Outline: Tapping shows, switches, and closes the tooltip on a touch scr
 
   Examples:
     | state                                 | target                                    | result                                                                                 |
-    | no tooltip is showing                 | the "Analysis" segment                    | the tooltip for "Analysis" appears, with the same highlight and icon as when hovering  |
+    | no tooltip is showing                 | the "Analysis" segment                    | the tooltip for "Analysis" appears at once, with the same highlight and icon as when hovering |
     | the tooltip for "Analysis" is showing | the "Analysis" segment again              | the tooltip for "Analysis" stays open, with the same highlight and icon                |
     | the tooltip for "Analysis" is showing | the "Inference" segment                   | the tooltip for "Inference" replaces it, and the highlight and icon follow "Inference" |
     | the tooltip for "Analysis" is showing | the page outside the sunburst and tooltip | the tooltip closes and every segment returns to full color                             |
@@ -155,7 +184,7 @@ Scenario Outline: Every competency tooltip shows the status as a card heading's 
     | tag                  | kind           | status              | label               |
     | "Critical Thinking"  | a card heading | none recorded       | Available           |
     | "Analysis"           | a tag row      | Partially Attempted | Partially Attempted |
-    | "Problem Definition" | a path row     | Demonstrated        | Demonstrated        |
+    | "Problem Definition" | a tag row for a tag with no criteria of its own | Demonstrated | Demonstrated |
 
 Scenario Outline: A competency with no competency segments beneath it states its one rule
   Given "Written Communication" has no tag rows beneath it, and its criteria in this course are <criteria>
@@ -181,8 +210,7 @@ Scenario Outline: A competency with competency segments beneath it reads "MULTIP
   Examples:
     | tag                  | kind                                                                                                           |
     | "Critical Thinking"  | a card heading with tag rows beneath it                                                                        |
-    | "Problem Definition" | a path row with "Root Cause Analysis" nested beneath it                                                        |
-    | "Problem Solving"    | a card heading whose own criteria are one group with one rule, with a "Problem Definition" path row beneath it |
+    | "Problem Definition" | a tag row with no criteria of its own, with "Root Cause Analysis" nested beneath it |
 
 Scenario Outline: The assignment count includes every subsection beneath the segment, hidden ones too
   Given <total> subsection segments lie beneath the "Analysis" segment, <hidden> of them hidden subsections' segments
@@ -240,18 +268,7 @@ Scenario: A hidden subsection's tooltip says it isn't visible and shows no statu
   When the learner hovers over that hidden subsection's segment
   Then the tooltip shows the assignment icon and "A subsection that isn't visible to you"
   And the tooltip shows no subsection name, no oval, and no score
-  And the segment shows the Available icon at its center, matching how it is drawn
-
-Scenario Outline: A tooltip shows no oval for a status the page doesn't recognize
-  Given the platform returns a status for <item> that the page doesn't recognize, so the cards show no status for it and #747 draws its segment as Available
-  When the learner hovers over <segment>
-  Then the tooltip shows the segment's name with no oval
-  And the segment shows the Available icon at its center, matching how it is drawn
-
-  Examples:
-    | item                                                  | segment                |
-    | "Analysis", a tag row in the "Critical Thinking" card | the "Analysis" segment |
-    | "Quiz 1", a subsection under "Analysis"               | the "Quiz 1" segment   |
+  And the segment shows the Available icon at its center
 
 Scenario: Every tooltip shows what the cards show, masking included
   Given "Final Exam", a subsection under "Root Cause Analysis", is set to show assessment results only once it is past due, and its due date hasn't passed
@@ -278,23 +295,29 @@ Scenario: The sunburst stays one image to assistive technology
   When a screen reader user moves through the top of the panel, or a keyboard user presses Tab through the page
   Then the screen reader announces each sunburst once, as the image #747 describes
   And focus never stops on a segment
-  And when a tooltip's text is read aloud, none of its icons is announced
+  And a tooltip read by assistive technology gives its text in order: the name, the status label, and for a competency tooltip the assignment count and the requirement line, with no icon and no icon row announced
 
-Scenario Outline: The tooltip opens on the side that fits
+Scenario Outline: The tooltip opens on the side of the segment away from the sunburst's center, unless it doesn't fit there
   Given the learner's language reads <direction>
-  When the learner hovers over a segment <where>
-  Then the tooltip appears <side> of the point where the pointer entered the segment, fully within the screen
+  When the learner hovers over <segment>
+  Then the tooltip appears <side> of the center of that segment, fully within the screen
 
   Examples:
-    | direction     | where                             | side         |
-    | left to right | with room to its right            | to the right |
-    | left to right | near the right edge of the screen | to the left  |
-    | right to left | with room to its left             | to the left  |
+    | direction     | segment                                                                              | side         |
+    | left to right | a segment right of the sunburst's center                                             | to the right |
+    | left to right | a segment left of the sunburst's center                                              | to the left  |
+    | left to right | a segment right of the sunburst's center, with no room for the tooltip to its right | to the left  |
+    | left to right | the only card heading's segment, which spans the whole circle                        | to the right |
+    | right to left | a segment left of the sunburst's center                                              | to the left  |
+    | right to left | a segment left of the sunburst's center, with no room for the tooltip to its left   | to the right |
+    | right to left | the only card heading's segment, which spans the whole circle                        | to the left  |
 
 Scenario: The tooltip fits a phone screen
   Given the learner is on a phone-sized touch screen
   When the learner taps a segment near the edge of the screen
-  Then the whole tooltip appears within the screen
+  Then the tooltip appears at once, floating over the page, and nothing on the page moves to make room for it
+  And the whole tooltip is within the screen
+  And the tooltip is 265px wide, or the screen's width minus 32px when that is narrower
   And long tag and subsection names wrap inside the tooltip instead of being cut off
   And the page doesn't scroll horizontally
 ```
@@ -306,39 +329,43 @@ This is a suggested approach, not the source of truth. The User Story, Descripti
 
 **Summary**
 
-Each chart has one hover state, set by event delegation on #747's `<svg>`. That state drives three things: the highlight, the status icon drawn inside the active segment, and one controlled Paragon `Overlay` that shows a card beside the point where the pointer entered the segment. A pure function over #747's node tree builds each segment's card content, and one `SunburstTooltip` component renders that content as a competency variant or an assignment variant. Only the card's presentation (step 4) would change under the light-label design raised in Open Questions.
+One hover state for the page, held in `CompetencySunbursts` and set by event delegation on each chart's `<svg>`, drives three things: the highlight, which also fades the whole other chart; the status icon drawn at the active segment's centroid; and a controlled Paragon `Overlay` that shows the card 20px from that icon, on the side away from the chart's center. The first card waits for a 250ms pause, and later ones switch at once. A transparent strip on the card's near side and a short grace delay let the pointer move from the segment onto the card without the card switching or closing. A pure function over #747's node tree builds each segment's card content, and one `SunburstTooltip` component renders that content as a competency variant or an assignment variant.
 
 **Approach**
 
-1. **Hover state.** `useSunburstHover(nodesById)` in `src/useSunburstHover.js` holds the active segment's id, the point where the pointer entered it, and a hide timer. It takes the `nodesById` index that #747's `Sunburst` builds from its node list, which is in reading order: each tag's own subsections first, then its child rows, as #747 step 1 defines. Each `Sunburst` calls it once, so hovering one chart never fades the other chart or the legend.
-   - `onPointerOver` on the `<svg>`, from a mouse or pen, reads `event.target.closest('[data-segment-id]')`. On a new segment it cancels any pending hide, sets the active id, and records the entry point relative to the chart's wrapper. Moving within the segment changes nothing, so the card never follows the cursor; WCAG 1.4.13 requires this so that the pointer can reach the card.
-   - Each 2px gap is drawn by the stroke of an adjacent path, so the browser counts the gap as part of that segment and crossing it switches segments directly.
-   - `onPointerOut` to the center, off the chart, or onto the card starts a short hide delay. The card's `onPointerEnter` cancels the delay, so the pointer can move onto the card, and its `onPointerLeave` starts it again.
-   - For a touch pointer, ignore pointer over and out, because a tap fires them in one burst.
-     - `onPointerUp` from a touch pointer activates the tapped segment.
+1. **Hover state.** `useSunburstHover()` in `src/useSunburstHover.js` holds the page's one active segment, as a chart key and a segment id, along with whether a hover or a tap opened it, and at most one pending timer. `CompetencySunburstsContent` calls it once and passes the active segment and the handlers to each `Sunburst` with that chart's key, so both charts share one highlight and one card. A chart that doesn't hold the active segment fades every one of its segments (step 2), and the legend never fades.
+   - `onPointerOver` on each chart's `<svg>`, from a mouse or pen, reads `event.target.closest('[data-segment-id]')`. Each 2px gap is drawn by the stroke of an adjacent path, so the browser counts the gap as part of that segment, and crossing a gap moves straight from one segment to the next.
+   - While no card is showing, entering a segment starts a 250ms pause, the designer's delay before the first card. Entering another segment during the pause moves the pending target to that segment without restarting the 250ms, and leaving the segments cancels the pause. When the pause ends, the segment under the pointer becomes active, and its highlight, icon, and card appear together.
+   - While a card is showing, entering a different segment, in either chart, makes that segment active at once. Moving within the active segment changes nothing, because the card is anchored to the segment (step 4), not to the pointer.
+   - The card never closes while the pointer is over a segment or over the card. When the pointer leaves a segment or the card for anywhere else (the center hole, the center caption, the legend, or the page), start a 150ms grace delay. Entering any segment or the card cancels the delay. If it runs out, the card closes, and the next card waits for the pause again. The delay only has to cover the moment between leaving the segment and reaching the card, which step 4's strip makes nearly instant.
+   - For a touch pointer, ignore pointer over and out, because a tap fires them in one burst. Taps use neither the pause nor the grace delay.
+     - `onPointerUp` from a touch pointer activates the tapped segment at once.
      - A tap on the segment that is already active keeps the card open.
-     - A tap on the `<svg>` that is not on a `[data-segment-id]` path (the center hole or a gap-free area) closes the card, and so does a tap on the HTML center caption. A `pointerdown` listener on `document` closes the card when a tap lands outside both the chart wrapper and the card. Leave `Overlay`'s `rootClose` off, because it would treat a tap on another segment as a tap outside.
-   - While a card is open, a `keydown` listener on `document` closes it on Escape. The card stays closed until the pointer enters a different segment or leaves the chart.
+     - A `pointerdown` listener on `document` closes the card when the tap lands on neither a `[data-segment-id]` path nor the card. That covers the center hole, the center caption, the legend, and the rest of the page. Leave `Overlay`'s `rootClose` off, because it would treat a tap on another segment as a tap outside.
+   - While a card is open, a `keydown` listener on `document` closes it on Escape and cancels any pending timer. The card stays closed until the pointer enters a different segment or leaves the chart.
    - Treat a missing `pointerType`, as in jsdom's events, as a mouse.
-2. **Highlight.** `litIds(nodesById, activeId)` in `src/data/sunburstTooltip.js` returns the active node, its `ancestorIds`, and its whole subtree. Every other path in the chart gets `data-dimmed` and a lower `fill-opacity`. Use `fill-opacity` rather than `opacity`, so lit segments keep the legend's colors and the gap strokes stay unchanged. Memoize the paths on the lit set, so they re-render only when the active segment changes.
-3. **In-segment icon.** An element positioned at the active node's centroid, inside the chart wrapper, shows the icon for the segment's drawn status from #739's shared status map, so a hidden or unknown-status segment shows the Available icon. The icon has a fixed size, is centered on the segment, sits above any faded neighbors it overlaps, and is `aria-hidden` with `pointer-events: none`.
+2. **Highlight.** `litIds(nodesById, activeId)` in `src/data/sunburstTooltip.js` returns the active node, its `ancestorIds`, and its whole subtree. Every other path in the chart gets `data-dimmed` and a `fill-opacity` of 0.2, the designer's 20% fade, and so does every path in a chart that doesn't hold the active segment. Use `fill-opacity` rather than `opacity`, so lit segments keep the legend's colors and the gap strokes stay unchanged. Memoize the paths on the lit set, so they re-render only when the active segment changes.
+3. **In-segment icon.** While a chart holds the active segment, `Sunburst` renders one 22px `aria-hidden` box with `pointer-events: none`, absolutely positioned in the chart wrapper and centered on the active node's centroid. The box holds the in-segment icon and is also the card's anchor in step 4. Key it by the active id.
+   - The box holds the 18px status icon that the cards show, from #739's shared status map, for the segment's drawn status, so a hidden or unknown-status segment shows the Available icon. The icon has a 2px white ring and a light shadow, and it sits above any faded segment it overlaps.
+   - Draw the icon only when the segment is at least 22px long at the centroid's radius: the node's angle in radians times the centroid's distance from the chart's center. #747 puts the centroid halfway across the band the segment covers across its whole angle, so a tag with no rows, which reaches out to the subsection ring, is measured halfway across that wider band.
+   - On a shorter segment the box stays but is empty, so the card sits in the same place whether or not the icon fits. The highlight and the card still show the segment's status.
 4. **Card.** `SunburstHoverCard` in `src/SunburstHoverCard.jsx` renders one Paragon `Overlay` per chart:
-   - `show` while a segment is active;
-   - `placement` right, or left in right-to-left locales;
-   - `flip`;
-   - `transition={false}`, because the timers own the timing;
-   - as `target`, a zero-size `aria-hidden` `<span>` absolutely positioned at the entry point.
+   - `show` while that chart holds the active segment;
+   - as `target`, step 3's box, passed as the element itself from a callback ref. Because the box is keyed by the active id, each segment gets a new element, which Popper and `Overlay` both pick up. Neither of them notices an anchor that moves, and `Overlay` doesn't re-read a ref object.
+   - `placement` on the side of the box away from the chart's center: `right` when the centroid is right of the center, and `left` when it is left of it. A centroid within 1px of the vertical center line, such as the full-circle segment of a taxonomy's only card, uses the reading direction: `right`, or `left` in right-to-left locales. The centroid is already mirrored in right-to-left locales, so the rule needs no other right-to-left handling. Opening away from the center keeps the card off as much of the chart as possible, because the part of the chart under the card can't be hovered while the card shows.
+   - `popperConfig` with a 20px offset from the box, the designer's gap; flip fallbacks to the opposite side, then above, then below; and `preventOverflow` on both axes with 16px of padding, so on a phone the card shifts to stay on screen even if it then covers the segment;
+   - `transition={false}`, because step 1's timers own the timing.
 
    Three details need care:
-   - Key the span by the active id, and pass `Overlay` the element itself from a callback ref. Popper doesn't notice an anchor that moves, and `Overlay` doesn't re-read a ref object, but both pick up a new element.
-   - Render a function child that puts a Paragon `Card` in the `ref` and `style` that `Overlay` passes. `Popover` would always render an arrow.
-   - Keep the offset small, so the pointer can reach the card without crossing another segment.
+   - Render a function child that puts a Paragon `Card` inside a wrapper `div` that takes the `ref` and `style` `Overlay` passes. `Popover` would always render an arrow. The card is 265px wide and never wider than `calc(100vw - 32px)`.
+   - When a hover opened the card, give the wrapper a transparent `::before` strip on the side that faces the box, chosen from the final `placement` that `Overlay` passes to the function child, and reaching 31px back to the centroid: the 20px gap plus half the box. The browser counts the strip as part of the wrapper, so a pointer moving from the segment's center toward the card is over the card as soon as it leaves the segment, and the faded segments under the strip never take over. The strip is what lets an inner-ring segment's card meet WCAG 1.4.13. Leave the strip off a card that a tap opened, where it would swallow taps on the segments beneath it. Put the strip on the wrapper rather than on the `Card`, whose styles may clip overflow.
+   - Confirm early, in a browser, that Popper positions correctly against the box. Under Paragon 23 (react-bootstrap 1.6), the function child does receive the placement after any flip, `popperConfig` passes straight through Paragon's `Overlay`, and nothing swaps `left` and `right` in a right-to-left layout, so those three need no check; re-verify them if the plugin pins a different Paragon major.
 
-   `Overlay`'s portal keeps the card outside the `role="img"` subtree. Confirm early, in a browser, that Popper positions correctly against the zero-size span.
+   `Overlay`'s portal keeps the card outside the `role="img"` subtree.
 5. **Name and status.** `buildSunburstTooltip(node, nodesById)` in `src/data/sunburstTooltip.js` returns one of three shapes, which `SunburstTooltip` in `src/SunburstTooltip.jsx` renders:
    - competency, for a tag node: the tag name from `source`, and `StatusOval` without a percent;
    - subsection, for a named row: the assignment icon, the subsection name (which wraps), and `StatusOval` with `percentGraded`, as the card row shows;
-   - hidden, for a hidden criterion: the assignment icon and the sentence "A subsection that isn't visible to you", with no oval.
+   - hidden, for a criterion whose subsection is hidden from the learner: the assignment icon and the sentence "A subsection that isn't visible to you", with no oval.
 
    Whether to show an oval, and a subsection's `percentGraded`, come from the node's `entry` (the raw #739 map entry that #747 attaches to each node): no oval when it is null, even though the segment is drawn as Available.
 6. **Count and icon row.** The competency shape adds two fields:
@@ -356,31 +383,22 @@ Each chart has one hover state, set by event delegation on #747's `<svg>`. That 
    - Recognize the rule with the function in `src/ruleText.js` that `formatRuleText` and #755's `combineThreshold` use. Neither #734 nor #755 names it as a separate function, so extract it as `recognizeRule(rule)` in `src/ruleText.js`.
    - Do not reuse `combineThreshold` for the rule line. It reduces several "or better" rules to the highest value, which would overstate an ALL group with mixed scores.
    - The messages are six whole sentences ("all" or "any", times "or better", "or lower", and "exactly"), plus "Multiple requirements". Write them in sentence case and uppercase them with `text-uppercase`.
-8. **Tests beyond the AC.**
-   - Pure tests:
-     - the rule line for all and any, the three comparison forms, two rule boxes, two groups, a heading with rows, a path row, and an unknown rule;
-     - the count with hidden criteria;
-     - exactly 12 versus 13 icons;
-     - the lit set.
-   - Render tests, with fake timers:
-     - hovering a `[data-segment-id]`, and the lit and dimmed attributes;
-     - moving onto the card, and the hide delay;
-     - Escape, and what reopens the card afterward;
-     - a tap, a tap on another segment, a tap on the same segment, and a tap outside.
+8. **Tests beyond the AC.** These cover cases the Acceptance Criteria leave out or that QA can't set up by hand.
+   - Pure tests for `buildSunburstTooltip`:
+     - a card heading with criteria of its own and a row beneath it (#734 Ref 1), for example "Problem Solving" whose own criteria are one group with one rule, with a "Problem Definition" row beneath it: the requirement line reads "MULTIPLE REQUIREMENTS" because the node has a tag child. This layout can exist only where a taxonomy re-import moved tags after criteria were created. #902 will reject that on re-import, and only Django admin edits or data from before #902 can still produce it, so QA can't stage it;
+     - a status the page doesn't recognize, returned by the platform for "Analysis" (a tag row) or for "Quiz 1" (a subsection): the tooltip shows the name with no oval, and the segment shows the Available icon. QA can't produce an unrecognized status without mocking the response.
+   - Pure test for the side rule: a centroid right of, left of, and on the center line, in both reading directions.
+   - Render tests, with fake timers for the first-show pause and the pointer-out grace:
+     - moving from an inner-ring segment onto its card, the grace delay, the 250ms pause and its retargeting to another segment, and the other chart's full fade;
+     - Escape closes the card, and the card reopens only when the pointer enters a different segment or leaves the chart and comes back;
+     - a tap, a tap on another segment, a tap on the same segment, and a tap outside, with a touch `pointerType`.
+   - In a browser, not jsdom: Popper's positioning against the icon box, the strip, and the flips, since jsdom has no layout.
 9. **tutor-mfe pin.** Once a package release includes this ticket, open a pull request to `overhangio/tutor-mfe` that moves the pinned package version #828 adds to that release, and verify it on a Learning MFE image rebuilt from that branch. Until a tutor-mfe release includes that pull request, Tutor sites show the sunbursts without hover or tap behavior.
 
 Out of scope:
 - keyboard navigation of the segments;
 - competency statements and the "Needs revision" and "Awaiting evaluation" icons (#750);
 - a fifth legend entry for hidden subsections.
-
-If the hover design becomes a light label with the details in a fixed spot (the first Open Question), steps 1 and 4 change. In step 1, the hide timer gains a 250ms first-show delay and the onto-card handling applies to the fixed card instead. In step 4:
-- the overlay shows only step 5's name and status, still anchored at the entry point;
-- a 250ms delay comes before the first show;
-- #747's center caption shows the active segment's name and status;
-- `SunburstTooltip` renders in a reserved space under the chart.
-
-Steps 2, 3, and 5 to 7 stay as they are.
 
 **Files to create and modify**
 
@@ -392,16 +410,17 @@ Paths are relative to the root of the plugin repository from #810.
 | `src/SunburstHoverCard.jsx` | new |
 | `src/SunburstTooltip.jsx` | new |
 | `src/data/sunburstTooltip.js` | new: `litIds`, `buildSunburstTooltip` |
-| `src/Sunburst.jsx` | modified: delegated pointer handlers, `data-dimmed`, the in-segment icon, the hover card |
+| `src/Sunburst.jsx` | modified: delegated pointer handlers, `data-dimmed`, the icon box, the hover card |
+| `src/CompetencySunbursts.jsx` | modified: calls `useSunburstHover` once and passes the active segment and handlers to each `Sunburst` |
 | `src/ruleText.js` | modified: extract `recognizeRule` |
 | `src/messages.js` | modified |
 | `tutormfe/plugin.py` in `overhangio/tutor-mfe` | modified: wherever #828 declares the package's pinned version, most likely this file, otherwise `tutormfe/templates/mfe/build/mfe/Dockerfile` |
 
 **Additional context**
 
+- Design decisions: the designer's [2026-10-23 answers on #750](https://github.com/openedx/openedx-core/issues/750#issuecomment-6354761729) set the anchoring, card width, fade, in-segment icon, and thin-segment rule used above. Its light-label proposal from the Paragon Working Group was not adopted; the full card stays beside the segment, de-jittered by anchoring it to the segment and by the first-show pause.
 - The three Figma frames linked under UX Design predate #768's Option G, so the hollow circle in the competency frame's icon row is the Available icon. The [Sunburst Explorer](https://d3v8e8hqzoulm1.cloudfront.net/axim/sunburst-explorer/) prototype, under "Summary with hover", shows the in-segment icon.
 - Paragon's `Overlay` only adds default props to react-bootstrap's `Overlay` (`rootClose` false, `transition` Fade). `OverlayTrigger` can't keep a portaled card open while it is hovered, because its mouseout check looks only inside the trigger.
-- #747's scenario "The sunburst doesn't respond to the pointer or to touch" describes the chart before this ticket; this ticket replaces that test with the hover and tap scenarios above.
 - A jsx-a11y rule may flag the pointer handlers on the `<svg>` for having no keyboard handlers. Don't suppress it without approval. The segments stay unfocusable because every fact in the card is also text in the cards below.
 - #752 should document:
   - the competency oval shows the learner's status across all courses (#740), while the count and icons are this course's, so "Demonstrated" can sit above Not Demonstrated icons;
@@ -410,11 +429,3 @@ Paths are relative to the root of the plugin repository from #810.
   - the icon row is left out above 12.
 
 </details>
-
-## Open Questions
-
-- (architect, final review) Which hover presentation does this ticket build? The draft follows the #750 frames: the full card beside the point where the pointer entered the segment. On 2026-10-22 the designer proposed, from Paragon Working Group feedback, a light label by the pointer showing only the name and status, with the full details in a fixed spot (the chart's center and a card under the chart), plus a 250ms pause before the first tooltip appears. The content scenarios in the Acceptance Criteria hold under either design; the placement and interaction scenarios, Technical Details step 4, the #750 frames, and the Description's two lists of tooltip contents change under the light label. The architect recommends the full card plus the 250ms first-show pause: the fixed spot either pushes the second chart and the legend under the pointer or covers them, and its center slot disappears on charts under 320px.
-- (architect, final review) Should this ticket be split? It is about 4 developer-days. The seam: part 1 is Technical Details steps 1 to 5 (hover, tap and Escape state, highlight, in-segment icon, the card, and both content variants with name and status, about 2.5 days), which the hover-presentation question blocks; part 2 is steps 6 and 7 (the assignment count with its plural, the 12-icon row, the rule line and the shared recognizer in `src/ruleText.js`, about 1.5 days), which is the same under either presentation. The companion ticket would need its own human-written sections and issue number, and the Description's count, rule, and icon bullets would move to it.
-- (architect, final review) Does hovering one sunburst fade the other? The notes say the other chart and the legend never fade, and the draft follows that. The designer's 2026-10-22 comment lists "with two taxonomies, hovering one sunburst fades the other" under fixes to the prototype, which reads as the opposite. Confirm with the designer. Fading the other chart would move the active id up into `CompetencySunbursts`, about an hour of work.
-- (architect, final review) After Escape closes the card, what reopens it? The draft keeps it closed until the pointer enters a different segment or leaves the chart and comes back, and the Acceptance Criteria say the same. The alternative is to reopen only after the pointer leaves the chart.
-- (implementer) Should the tooltip stay on hand-rolled SVG with Paragon `Overlay`, or move to TanStack Charts 1.1, whose tooltip, keyboard navigation, and drill-in were the designer's reasons for the library? Ask Adolfo before implementation. If TanStack is chosen, its `anchor: 'pointer'` must capture the position when the pointer enters a segment rather than track it, or the card can't be hovered (WCAG 1.4.13). Recommended: hand-rolled SVG with `Overlay`, matching #747.
