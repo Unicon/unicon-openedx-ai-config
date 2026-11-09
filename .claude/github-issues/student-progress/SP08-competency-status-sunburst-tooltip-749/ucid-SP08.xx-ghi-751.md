@@ -23,6 +23,13 @@ Tooltip for Subsection Assignment segment:
 
 While a segment is hovered or tapped, its status icon is drawn inside the segment when the segment is wide enough to hold it. Also while a segment is hovered or tapped, there is a faded overlay for all the other segments in that sunburst except for this one, its ancestors, and its descendants, and when the page shows two sunbursts, the whole other sunburst fades too.
 
+This ticket has five parts:
+- The hover and tap state, including a brief pause before the first tooltip and a grace period so the pointer can reach the tooltip.
+- The highlight, which fades the rest of the hovered sunburst and the whole other sunburst.
+- The status icon drawn in the hovered segment, with a size rule for thin segments.
+- The tooltip's positioning, which opens away from the sunburst's center and stays on screen on a phone.
+- The tooltip's two content variants, including the assignment count, the requirement line, and the row of status icons.
+
 ## Context
 - Corresponds to UXD Spike #750
 - Blocked by #747
