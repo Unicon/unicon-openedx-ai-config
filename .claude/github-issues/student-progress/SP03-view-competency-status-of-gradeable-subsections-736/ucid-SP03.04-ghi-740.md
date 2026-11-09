@@ -102,12 +102,12 @@ Scenario: A card heading below the top level shows its status, and its breadcrum
 
 Scenario Outline: A hidden score masks its competency and every ancestor, wherever each appears
   Given "Problem Definition" and "Strategy Selection" are children of "Problem Solving", a top-level tag, and "Root Cause Analysis" is a child of "Problem Definition"
-  And this course has criteria on "Strategy Selection" and "Root Cause Analysis", so a "Problem Solving" card contains "Strategy Selection", and a "Problem Definition" card with a "Problem Solving" breadcrumb contains "Root Cause Analysis"
+  And this course has criteria on "Strategy Selection" and "Root Cause Analysis", so one "Problem Solving" card contains a "Strategy Selection" tag row and a "Problem Definition" tag row, for a tag with no criteria of its own, with "Root Cause Analysis" nested under it
   And the learner's competency status is Demonstrated for all four tags
   And "Final Exam", a subsection under "Root Cause Analysis" that the learner has not submitted, <hiding>
   When the learner opens the course's Progress tab
   Then the "Root Cause Analysis" tag row shows "Available"
-  And the "Problem Definition" card heading shows "Available"
+  And the "Problem Definition" tag row shows "Available"
   And the "Problem Solving" card heading shows "Available"
   And the "Strategy Selection" tag row still shows "Demonstrated"
   And none of the masked tags shows "Demonstrated" at any point while the page loads
