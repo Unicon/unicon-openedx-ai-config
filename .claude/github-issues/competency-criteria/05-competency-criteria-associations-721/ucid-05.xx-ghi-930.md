@@ -1,9 +1,7 @@
-# [FE] Resizable divider between the associations and content panels on the Competency Management page
+# [FE] Resize the associations and content panels
 
 GitHub: https://github.com/openedx/openedx-core/issues/930 (#930, DRAFT)
 Cached: 2026-11-06
-
-**Blocked by:** https://github.com/openedx/openedx-core/issues/670 (creates the two panels this divider sits between) and https://github.com/openedx/openedx-core/issues/672 (fills the associations panel).
 
 ## User Story
 
@@ -15,9 +13,7 @@ The Competency Management page stacks two panels on its right side: the associat
 
 ## Context
 
-- https://github.com/openedx/openedx-core/issues/670 creates the page, the associations panel, and the content panel that this bar separates.
-- Figma: the design component is named ResizeBar.
-- The bar works on every screen size the page is designed for, not only desktop.
+- **Blocked by:** https://github.com/openedx/openedx-core/issues/672 (fills the associations panel).
 
 ## UX Design
 
@@ -71,12 +67,6 @@ Scenario: A panel scrolls inside its own space
   Then its content scrolls inside the panel
   And moving the bar does not change the combined height of the two panels
 
-Scenario: The bar works on touch screens and at every supported screen size
-  Given I am using a touch screen, or any screen size the page is designed for
-  When I drag the bar with my finger, or use the keyboard
-  Then the panels resize the same way as with a mouse
-  And no part of the bar is hidden or unreachable
-
 Scenario: The chosen split is remembered
   Given I have moved the bar away from the starting split
   When I leave the page and open it again, or reload it, in the same browser
@@ -106,7 +96,7 @@ This is a suggested approach, not the source of truth. The User Story, Descripti
 3. Drag with Pointer Events (`onPointerDown`, then `setPointerCapture`, `pointermove`, `pointerup`) so mouse and touch share one code path and the drag continues when the pointer leaves the bar. Set `touch-action: none` on the bar so a touch drag does not scroll the page. Commit the value to storage on release, not on every move.
 4. Make the bar a focusable element with `role="separator"`, `aria-orientation="horizontal"`, `aria-valuenow`, `aria-valuemin`, `aria-valuemax`, and an `aria-label`, following the WAI-ARIA window splitter pattern. Up and down arrows change the split by a fixed step. Add the visible focus style. Strings go in `messages.ts` through `defineMessages`.
 5. Persist with `useStickyState` from `src/hooks.ts`, under one key not tied to a competency. That hook calls `localStorage.getItem` and `JSON.parse` without a guard, so a blocked store or a corrupt value throws on first render. Wrap the read and write in a guard, or add a safe variant, and validate that the stored value is a finite number between 0 and 1.
-6. Keep the panel area's height as it is today, set by `--competency-panel-height` in `CompetencyAssociationsPanel.scss`. The split fills that height. Give each slot `min-height: 0` and `overflow: auto` so each panel scrolls internally. Cover the mobile layout too, where the page stacks its columns in a `Row`; confirm what height the split gets there.
+6. The two panels are the `course-search-browse__associations` and `course-search-browse__container` sections of `CourseSearchBrowse.tsx`; they become the top and bottom slots. Keep the panel area's height as it is today, set by `--competency-panel-height` in `CompetencyAssociationsPanel.scss`. The split fills that height. Give each slot `min-height: 0` and `overflow: auto` so each panel scrolls internally.
 7. Style with Paragon tokens, and take the bar's look from the Figma component named ResizeBar. If the design needs a value no token supplies, flag it before implementation.
 
 Test cases the implementation must cover:
@@ -125,7 +115,7 @@ Test cases the implementation must cover:
 | src/generic/resizable/ResizableSplit.test.tsx | new: tests for the cases above |
 | src/generic/resizable/index.scss | modified: bar and focus styles |
 | src/hooks.ts | modified: guard `useStickyState` against unavailable or invalid storage |
-| src/taxonomy/competency-management/ (page and panel components from the panels tickets) | modified: place the two panels inside the split |
+| src/taxonomy/competency-management/course-search/CourseSearchBrowse.tsx | modified: place the associations and Courses & Content sections in the split |
 
 **Additional context**
 
