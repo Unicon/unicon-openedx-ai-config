@@ -48,8 +48,8 @@ detailed questions about this Backend code review and raise any further concerns
     them and check each against what the ticket says may read or write the field.
 11. For each new row lock, locking read, or `select_for_update()`, state what it serializes against and whether an
     outer lock or a database constraint already does that work. A lock whose work is already done is a
-    `Suggestion` to remove it; a rule that only a lock enforces, with no constraint behind it, is a `Question` for
-    the invariants table.
+    `Nit` to remove it; a rule that only a lock enforces, with no constraint behind it, is a row in the invariants
+    table, which the parent's B5 remit turns into a `Gap` or a `Nit` recommending a constraint.
 12. For each value the change builds from other fields and stores in a bounded column (`max_length`), compare the
     inputs' maximum lengths with the column's; the CI database may reject what the local one silently stores.
 

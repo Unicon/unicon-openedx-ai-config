@@ -75,15 +75,23 @@ missing:
 - A `Bug` needs a failure reachable through supported product inputs, supported API data, or a
   documented contract. Supported input includes every option the product exposes as a
   first-class setting, however rarely it is used. A counterexample on data the product cannot
-  create is a `Question` or a `Suggestion`, or nothing.
+  create is a `Nit` when guarding against it is worth doing, and is dropped otherwise.
 - Inference lowers confidence, not severity. When the last step of a failure cannot be executed
   locally (a database the CI matrix runs and the workstation lacks), score the consequence,
   name the step that was inferred, and keep the severity.
 - A defect whose evidence holds is never dropped. A precedent that does the same thing, or a
   test run that showed no symptom, lowers its severity; it does not remove it. Drop only what is
-  wrong, what nothing available can verify, or what proposes no change.
-- Nits are reported, not filtered. Which nits to raise on the PR is the human reviewer's call,
-  and reviewers differ on it; the skill's job is to list them under `Nit` with an anchor.
+  wrong, what nothing available can verify, what proposes no change to this PR, and what is
+  unimportant: a change that nobody reading or running the code would notice.
+- Every finding is one of three kinds. A must-fix, `Bug` or `Gap`, blocks the merge. A `Nit` is
+  a change worth making that does not block the merge, so a change the merge should wait for is
+  never a `Nit`. A `Question` asks the author for a fact the review needs. Every `Bug`, `Gap`,
+  and `Nit` names its recommended fix.
+- A `Question` asks for a fact that only the author or the ticket's owner has, such as the
+  intent behind a behavior, a product decision, or how the code is used outside what the review
+  can see, and whose answer changes what the PR needs. When the review can say what to change,
+  the finding is a fix at its severity, and when two fixes are acceptable it names both. When no
+  answer would change the PR, the question is dropped.
 - A fact used to settle a disagreement is reported. When two sources conflict (a code comment
   and the library's source, two sub-agents) and you resolve it by reading the code, every
   passage in the change that stated the losing version is a finding.
@@ -205,9 +213,10 @@ SHAs, the user story and the criteria, the claims, the repository's rule locatio
 table below, the sibling-ticket extracts with one line each, the environment (venv, `PYTHONPATH` to the
 worktree's `src/`, test command, the module `__file__` check), the read-only and no-dispatch
 rules, the budget, and the output format:
-findings with Title, Severity (`Bug`, `Gap`, `Question`, `Suggestion`, `Nit`), Anchor
+findings with Title, Severity (`Bug`, `Gap`, `Question`, `Nit`), Anchor
 `path:line`, Evidence marked CONFIRMED or INFERRED with the inferred step named, Why it matters
-in one sentence, Suggested change; then the remit's required table; then "Checked and found
+in one sentence, Suggested change, or for a `Question` the fact needed and what each answer
+changes; then the remit's required table; then "Checked and found
 acceptable" (nothing a change is proposed for); then "Needs research". Full sentences, no em
 dashes, at most 2,500 words.
 
@@ -334,13 +343,14 @@ or ADR on:
   deleted | when a replacement row is created | gap. Each gap is a finding: a rule only
   application code or a lock enforces, where a race, an out-of-band writer (the ORM, a fixture,
   an admin, a future endpoint), or a second code path can violate it, is a `Gap` when violation
-  breaks a read path or corrupts data, otherwise a `Question` asking for a constraint; a
+  breaks a read path or corrupts data, otherwise a `Nit` recommending a constraint; a
   constraint without a condition, in a design whose tickets or ADRs describe archiving or soft
   deletion, leaves an archived row occupying the slot so that no replacement row can exist, a
   `Gap` on this change because the constraint is what makes the later ticket impossible without
   a schema change; a lock or locking read whose work an outer lock or a database constraint
-  already does is a `Suggestion` to remove it, with the reason; a lookup that will have to
-  filter on a lifecycle field that already exists on `main` and does not is a `Question`;
+  already does is a `Nit` to remove it, with the reason; a lookup that will have to filter on a
+  lifecycle field that already exists on `main`, and does not, is a finding that recommends the
+  filter: a `Gap` when rows in that state can already exist, otherwise a `Nit`;
 - security of the new surface: authentication and permission checks on new or changed
   endpoints, object-level access, references to another tenant's rows by id, read-merge-write
   sequences that can delete or overwrite rows the change does not own, injection, secrets, new
@@ -412,12 +422,16 @@ write a new probe only when a candidate `Bug` has no reproduction at all.
 
 **C5. Sort.** Two questions per candidate: did the evidence hold, and does it propose a change?
 
-- Evidence held and it proposes a change: a finding, at the severity the evidence supports. A
-  precedent that does the same, or a run that showed no symptom, lowers it to `Suggestion` or
-  `Nit`; it does not remove it. Nits stay in the report under `Nit`.
-- Evidence did not hold, or nothing available can verify it, or it proposes no change: dropped,
-  with one line saying what disproved it, under "Dropped".
-- Reachability or contract unconfirmed: a `Question`.
+- Evidence held and it proposes a change: a finding, at the severity the evidence supports,
+  with its recommended fix. A precedent that does the same, or a run that showed no symptom,
+  lowers it to `Nit`; it does not remove it.
+- Evidence did not hold, or nothing available can verify it, or it proposes no change to this
+  PR, or the change is one nobody reading or running the code would notice: dropped, with one
+  line saying why, under "Dropped".
+- Reachability or contract unconfirmed: confirm it with the checks available. When the review
+  can name a fix that is right whatever the answer, it is a fix at its severity. Otherwise, when
+  only the author or the ticket's owner can confirm it, it is a `Question` that names the fact
+  needed and what each answer changes.
 
 When another ticket explicitly owns the work a candidate asks for, write down what that ticket
 will have to do, then check whether it can do it without undoing something this change adds: a
@@ -447,17 +461,16 @@ catches; issues on lines the change did not modify, unless the change exposes th
      or without a test that fails when it breaks, a companion change that does not exist, a PR
      requirement not met, a false claim in committed text, an invariant with no enforcement
      that a write can violate, a leaked framework boundary.
-   - `Question.` A plausible concern whose reachability, contract, or impact is unconfirmed, or
-     a decision the change should record now.
-   - `Suggestion.` Optional hardening, broader coverage, or a test, comment, or lock to remove,
-     without demonstrated user impact.
-   - `Nit.` Style or wording only. All of them; the human decides which to raise.
+   - `Question.` A request for a fact that only the author or the ticket's owner has, whose
+     answer changes what the PR needs. It names the fact and what each answer changes.
+   - `Nit.` A change worth making that does not block the merge, with its fix: optional
+     hardening, broader coverage, a test, comment, or lock to remove, or style and wording.
 7. **Tests checked.** B4's break-and-restore table as returned.
 8. **Checks run and skipped**, with the reason for each skip, including the merge with `main`.
 9. **Declined to judge.** One line per behavior considered and set aside as outside the ticket,
    with what the owning ticket must do and why it can do so against this change.
-10. **Dropped.** One line per candidate whose evidence did not hold, with the fact that
-    disproved it.
+10. **Dropped.** One line per dropped candidate, saying why it was dropped: the fact that
+    disproved it, or why it is unimportant or proposes no change to this PR.
 11. **Open questions** for the developer.
 
 Lead each finding with the point, then the mechanism, in one to three sentences. Keep the tone
@@ -489,11 +502,13 @@ this order:
    code, and the method the review used to test the tests (break the line, run the suite).
    Each definition comes from the code or the ticket extracts, and the draft says where.
 3. The findings, grouped in this order: "Must fix before merge" (every `Bug` and `Gap`),
-   "Decisions to make or write down" (every `Question`), "Improvements worth doing" (every
-   `Suggestion`), and "Small things" (every `Nit`). Each finding says, in full sentences and in
-   this order: what is wrong, where (file and function, no line numbers), what the review
-   observed or ran to establish it, why it matters to a user or to a later ticket, and what to
-   do. A finding restates the context it needs rather than pointing at an earlier finding.
+   "Questions for the author" (every `Question`), and "Nits (not blocking merge)" (every
+   `Nit`). Each fix says, in full sentences and in this order: what is wrong, where (file and
+   function, no line numbers), what the review observed or ran to establish it, why it matters
+   to a user or to a later ticket, and the recommended fix. Each question says, in this order:
+   what the review needs to know and from whom, where in the code it matters, what the review
+   established without the answer, and what each likely answer means for the PR. A finding
+   restates the context it needs rather than pointing at an earlier finding.
 4. "Things the review looked at and is leaving to other tickets": the Declined to judge items,
    each with the ticket that owns it.
 5. "What passed": the checks and the test counts, in one paragraph.
@@ -525,7 +540,8 @@ Markdown inside them still renders:
   holds the rest of it: the prerequisites section, "Things the review looked at and is leaving
   to other tickets", "What passed", and the action list, in that order, each under its own
   subheading, followed by any other section a reader can skip and still act on the review.
-- The four group headings of the findings follow, outside any `<details>` block.
+- The three group headings of the findings that D1 names follow, outside any `<details>`
+  block.
 - Each finding is one sentence followed by a `<details>` block that holds the whole finding. The
   sentence says what the finding is, in plain words a reader new to the codebase understands,
   and leaves out every detail: file and function names, the mechanism, the evidence, and the
@@ -573,7 +589,8 @@ file, plus one sentence saying that B6 was skipped and why when it was.
 | "I could not run it on the CI database, so it is a Question." | The consequence is the same whether you ran it or reasoned it. Keep the severity, name the inferred step. |
 | "The other ticket owns this." | Write down what that ticket must do. If it cannot do it against the constraint or name this change adds, the finding is on this change. |
 | "The neighboring tests do the same." | Precedent lowers severity. It does not make a defect absent. |
-| "A senior engineer would not raise this nit." | Some would. List it under `Nit`; the human decides. |
+| "I know the fix, but I'll ask it as a question so the author can choose." | A finding the review can name a fix for is a fix. Put it under its severity with the fix, and name both fixes when two are acceptable. |
+| "It's minor, but listing one more nit costs nothing." | Every nit is something the author reads. A change nobody reading or running the code would notice is dropped. |
 | "There is no `AGENTS.md`, so there are no conventions to check." | `openedx-core` and `edx-platform` keep theirs in `CLAUDE.md`, ADRs, OEPs, and `.importlinter`. |
 | "The ticket does not mention it, so it is fine." | Specification silence is not permission. A reasonable user's expectation is a requirement. |
 | "The ticket's Technical Details say to build it this way." | The review works from the ticket extract, which has no Technical Details and no implementation detail. The code is judged against the behavior the specification describes and the repository's rules. |
