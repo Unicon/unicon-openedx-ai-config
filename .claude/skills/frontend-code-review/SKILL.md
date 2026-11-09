@@ -82,16 +82,16 @@ second walk, by kind of hop:
   keyboard or screen-reader user get at each state? Does the same information have one
   representation, or does a badge, a tooltip, and a label each say something different?
 
-A hop whose wrong result is reachable in supported use is a `Bug`. A hop whose reachability is
-unconfirmed is a `Question`. A hop that behaves correctly but has no test that fails when it
-breaks is a `Suggestion` naming the test.
+A hop whose wrong result is reachable in supported use is a `Bug`. A hop whose reachability
+only the author can confirm is a `Question`, under the parent's C5 rule. A hop that behaves
+correctly but has no test that fails when it breaks is a `Nit` naming the test.
 
 **Judge the change inside its module (B5).** Read the module the change lands in, the hooks it
 calls, and the helpers it already imports, before judging the new code. Ask what the module
 already has for the job the new code does, and whether the new code uses the module's named
 helper for an effect or reaches that effect through side effects on other state. Cite the
 "Reuse before rebuild" rule in `.claude/CLAUDE.md`. A new path that duplicates or bypasses an
-existing helper in the same module is a `Suggestion`; one that bypasses it and behaves
+existing helper in the same module is a `Nit`; one that bypasses it and behaves
 differently from it is a `Bug` or a `Question`, by reachability.
 
 **Tests (B4).** The parent's map-and-break step applies unchanged. The frontend reading of the
