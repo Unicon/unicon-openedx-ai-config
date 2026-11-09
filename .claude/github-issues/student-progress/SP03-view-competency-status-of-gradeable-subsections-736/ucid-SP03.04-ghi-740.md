@@ -40,8 +40,9 @@ If any subsection under a competency tag in this course shows "Available" becaus
 
 ## Acceptance Criteria
 
-These scenarios use #734's terms (card heading, tag row, breadcrumb, placeholder row) and these:
+These scenarios use #734's terms (card heading, breadcrumb, placeholder row) and these:
 
+- A tag row is a row inside a card for a tag other than the card heading, shown with the target icon before its name. A tag row for a tag with criteria in this course has its groups and subsections under it; a tag row for a tag with no criteria of its own in this course has nothing beneath it.
 - A learner's competency status for a tag is the overall status the platform has recorded for that learner and that competency, across all courses: Partially Attempted, Demonstrated, or none recorded (shows as available).
 - A card heading's status pill sits at the right end of the card header and shows a status icon and a status label.
 - A tag row's status is the label that follows the pipe after the tag's name, inside the row's outlined pill.
@@ -82,7 +83,7 @@ Scenario: A card heading with no criteria of its own shows its competency's own 
   Then the "Critical Thinking" card heading shows "Partially Attempted"
   And the "Analysis" and "Inference" tag rows each show "Demonstrated"
 
-Scenario: A path row with no criteria of its own shows its status like any tag row
+Scenario: A tag row for a tag with no criteria of its own shows its status like any other tag row
   Given "Root Cause Analysis" is a child of "Problem Definition", which is a child of "Problem Solving", a top-level tag
   And this course has criteria on "Problem Solving" and "Root Cause Analysis", and none on "Problem Definition", so one "Problem Solving" card contains a "Problem Definition" row with "Root Cause Analysis" nested under it
   And the learner's competency status is Demonstrated for "Root Cause Analysis" and Partially Attempted for "Problem Definition" and "Problem Solving"
