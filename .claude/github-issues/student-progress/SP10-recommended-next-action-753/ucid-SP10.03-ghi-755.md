@@ -7,7 +7,7 @@ Cached: 2026-10-22
 As a learner, I want to know what my recommended next action is in my CBE course in order to maintain momentum in learning and skill demonstration without having to figure this out myself or have someone tell me.
 
 ## Description
-This ticket implements the Recommended Next Action notice inside the right hand CBE progress panel from #743, which goes in the ProgressTabRelatedLinksSlot.
+This ticket implements the Recommended Next Action notice inside the right hand CBE progress panel from #743, which #829 registers in the ProgressTabCertificateStatusSidePanelSlot.
 
 This implementation will call the endpoint built in #754. If the `reason` listed in that endpoint's response is:
 - `continue_available`, then the first word in the sentence should be "Continue", and the button should say "Continue assignment"
