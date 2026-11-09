@@ -1,7 +1,7 @@
-# [FE] Resize the associations and content panels
+# [FE] Resizable divider between the associations and content panels
 
-GitHub: https://github.com/openedx/openedx-core/issues/930 (#930, DRAFT)
-Cached: 2026-11-06
+GitHub: https://github.com/openedx/openedx-core/issues/930 (#930, OPEN)
+Cached: 2026-11-09
 
 ## User Story
 
