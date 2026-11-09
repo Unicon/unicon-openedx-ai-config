@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Print the directory that holds the proof record for the current branch,
+# creating it on first use: <repo-root>/.superpowers/proofs/<branch-slug>/
+#
+# The record lives in the working tree, outside .git/, because Claude Code
+# denies agent writes under .git/. A self-ignoring .gitignore at
+# .superpowers/proofs/ keeps every record out of `git status` and out of
+# accidental commits. The directory is keyed by branch, not by plan, so work
+# without a plan (a small TDD change) has a record too, and the record
+# survives the deletion of a plan's SDD workspace at the end of execution.
+#
+# Usage: proof-dir [BRANCH]   (default: the current branch, or HEAD when detached)
+set -euo pipefail
+
+root=$(CDPATH='' cd -- "$(git rev-parse --show-toplevel)" && pwd -P)
+branch=${1:-$(git symbolic-ref --quiet --short HEAD 2>/dev/null || git rev-parse --short HEAD)}
+slug=$(printf '%s' "$branch" | tr -c 'A-Za-z0-9._-' '-')
+[ -n "$slug" ] || { echo "cannot derive a directory name from branch: $branch" >&2; exit 2; }
+
+base="$root/.superpowers/proofs"
+mkdir -p "$base/$slug"
+[ -e "$base/.gitignore" ] || printf '*\n' > "$base/.gitignore"
+CDPATH='' cd -- "$base/$slug" && pwd

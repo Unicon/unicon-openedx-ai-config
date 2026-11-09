@@ -20,8 +20,11 @@ an upstream community repo: AI config, local dev setup notes, deployment notes, 
   - `CLAUDE.md` — repo conventions and working style for `openedx-core`.
   - `agents/` — `business-analyst` and `software-architect`, expert sub-agents for ticket
     review/authoring and architecture design.
-  - `skills/` — `ticket-writer` (interactive ticket drafting, dispatches both agents),
-    `code-review`.
+  - `skills/` — team skills such as `ticket-writer` (interactive ticket drafting,
+    dispatches both agents) and the code review skills, plus this team's copy of the
+    [superpowers](https://github.com/obra/superpowers) workflow skills (`brainstorming`,
+    `writing-plans`, `test-driven-development`, `proving-changes`, and the rest).
+    `superpowers-fork.md` records what differs from upstream and how to update the copy.
   - `*-principles.md`, `architecture-overview.md`, `cbe-project-context.md`,
     `ticket-template.md` — reference docs the agents ground their judgment in.
   - `github-issues/` — local cache of GitHub issue descriptions from `openedx-core`,
@@ -102,9 +105,12 @@ local to you.
 **6. Open your workspace in VSCode:** File > Open Folder, select your workspace directory. Open the Claude Code panel from there — it reads `.claude/` automatically and applies
 it across every repo in the workspace, with no extra setup.
 
-**7. Install the superpowers plugin for Claude Code.** Implementation work in this setup goes
-through the superpowers skills, so it needs the plugin. See
-[obra/superpowers](https://github.com/obra/superpowers) for installation instructions.
+**7. You do not need the superpowers plugin.** Implementation work in this setup goes through
+the superpowers skills, and this repo ships its own copy of them in `.claude/skills/`, with
+team changes such as the `proving-changes` requirement. If you have the upstream plugin
+installed as well, leave it or remove it as you like: Claude is instructed to use the local
+copy whenever both are present. The copy is injected at session start by the hook in
+`.claude/settings.json`, so Claude Code will ask you once to trust this project's hooks.
 
 ## Codex Setup
 
@@ -204,9 +210,10 @@ the review.
   software-architect agents and asking you the questions that actually change the ticket.
 - **Architecture or design question:** just ask; the software-architect agent gets pulled in
   automatically when it's relevant.
-- **Implementing a non-trivial change:** the superpowers skills: brainstorm the design, write a
-  plan, then implement it test-first. Claude asks you to install superpowers if it is
-  missing. Skip this for trivial changes like renames or typo fixes.
+- **Implementing a non-trivial change:** the superpowers skills from `.claude/skills/`:
+  brainstorm the design, write a plan, implement it test-first, and prove every change
+  (`proving-changes`), with the proof record attached to the PR for the reviewer. Skip this
+  for trivial changes like renames or typo fixes.
 - **Reviewing a diff or PR:** the `frontend-code-review` or `backend-code-review` skill as appropriate.
   Run it in T3 Code to include an adversarial review from a ChatGPT model; see
   [AI Code Reviews](#ai-code-reviews). For a frontend PR, `frontend-code-review` first hands you a Markdown file with the PR's component
