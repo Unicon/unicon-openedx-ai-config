@@ -108,8 +108,9 @@ Each block is:
 
 1. one `print` per acceptance criterion the step relates to, copied word for word from `acceptance-criteria.md`, and none when it relates to no criterion,
 2. a `print` naming the step and the expected result,
-3. the one action the step describes, against the seeded objects,
-4. one labeled `print` per value the expected result names, such as `print("Status code:", response.status_code)` or `print("Row still exists:", CompetencyCriterion.objects.filter(id=criterion_a.id).exists())`.
+3. for an HTTP request, `print("Request: POST", url)` with the request's method and path, then `print("Body:", body)` for a JSON body or `print("Params:", params)` for query parameters, when the request has them. Assign `url`, `body`, and `params` first and pass the same variables to the call, so the output shows the request that was actually sent,
+4. the one action the step describes, against the seeded objects,
+5. one labeled `print` per value the expected result names, such as `print("Status code:", response.status_code)` or `print("Row still exists:", CompetencyCriterion.objects.filter(id=criterion_a.id).exists())`.
 
 Every line holds one statement. A step with two actions, such as two requests, is two blocks. Before running the script, check it: when its code outside string literals contains `def`, `lambda`, `for`, `;`, or a name shorter than three letters, rewrite those parts as plain repeated lines. Repetition is the point, because the person reads each block on its own.
 
@@ -122,6 +123,7 @@ from openedx_tagging.models import Tag
 from openedx_learning.applets.cbe.models import CompetencyCriterion
 
 BLOCK_A = "block-v1:OpenedX+DemoX+DemoCourse+type@sequential+block@mt_pr879_block_a"
+BLOCK_B = "block-v1:OpenedX+DemoX+DemoCourse+type@sequential+block@mt_pr879_block_b"
 author = get_user_model().objects.get(username="mt_pr879_author")
 tag = Tag.objects.get(value="mt_pr879_competency")
 criterion_a = CompetencyCriterion.objects.get(object_tag__object_id=BLOCK_A)
@@ -131,9 +133,31 @@ client.force_authenticate(user=author)
 print()
 print("AC1 (#674): <criterion text, word for word>")
 print("Step 2: delete a criterion with no learner status. Expect 200 and archived false.")
-response = client.delete(f"/api/cbe/v1/competencies/{tag.id}/criteria/{criterion_a.id}/")
+url = f"/api/cbe/v1/competencies/{tag.id}/criteria/{criterion_a.id}/"
+print("Request: DELETE", url)
+response = client.delete(url)
 print("Status code:", response.status_code)
 print("Response:", response.json())
+
+print()
+print("Step 3: create a criterion for block B with no group_id. Expect 201.")
+url = f"/api/cbe/v1/competencies/{tag.id}/criteria/"
+body = {"object_id": BLOCK_B}
+print("Request: POST", url)
+print("Body:", body)
+response = client.post(url, body, format="json")
+print("Status code:", response.status_code)
+print("Response:", response.json())
+```
+
+The Step 3 block prints:
+
+```text
+Step 3: create a criterion for block B with no group_id. Expect 201.
+Request: POST /api/cbe/v1/competencies/12/criteria/
+Body: {'object_id': 'block-v1:OpenedX+DemoX+DemoCourse+type@sequential+block@mt_pr879_block_b'}
+Status code: 201
+Response: {'id': 307, 'group_id': 477, 'rule_profile_id': 1, 'rule_type_override': None, 'rule_payload_override': None, 'object_tag_id': 377}
 ```
 
 Run the seed, then the demo, with the command from Local setup. The rerun command in the handover runs both, in that order. When the output shows the setup is wrong rather than the PR, such as the permitted user getting a 403, fix the seed and run both again before handing over.
