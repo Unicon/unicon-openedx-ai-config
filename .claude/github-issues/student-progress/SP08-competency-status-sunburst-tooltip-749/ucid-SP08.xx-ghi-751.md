@@ -58,13 +58,12 @@ Scenario: The tooltip appears beside the hovered segment's center and stays ther
 Scenario: The first tooltip waits for a short pause, and moving between segments switches at once
   Given no tooltip is showing
   When the learner moves the pointer onto the "Analysis" segment and keeps it there
-  Then no segment fades and no tooltip appears for the first 250ms
-  And then the tooltip for "Analysis" appears, together with the highlight and the status icon
+  Then the tooltip for "Analysis", the highlight, and the status icon appear together after a brief pause, not the instant the pointer arrives
   And when the learner then moves the pointer onto the "Inference" segment, the tooltip for "Inference" replaces it with no pause
 
 Scenario: Passing the pointer quickly across the sunburst shows nothing
   Given no tooltip is showing
-  When the learner moves the pointer across the sunburst and off it again within 250ms
+  When the learner moves the pointer across the sunburst and off it again without resting on any segment
   Then no tooltip appears and no segment fades
 
 Scenario Outline: The hovered segment, the segments above it, and its whole subtree stay lit
@@ -308,6 +307,7 @@ Scenario Outline: The tooltip opens on the side of the segment away from the sun
     | left to right | a segment left of the sunburst's center                                              | to the left  |
     | left to right | a segment right of the sunburst's center, with no room for the tooltip to its right | to the left  |
     | left to right | the only card heading's segment, which spans the whole circle                        | to the right |
+    | right to left | a segment right of the sunburst's center                                             | to the right |
     | right to left | a segment left of the sunburst's center                                              | to the left  |
     | right to left | a segment left of the sunburst's center, with no room for the tooltip to its left   | to the right |
     | right to left | the only card heading's segment, which spans the whole circle                        | to the left  |
@@ -353,13 +353,13 @@ One hover state for the page, held in `CompetencySunbursts` and set by event del
    - `show` while that chart holds the active segment;
    - as `target`, step 3's box, passed as the element itself from a callback ref. Because the box is keyed by the active id, each segment gets a new element, which Popper and `Overlay` both pick up. Neither of them notices an anchor that moves, and `Overlay` doesn't re-read a ref object.
    - `placement` on the side of the box away from the chart's center: `right` when the centroid is right of the center, and `left` when it is left of it. A centroid within 1px of the vertical center line, such as the full-circle segment of a taxonomy's only card, uses the reading direction: `right`, or `left` in right-to-left locales. The centroid is already mirrored in right-to-left locales, so the rule needs no other right-to-left handling. Opening away from the center keeps the card off as much of the chart as possible, because the part of the chart under the card can't be hovered while the card shows.
-   - `popperConfig` with a 20px offset from the box, the designer's gap; flip fallbacks to the opposite side, then above, then below; and `preventOverflow` on both axes with 16px of padding, so on a phone the card shifts to stay on screen even if it then covers the segment;
+   - `popperConfig` with a 20px offset from the box, the designer's gap; when the card doesn't fit on that side, Popper's flip modifier falls back to the opposite side, then above, then below; and `preventOverflow` on both axes with 16px of padding, so on a phone the card shifts to stay on screen even if it then covers the segment;
    - `transition={false}`, because step 1's timers own the timing.
 
    Three details need care:
    - Render a function child that puts a Paragon `Card` inside a wrapper `div` that takes the `ref` and `style` `Overlay` passes. `Popover` would always render an arrow. The card is 265px wide and never wider than `calc(100vw - 32px)`.
    - When a hover opened the card, give the wrapper a transparent `::before` strip on the side that faces the box, chosen from the final `placement` that `Overlay` passes to the function child, and reaching 31px back to the centroid: the 20px gap plus half the box. The browser counts the strip as part of the wrapper, so a pointer moving from the segment's center toward the card is over the card as soon as it leaves the segment, and the faded segments under the strip never take over. The strip is what lets an inner-ring segment's card meet WCAG 1.4.13. Leave the strip off a card that a tap opened, where it would swallow taps on the segments beneath it. Put the strip on the wrapper rather than on the `Card`, whose styles may clip overflow.
-   - Confirm early, in a browser, that Popper positions correctly against the box. Under Paragon 23 (react-bootstrap 1.6), the function child does receive the placement after any flip, `popperConfig` passes straight through Paragon's `Overlay`, and nothing swaps `left` and `right` in a right-to-left layout, so those three need no check; re-verify them if the plugin pins a different Paragon major.
+   - Confirm early, in a browser, that Popper positions correctly against the box. Under Paragon 23 (react-bootstrap 1.6), the function child does receive the placement after any such fallback, `popperConfig` passes straight through Paragon's `Overlay`, and nothing swaps `left` and `right` in a right-to-left layout, so those three need no check; re-verify them if the plugin pins a different Paragon major.
 
    `Overlay`'s portal keeps the card outside the `role="img"` subtree.
 5. **Name and status.** `buildSunburstTooltip(node, nodesById)` in `src/data/sunburstTooltip.js` returns one of three shapes, which `SunburstTooltip` in `src/SunburstTooltip.jsx` renders:
@@ -385,14 +385,14 @@ One hover state for the page, held in `CompetencySunbursts` and set by event del
    - The messages are six whole sentences ("all" or "any", times "or better", "or lower", and "exactly"), plus "Multiple requirements". Write them in sentence case and uppercase them with `text-uppercase`.
 8. **Tests beyond the AC.** These cover cases the Acceptance Criteria leave out or that QA can't set up by hand.
    - Pure tests for `buildSunburstTooltip`:
-     - a card heading with criteria of its own and a row beneath it (#734 Ref 1), for example "Problem Solving" whose own criteria are one group with one rule, with a "Problem Definition" row beneath it: the requirement line reads "MULTIPLE REQUIREMENTS" because the node has a tag child. This layout can exist only where a taxonomy re-import moved tags after criteria were created. #902 will reject that on re-import, and only Django admin edits or data from before #902 can still produce it, so QA can't stage it;
+     - a card heading with criteria of its own and a row beneath it, for example "Problem Solving" whose own criteria are one group with one rule, with a "Problem Definition" row beneath it: the requirement line reads "MULTIPLE REQUIREMENTS" because the node has a tag child. This layout can exist only where a taxonomy re-import moved tags after criteria were created. #902 rejects that on re-import, and only a Django admin edit can still produce it, so QA can't stage it;
      - a status the page doesn't recognize, returned by the platform for "Analysis" (a tag row) or for "Quiz 1" (a subsection): the tooltip shows the name with no oval, and the segment shows the Available icon. QA can't produce an unrecognized status without mocking the response.
    - Pure test for the side rule: a centroid right of, left of, and on the center line, in both reading directions.
    - Render tests, with fake timers for the first-show pause and the pointer-out grace:
      - moving from an inner-ring segment onto its card, the grace delay, the 250ms pause and its retargeting to another segment, and the other chart's full fade;
      - Escape closes the card, and the card reopens only when the pointer enters a different segment or leaves the chart and comes back;
      - a tap, a tap on another segment, a tap on the same segment, and a tap outside, with a touch `pointerType`.
-   - In a browser, not jsdom: Popper's positioning against the icon box, the strip, and the flips, since jsdom has no layout.
+   - In a browser, not jsdom: Popper's positioning against the icon box, the strip, and the fallback sides, since jsdom has no layout.
 9. **tutor-mfe pin.** Once a package release includes this ticket, open a pull request to `overhangio/tutor-mfe` that moves the pinned package version #828 adds to that release, and verify it on a Learning MFE image rebuilt from that branch. Until a tutor-mfe release includes that pull request, Tutor sites show the sunbursts without hover or tap behavior.
 
 Out of scope:

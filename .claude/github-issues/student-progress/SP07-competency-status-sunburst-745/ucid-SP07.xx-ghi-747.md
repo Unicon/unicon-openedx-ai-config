@@ -133,7 +133,7 @@ Scenario: A card below the top of a deep taxonomy draws only the card's own leve
   Then the sunburst has two competency rings: "Level 5", spanning the whole circle, and "Level 6" beneath it
   And no segment is drawn for "Level 1", "Level 2", "Level 3", or "Level 4"
 
-Scenario: A merged card draws its rows for tags without criteria as rings (Ref 2)
+Scenario: A merged card draws its rows for tags without criteria as rings
   Given "Problem Definition" and "Strategy Selection" are children of "Problem Solving", a top-level tag, and "Root Cause Analysis" is a child of "Problem Definition"
   And the course has competency criteria on "Strategy Selection" and "Root Cause Analysis" only, so #734 shows one "Problem Solving" card with a "Strategy Selection" row and a "Problem Definition" row, for a tag with no criteria of its own, with "Root Cause Analysis" nested under it
   When the learner opens the course's Progress tab
@@ -324,7 +324,7 @@ A pure function turns each taxonomy section from #734's `useCompetencyCards`, pl
    - Each card heading is a tag node in ring 0. Each row, including a row for a tag with no criteria of its own, is a tag node one ring deeper than the row or heading it sits under.
    - Each criterion is one subsection node in the outer ring. A subsection under two tags, or in two groups under one tag, therefore gets one node per criterion.
    - A tag node's children are its own subsections first, then its child rows, in card order. Its own subsections go group by group and rule box by rule box: the named subsections in outline order, then the criteria for that rule box's hidden subsections. Each child gets an equal share of its parent's angle, and the card headings share the full circle equally.
-   - Each tag node records the angle span its own subsections cover. The drawing step extends the tag's segment out to the subsection ring over that span. A tag with no rows therefore extends across its whole angle, and a heading with both its own subsections and rows (#734 Ref 1) extends only over its own subsections.
+   - Each tag node records the angle span its own subsections cover. The drawing step extends the tag's segment out to the subsection ring over that span. A tag with no rows therefore extends across its whole angle, and a heading with both its own subsections and rows extends only over its own subsections.
    - A tag node's status is `statuses.tags.get(tagId)`, and a subsection node's is `statuses.criteria.get(criterionId).status` (#739's criteria entries are objects with `status`, `percentGraded`, and `masked`). A missing entry, which covers every criterion for a hidden subsection and any unknown status, is drawn as Available.
    - For #751, every node carries four things:
      - an `id` namespaced by kind (`tag-12`, `criterion-12`), criteria for hidden subsections included, because tag ids and criterion ids are separate id spaces;
@@ -333,8 +333,8 @@ A pure function turns each taxonomy section from #734's `useCompetencyCards`, pl
      - `entry`, the raw #739 map entry for the node (or null when there is none), so #751 can tell an unknown or missing status from a real Available one and can read a subsection's `percentGraded`.
 2. **Ids for hidden subsections' criteria.** `buildCompetencyCards` gives each rule box a count of the criteria whose subsections are hidden from the learner. Have it also carry those criteria's ids, in `id` order, beside the count. Each hidden subsection's segment then has an id, and the cards keep rendering the count as they do.
 3. **Geometry.** `src/sunburstGeometry.js` takes the nodes, the ring count, and a diameter in pixels, and returns each node's path string and centroid.
-   - The ring count is the deepest tag ring plus one. The radii are a center hole, a competency band split equally among the rings, and a thinner subsection ring. Take the ratios from the Sizes and legend frame. A Ref 2 merge can produce up to six competency rings, and six is the hard maximum because a taxonomy is at most six levels deep (`TAXONOMY_MAX_DEPTH` is 5 in `openedx_tagging/models/base.py`, counting from depth 0). They are drawn thin, with no cap.
-   - A plain segment is two arcs and two lines. A Ref 1 heading is one path of three arcs and three lines, so no seam is drawn inside one segment.
+   - The ring count is the deepest tag ring plus one. The radii are a center hole, a competency band split equally among the rings, and a thinner subsection ring. Take the ratios from the Sizes and legend frame. A merged card, where a tag that heads one card also appears in another card's breadcrumb so the two cards merge under the shallower tag, can produce up to six competency rings, and six is the hard maximum because a taxonomy is at most six levels deep (`TAXONOMY_MAX_DEPTH` is 5 in `openedx_tagging/models/base.py`, counting from depth 0). They are drawn thin, with no cap.
+   - A plain segment is two arcs and two lines. A heading with both its own subsections and rows is one path of three arcs and three lines, so no seam is drawn inside one segment.
    - A segment that spans the full circle, such as the only card in a taxonomy or a tag with one subsection, must be drawn as two half arcs, because an SVG arc whose start and end points coincide draws nothing. Set the large-arc flag when a span exceeds half the circle.
    - The centroid is the segment's angular midpoint, at the mid-radius of the band the segment covers across its whole angle.
    - In a right-to-left locale (`isRtl(getLocale())` from `@edx/frontend-platform/i18n`), mirror x. The segments then run counterclockwise, while the node tree keeps reading order.
@@ -358,7 +358,7 @@ A pure function turns each taxonomy section from #734's `useCompetencyCards`, pl
      - the order of a tag's own subsections: group by group, rule box by rule box, the named subsections in outline order, then the criteria for that rule box's hidden subsections;
      - ids on the nodes for hidden subsections;
      - a status the page doesn't recognize, returned by the platform for "Analysis" (a tag row) or for "Quiz 1" (a subsection): the segment is drawn as Available and the legend still lists four statuses. QA can't produce an unrecognized status without mocking the response, so this is a test rather than an Acceptance Criteria scenario;
-     - a card heading with criteria of its own and rows beneath it (#734 Ref 1). This layout can exist only where a taxonomy re-import moved tags after criteria were created. #902 will reject that on re-import, and only Django admin edits or data from before #902 can still produce it, so QA can't stage it and it is tested here rather than as an Acceptance Criteria scenario. With "Problem Solving" and its grandchild "Root Cause Analysis" (through "Problem Definition") both holding criteria: Problem Solving spans the whole circle and has three equal children, its two own subsections and then the "Problem Definition" row; over the first two thirds, the Problem Solving segment extends out to the subsection ring and its two own subsections sit there; over the last third, ring 2 is "Problem Definition", ring 3 is "Root Cause Analysis", and Root Cause Analysis's subsections sit in the subsection ring.
+     - a card heading with criteria of its own and rows beneath it. This layout can exist only where a taxonomy re-import moved tags after criteria were created. #902 rejects that on re-import, and only a Django admin edit can still produce it, so QA can't stage it and it is tested here rather than as an Acceptance Criteria scenario. With "Problem Solving" and its grandchild "Root Cause Analysis" (through "Problem Definition") both holding criteria: Problem Solving spans the whole circle and has three equal children, its two own subsections and then the "Problem Definition" row; over the first two thirds, the Problem Solving segment extends out to the subsection ring and its two own subsections sit there; over the last third, ring 2 is "Problem Definition", ring 3 is "Root Cause Analysis", and Root Cause Analysis's subsections sit in the subsection ring.
    - Geometry tests: a full-circle segment, a span over half the circle, and a centroid.
    - A throw inside the chart, for example from data of a shape the chart doesn't expect: `CompetencySunbursts` renders nothing, the cards still render, and the mocked `logError` is called. `ErrorBoundary` does the logging itself in `componentDidCatch`, so no logging code is needed in the chart.
    - Render tests count each ring's segments by `data-ring` and check each segment's `data-status`. Don't snapshot path strings.
@@ -401,7 +401,7 @@ Paths are relative to the root of the plugin repository from #810.
   - the missing segment labels and tooltips until #751;
   - the rule for three or more taxonomies;
   - card headings that read Available until #643 ships.
-- More than two competency rings come from #734's card merges (Ref 2), which #666 allows. #733's response order sets the card order that the segments follow.
+- More than two competency rings come from #734's merged cards, where a tag that heads one card also appears in another card's breadcrumb, which #666 allows. #733's response order sets the card order that the segments follow.
 
 </details>
 
