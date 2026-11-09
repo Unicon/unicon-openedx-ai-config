@@ -42,7 +42,7 @@ Legend:
 
 ## Acceptance Criteria
 
-These scenarios use #734's terms (card, card heading, breadcrumb, named row, placeholder row) and #739's and #740's statuses, plus these definitions:
+These scenarios use #734's terms (card, card heading, breadcrumb, placeholder row), #739's term named row, and #739's and #740's statuses, plus these definitions:
 
 - A tag row is a row inside a card for a tag other than the card heading, shown with the target icon before its name. A tag row for a tag with criteria in this course has its groups and subsections under it; a tag row for a tag with no criteria of its own in this course has nothing beneath it.
 - The competency rings are the sunburst's inner bands. The innermost holds one segment per card heading, and each further ring holds the tag rows at the next nesting depth inside the cards. The subsection ring is the outermost band and holds one segment for each subsection the cards count, including each subsection counted in a placeholder row.

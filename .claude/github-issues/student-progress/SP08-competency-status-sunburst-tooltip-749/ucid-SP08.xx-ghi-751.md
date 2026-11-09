@@ -46,7 +46,7 @@ This ticket has five parts:
 
 ## Acceptance Criteria
 
-These scenarios use #734's, #739's, #740's, and #747's terms (card heading, named row, placeholder row, oval, segment, competency ring, subsection ring, "drawn as"), and these:
+These scenarios use #734's terms (card heading, placeholder row), #739's terms (named row, oval), and #747's terms (segment, competency ring, subsection ring, "drawn as"), and these:
 
 - A tag row is a row inside a card for a tag other than the card heading, shown with the target icon before its name. A tag row for a tag with criteria in this course has its groups and subsections under it; a tag row for a tag with no criteria of its own in this course has nothing beneath it.
 - The tooltip is the card that appears beside a segment the learner hovers over or taps. A competency tooltip is the one for a card heading's or tag row's segment. An assignment tooltip is the one for a subsection segment.
