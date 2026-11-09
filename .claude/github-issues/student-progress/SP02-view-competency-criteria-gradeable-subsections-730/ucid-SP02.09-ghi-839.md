@@ -173,6 +173,7 @@ This is a suggested approach, not the source of truth. The User Story, Descripti
 4. In #829's slot configuration function, keep the `competency_progress_panel` Insert in `org.openedx.frontend.learning.progress_tab_course_completion.v1` at priority 20, above the stock content at 50, in both layouts. When the placement value is "Replacement", also add `{ op: PLUGIN_OPERATIONS.Wrap, widgetId: 'default_contents', wrapper: CompetencyReplacementWrapper }` to that slot and to `org.openedx.frontend.learning.progress_tab_course_grade.v1`. Use the value spellings of tutor-mfe's setting from #828. The panel is inserted once in both layouts, so it can't appear twice. In `example.env.config.jsx`, pass the placement explicitly, with a comment naming the other value. tutor-mfe and the example call the same function, so they register the same entries without a separate parity check, and the wrapper needs no export from `src/index.jsx`.
 5. Leave `ProgressTabCertificateStatusMainBodySlot` alone. It sits between the two stock cards, so in "Replacement" in a course with criteria, a certificate status message shown there appears between the panel and the Grade summary.
 6. In courses without criteria, both stock cards now wait for #733 in "Replacement" mode, so a failed #733 request must fail fast. #734's plugin-owned query client does not retry 4xx responses, so a missing #733 route shows the cards after one request. Keep that rule if the client changes. A 5xx is still retried, and react-query's default of three retries hides the cards for several seconds on every course's Progress tab while the LMS is failing, so retry a 5xx at most once.
+7. **tutor-mfe pin.** Once a package release includes this ticket, open a pull request to `overhangio/tutor-mfe` that moves the pinned package version #828 adds to that release, and verify it on a Learning MFE image rebuilt from that branch. Until a tutor-mfe release includes that pull request, Tutor sites place the panel above the stock cards whatever the setting says.
 
 **Tests**
 
@@ -195,6 +196,7 @@ Out of scope: choosing the placement per course, the tutor-mfe setting itself (#
 | `src/pluginSlots.js` | modified: the two `Wrap` entries for "Replacement" |
 | `example.env.config.jsx` | modified: explicit placement value |
 | `README.rst` | modified: operator documentation for the two layouts |
+| `tutormfe/plugin.py` in `overhangio/tutor-mfe` | modified: wherever #828 declares the package's pinned version, most likely this file, otherwise `tutormfe/templates/mfe/build/mfe/Dockerfile` |
 
 **Additional context**
 
