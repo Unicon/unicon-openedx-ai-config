@@ -1,7 +1,7 @@
 # [BE] Enforce archived in Competency Criteria creation
 
 GitHub: https://github.com/openedx/openedx-core/issues/717 (#717, OPEN)
-Cached: 2026-09-21
+Cached: 2026-11-10
 
 **Blocked by:** \#665.
 
@@ -11,8 +11,8 @@ Cached: 2026-09-21
 
 As a course author adding content to a competency's rules:
 - I want to be stopped if I try to add content to a course whose competency rules were archived, so that archived rules stay archived.
-- I want to be able to start a competency's rules again after I've removed every course from it, so that removing the last course never locks the whole competency.
-- I want to be able to add a subsection again after its earlier association was archived, so that an old, archived association never blocks a new one.
+- I want to be able to add content from another course to a competency after every earlier course's rules under it were archived, so that archiving the last course never locks the whole competency against other courses.
+- I want to be able to add a subsection again after its earlier association was archived, while that course's rules under the competency are still active, so that an old, archived association by itself never blocks a new one.
 
 ## Description
 
@@ -36,7 +36,7 @@ Once \#716 adds `archived` to `CompetencyCriteriaGroup`/`CompetencyCriterion`, a
 
 **Explicitly out of scope**
 
-- Reactivating (unarchiving) an archived course-level group, leaf, or criterion. Archiving is one-directional for everything below the root; once a course-level group is archived, new criteria for that course under this competency are rejected. Accepted as permanent for MVP, matching `CompetencyRuleProfile`'s own archive-only, no-unarchive precedent. The root is the one exception, reactivated as described above.  
+- Reactivating (unarchiving) an archived course-level group, leaf, or criterion. Archiving is one-directional for everything below the root; once a course-level group is archived, new criteria for that course under this competency are rejected. Accepted as permanent for MVP, matching `CompetencyRuleProfile`'s own archive-only, no-unarchive precedent. The root is the one exception, reactivated as described above. This covers the one-course case too: when a competency's only course loses its last criterion to an archive cascade, that course-level group is archived with it, and content from that course is rejected from then on, even though content from a different course reactivates the root.  
 - Any change to \#665's `UniqueConstraint`s. This ticket assumes they stand as defined.  
 - Rejecting a `group_id` that doesn't exist or was hard-deleted: already a 404 via \#665's existing `get_object_or_404`, unaffected by this ticket.  
 - Surfacing archived state on any GET/list endpoint. \#681's GET excludes archived rows, and reporting which courses have an archived course-level group is 10.22, a separate ticket under epic \#723 with no GitHub issue yet. This ticket only changes create-time behavior.
@@ -90,8 +90,9 @@ Scenario: Supplied-group creation still succeeds for a non-archived leaf in a pa
   Then the response returns status code 201
   And a CompetencyCriterion is created, associated with that non-archived leaf group
 
-Scenario: Re-associating content after its prior criterion was archived succeeds
+Scenario: Re-associating content after its prior criterion was archived succeeds while the course's rules stay active
   Given a CompetencyCriterion previously associated object_id X with tag_id T, was later archived (archived=true) rather than deleted, and its oel_tagging_objecttag row is still in place
+  And the course-level CompetencyCriteriaGroup for X's course under competency T is still archived=false, because another criterion in that course kept it active
   When a POST request to competency T's endpoint associates object_id X again
   Then the response returns status code 201
   And a new CompetencyCriterion is created, associated with the existing oel_tagging_objecttag row
