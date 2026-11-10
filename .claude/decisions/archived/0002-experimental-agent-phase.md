@@ -4,6 +4,10 @@ description: Contains decisions on how humans should use AI, and decisions that 
 
 # Experimental Agent Phase
 
+## Status
+
+Closed (archived and decision is not in place any longer)
+
 ## Context
 
 Our heavy use of these AI skills for coding (as well as for architecture / documentation, somewhat) is entirely new and unproven.

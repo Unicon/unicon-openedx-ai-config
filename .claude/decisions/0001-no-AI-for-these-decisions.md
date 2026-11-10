@@ -4,6 +4,10 @@ description: Contains decisions on how humans should use AI, and decisions that 
 
 # No AI for these decisions
 
+## Status
+
+Accepted
+
 ## Decisions
 
 - Do not use AI agents to modify files in this /decisions folder.
