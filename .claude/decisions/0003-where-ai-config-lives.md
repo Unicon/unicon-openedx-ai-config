@@ -10,5 +10,10 @@ Accepted
 
 ## Decisions
 
-- For now, we are keeping our AI config for Open edX private inside Unicon.
 - We symlink the .claude from here into the folder that contains all the openedx repositories.
+
+## Changelog
+
+**11/10/26**
+
+Repository is now public.

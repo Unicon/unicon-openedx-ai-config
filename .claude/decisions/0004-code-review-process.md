@@ -36,7 +36,8 @@ The following rules are not just to ensure a high-quality review, but also to ke
 - The AI code review is performed by the implementer of the ticket. The implementer reviews the AI code review and fixes or addresses issues in there. An AI code review should show no more "Must fix before merging" issues that are not addressed before the PR moves into internal review. That means if the AI code review on the first pass finds any "Must fix before merge" items, at least one second AI code review needs to be performed that shows that no Must fix items remain.
 - Whether and how questions and nits are addressed is up to the implementer and human code reviewer.
 - The implementer must attach to the ticket: 1. a fix report listing every issue the AI code review found and the fix for it, and 2. the final AI code review that contains no more unaddressed "Must fix" items. The implementer is responsible for posting the AI code review as-is without having edited it and for having run it at least on Fable Medium.
-- If any of these files is missing, or if there are unaddressed "Must fix" items, the PR goes back to the implementer before any human review.
+- If these files are missing, the reviewer may decide to give the PR back to the author to do the AI review and first round of fixes before human review.
+- If there are unaddressed "Must fix" items, the PR goes back to the implementer before any human review.
 - Before approving, the human reviewer must read the AI code review report and the fix report to confirm there are no remaining issues.
 
 ### How to use the code review skills
