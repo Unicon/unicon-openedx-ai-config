@@ -85,7 +85,7 @@ First sort the agreed findings into two piles. A fix is trivial when a competent
 1. **Plan** the fixes in this session (the session-floor section above is what guarantees this planning runs on at least Opus at `xhigh`): for each finding, the exact files, the signatures, and the tests that prove it. For an architectural fix, have the `software-architect` sub-agent from step 3 verify the plan's shape if it has not already judged that finding.
 2. **Implement** through an implementation sub-agent on Sonnet at `high`, with the plan, the review anchors, and the developer's decisions in the prompt.
 3. **Verify** with one scoped review by a sub-agent on Opus at `xhigh`. This is not a second full code review; it confirms exactly three things against the fix diff: every agreed finding is fully addressed, the fixes introduce no regressions or new bugs, and the ticket's acceptance criteria still hold. Give it the diff, the findings list, and the ticket reference.
-4. When the verification finds a problem, send it to an implementation sub-agent to fix, and re-verify the fix. Stop looping when the verification is clean or the developer tells you to stop.
+4. When the verification finds a problem, send it to an implementation sub-agent to fix, and re-verify the fix. The loop is capped at three rounds: stop when the verification is clean, when the developer tells you to stop, or when the third round still leaves issues open. In that last case, surface the remaining issues to the developer and ask what to do next.
 
 For both piles: put each fix where the repo's commit conventions want it, re-run the linters and the tests the change touches, and check the result yourself before going on. Commit and push only when the developer asks, as `CLAUDE.md` requires.
 
