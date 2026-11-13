@@ -1,6 +1,6 @@
 ---
 name: html-artifacts
-description: Produce a self-contained HTML artifact instead of a markdown document when the content benefits from spatial layout, color, real diagrams, interactivity, or a round-trip editor. Use when the user asks for a "doc," "writeup," "plan," "spec," "report," "explainer," "comparison," "review," "PR description," "mockup," "diagram," "flowchart," "deck," "slides," "status update," "post-mortem," "dashboard," "chart," "playground," or a one-off "editor" or "tool" for triaging, reordering, or tuning something, even without saying "HTML" or "artifact." Also when asked to "explain," "compare," "explore options for," or "walk through" a non-trivial topic. Always use it when the deliverable is an .html file or a web page, even if the user names the file or asks for HTML directly; the skill is how the page gets checked, not just written. Stay in markdown for short replies, code-only answers, terminal-style instructions, anything the reader will read once and discard, and docs committed to a repository and diffed in PRs; for those, offer an HTML view alongside.
+description: Produce a self-contained HTML artifact alongside the markdown document when the content benefits from spatial layout, color, real diagrams, interactivity, or a round-trip editor. Use when the user asks for a "doc," "writeup," "plan," "spec," "report," "explainer," "comparison," "review," "PR description," "mockup," "diagram," "flowchart," "deck," "slides," "status update," "post-mortem," "dashboard," "chart," "playground," or a one-off "editor" or "tool" for triaging, reordering, or tuning something, even without saying "HTML" or "artifact." Also when asked to "explain," "compare," "explore options for," or "walk through" a non-trivial topic. Always use it when the deliverable is an .html file or a web page, even if the user names the file or asks for HTML directly; the skill is how the page gets checked, not just written. Stay in markdown for short replies, code-only answers, terminal-style instructions, anything the reader will read once and discard, and docs committed to a repository and diffed in PRs; for those, offer an HTML view alongside.
 license: Apache-2.0
 metadata:
   version: "2.0.0"
@@ -10,6 +10,8 @@ metadata:
 # HTML Artifacts
 
 Markdown is the default agent output. For anything longer than a handful of sentences it is a poor one: it cannot put two options side by side, draw a real diagram, be interactive, or be shared as a page. When the artifact *is* the deliverable, the reader will do something with it: read it carefully, share it, hand it to an implementer, paste edits back. Make it HTML.
+
+Every HTML artifact also gets its markdown twin: the markdown you would have written without this skill, kept beside the page (rule 10). The skill adds the HTML; it never replaces the markdown.
 
 The skill is a judgment call, not a format switch. Most of what follows is about deciding well and then checking the result, because the model already knows how to write HTML.
 
@@ -48,6 +50,7 @@ Every artifact must satisfy all of these.
 7. **Editors export back to text.** Non-negotiable. Anything with manipulable state ends with "copy as markdown / JSON / prompt." The round trip is the point.
 8. **Draw diagrams, and check each one as a text outline first.** Draw one for the overview and one for every section whose content has an order, a flow, a containment, or a contrast. Skip diagrams for minor information. Before drawing a diagram, write it as a short text outline (takeaway, elements, relations, inferred, left out), check every line against the page text, and keep the checked outline in an HTML comment above the figure. `references/visual-documents.md` has the procedure.
 9. **Verify before delivering.** If a browser is available (Playwright or Chromium in Claude Code, Cowork, or a cloud session), render the file headless, screenshot it at desktop and phone width, check the console for errors, and fix what you see. If no browser is available (Claude.ai chat, an artifact-only surface, no shell), do not stall or apologize: run the read-through checklist in `references/verify-before-delivering.md` instead and deliver. Either way, the artifact is checked once before the user sees it.
+10. **Keep the markdown twin, and link to it from the page.** Write the markdown exactly as you would without this skill. Save it beside the HTML with the same kebab-case name and a `.md` extension. Generate the HTML under rules 1 to 9 without shaping it around the markdown: the markdown does not change layout, length, or detail. The page opens with a top bar holding a "Download markdown" button. The markdown is embedded in the page, so the button works without a companion file. See "The download button" below.
 
 ## Workflow
 
@@ -56,7 +59,7 @@ Every artifact must satisfy all of these.
 3. **Match the user's style.** If the project has a design system, tokens, or a frontend-design skill, use it. Otherwise use the baseline in `references/matching-your-style.md`.
 4. **Outline.** For a text-heavy page, write the page outline first: the overview, one section per part, and what goes into each section's collapsibles. Then write and check the outline of each diagram (rule 8).
 5. **Draft.** Layout first, then content, then interaction. Pre-fill any data the user gave you. Draw each diagram exactly as its checked outline says.
-6. **Verify.** Rule 9. Fix, then deliver with the path or the artifact and one sentence on what it is.
+6. **Verify.** Rule 9. Fix, then deliver the HTML path and the markdown path, with one sentence on what each is.
 
 ## Category index
 
@@ -78,11 +81,33 @@ Every artifact must satisfy all of these.
 
 ## Output mechanics, briefly
 
-- **On disk (Claude Code, Cowork, cloud sessions):** save a descriptive `kebab-case` name with `.html` in the working directory, verify, then give the user the path and how to open it. Related artifacts go in one folder.
-- **Claude.ai artifacts:** one HTML artifact, not React, unless asked. Respect the artifact sandbox: allowed CDNs only, storage treated as unreliable, no relative links.
+- **On disk (Claude Code, Cowork, cloud sessions):** save a descriptive `kebab-case` name with `.html` in the working directory, save the markdown twin as the same name with `.md`, verify, then give the user both paths and how to open the HTML. Related artifacts go in one folder.
+- **Claude.ai artifacts:** one HTML artifact, not React, unless asked. Respect the artifact sandbox: allowed CDNs only, storage treated as unreliable, no relative links. No file is saved, so put the markdown twin in the chat reply and embed the same text in the page for the download button.
 - **Published or shared artifacts:** may have runtime capabilities (persistence, live data). Use them only when the surface documents them; never assume.
 
 Details, per surface, in `references/harness-mechanics.md`.
+
+### The download button
+
+Build the embedded markdown with `JSON.stringify(markdown).replaceAll("</", "<\\/")`, so the script block cannot close early. The top bar and script look like this:
+
+```html
+<header class="artifact-bar">
+  <button type="button" id="download-md">Download markdown</button>
+</header>
+<script type="application/json" id="markdown-source">"# Title\n\nThe markdown twin, encoded as above."</script>
+<script>
+  document.getElementById("download-md").addEventListener("click", () => {
+    const markdown = JSON.parse(document.getElementById("markdown-source").textContent);
+    const url = URL.createObjectURL(new Blob([markdown], { type: "text/markdown" }));
+    const link = Object.assign(document.createElement("a"), { href: url, download: "kebab-name.md" });
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  });
+</script>
+```
+
+Name the `download` value the same as the `.md` file. Style the bar with the page's own tokens so it stays quiet. If a surface blocks blob downloads, the same markup can open the text in a new tab instead by swapping the link for `window.open(url)`.
 
 ## What this skill is not
 
