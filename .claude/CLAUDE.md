@@ -71,6 +71,9 @@ where it conflicts with this workspace setup, follow the repository's config.
   pr `backend-code-review` skill. These both inherit from `code-review-openedx`, and 
   `code-review-openedx` should only be used as a foundational skill for more detailed
   code review skills that 'inherit' from it.
+- Producing a human-facing doc, writeup, report, or explainer: use `html-artifacts`.
+  It decides between HTML and Markdown. A doc committed to a repository stays Markdown
+  or RST.
 - Writing or amending an ADR: clarify first. Before drafting the decision text, batch the
   open questions into one round and get the user's answers. For a product-facing
   decision, dispatch both `business-analyst` (requirements, lifecycle, edge cases)
