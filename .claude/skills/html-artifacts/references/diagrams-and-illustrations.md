@@ -2,6 +2,8 @@
 
 Inline SVG gives the agent a real pen. The output is vector art the user can tweak by hand and copy out. Don't fall back to ASCII or "imagine a flowchart that…" prose — render it.
 
+Every diagram starts as a text outline that is checked against the text it illustrates, as described in `visual-documents.md`. Draw from the checked outline, not from memory of the topic.
+
 ## Figure sheet for a post or doc
 
 For "make me the diagrams for this article" or "draw the figures I'll use in the writeup."

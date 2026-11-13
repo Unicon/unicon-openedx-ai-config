@@ -1,6 +1,6 @@
 # Reports, Research & Explainers
 
-Recurring documents — status updates, post-mortems, deep dives — benefit most from a bit of structure and color. People read them when they're scannable; they ignore them when they're walls of text.
+Recurring documents — status updates, post-mortems, deep dives — benefit most from a bit of structure and color. People read them when they're scannable; they ignore them when they're walls of text. Read `visual-documents.md` alongside this file: it covers the overview-to-detail order, side-by-side layout, and the outline check for each diagram.
 
 ## Concept explainer (for learning a new topic)
 

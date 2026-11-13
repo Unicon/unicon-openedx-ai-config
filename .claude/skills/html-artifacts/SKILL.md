@@ -41,25 +41,28 @@ Every artifact must satisfy all of these.
 
 1. **One self-contained `.html` file.** CSS in `<style>`, JS in `<script>`, images as inline SVG or data URIs. No build step. External scripts only from the CDNs the target surface allows (see `references/harness-mechanics.md`), and only when a library genuinely earns its place.
 2. **Readable in five seconds.** A `<title>`, a heading, and a one-paragraph framing sentence or TL;DR before any substance.
-3. **Real layout, not translated markdown.** A comparison gets columns. A timeline gets drawn. A diff renders as a diff. If the page is headings and paragraphs, it should have been markdown.
+3. **Real layout, not translated markdown.** A comparison gets columns. A timeline gets drawn. A diff renders as a diff. If the page is headings and paragraphs, it should have been markdown. A text-heavy page goes from the overview down to the detail, puts parallel items side by side instead of in stacked bullet lists, and folds detail into collapsibles without deleting any of it. `references/visual-documents.md` covers how.
 4. **Tasteful by default.** Calm typography, 60 to 75 characters per line, restrained color that carries meaning. No gradient heroes, no emoji headings, no card grids for their own sake. `references/matching-your-style.md` has the baseline CSS and the list of tells to avoid.
 5. **Works at phone width and in both themes.** Viewport meta, relative units, layouts that wrap. Define light tokens on `:root`, redefine them under `prefers-color-scheme: dark` and under `[data-theme="dark"]` so both system preference and a manual toggle work.
 6. **Accessible baseline.** Semantic elements, labelled controls, keyboard-reachable interactions, visible focus, color never the only signal. `references/accessibility-and-print.md` has the checklist.
 7. **Editors export back to text.** Non-negotiable. Anything with manipulable state ends with "copy as markdown / JSON / prompt." The round trip is the point.
-8. **Verify before delivering.** If a browser is available (Playwright or Chromium in Claude Code, Cowork, or a cloud session), render the file headless, screenshot it at desktop and phone width, check the console for errors, and fix what you see. If no browser is available (Claude.ai chat, an artifact-only surface, no shell), do not stall or apologize: run the read-through checklist in `references/verify-before-delivering.md` instead and deliver. Either way, the artifact is checked once before the user sees it.
+8. **Draw diagrams, and check each one as a text outline first.** Draw one for the overview and one for every section whose content has an order, a flow, a containment, or a contrast. Skip diagrams for minor information. Before drawing a diagram, write it as a short text outline (takeaway, elements, relations, inferred, left out), check every line against the page text, and keep the checked outline in an HTML comment above the figure. `references/visual-documents.md` has the procedure.
+9. **Verify before delivering.** If a browser is available (Playwright or Chromium in Claude Code, Cowork, or a cloud session), render the file headless, screenshot it at desktop and phone width, check the console for errors, and fix what you see. If no browser is available (Claude.ai chat, an artifact-only surface, no shell), do not stall or apologize: run the read-through checklist in `references/verify-before-delivering.md` instead and deliver. Either way, the artifact is checked once before the user sees it.
 
 ## Workflow
 
 1. **Decide.** Run the two lists above. Say in one line what you're making and why HTML.
 2. **Pick the reference.** Read the matching file from the index below. They are short; read two if the request spans categories.
 3. **Match the user's style.** If the project has a design system, tokens, or a frontend-design skill, use it. Otherwise use the baseline in `references/matching-your-style.md`.
-4. **Draft.** Layout first, then content, then interaction. Pre-fill any data the user gave you.
-5. **Verify.** Rule 8. Fix, then deliver with the path or the artifact and one sentence on what it is.
+4. **Outline.** For a text-heavy page, write the page outline first: the overview, one section per part, and what goes into each section's collapsibles. Then write and check the outline of each diagram (rule 8).
+5. **Draft.** Layout first, then content, then interaction. Pre-fill any data the user gave you. Draw each diagram exactly as its checked outline says.
+6. **Verify.** Rule 9. Fix, then deliver with the path or the artifact and one sentence on what it is.
 
 ## Category index
 
 | If the request is about… | Read… |
 |---|---|
+| Any text-heavy page: ordering from overview to detail, side-by-side layout, collapsibles, choosing and checking diagrams | `references/visual-documents.md` (read it alongside the category file) |
 | Option comparisons, implementation plans, exploring directions before committing | `references/exploration-and-planning.md` |
 | Annotated diffs, PR writeups, code review, module maps, "explain this code" | `references/code-review-and-pr.md` |
 | Design tokens, component sheets, mockups, animation and interaction prototypes | `references/design-and-prototypes.md` |

@@ -42,6 +42,8 @@ Then **look at the screenshots** (the Read tool renders images). Check, in this 
 3. The five-second test: title, framing line, and the shape of the content are visible above the fold.
 4. Interactive parts respond: click the first control, press the keyboard shortcut, trigger the export and check the output text.
 5. Console is clean.
+6. The page is not one long column. Parallel items sit side by side at desktop width, and detail is folded into collapsibles.
+7. Every diagram has a checked outline comment above it. The drawing itself needs no second correctness check, only the layout and legibility checks above.
 
 Fix what you find, re-run, then deliver. Delete the screenshots and the script unless the user wants them.
 
@@ -56,6 +58,7 @@ Claude.ai chat, artifact-only surfaces, or a harness without a shell. Do this re
 - **Theme.** Every color is a token defined on `:root`, redefined for dark. No hard-coded `#fff` backgrounds or `#000` text. SVG ink uses `currentColor` or a token.
 - **Script.** Every `getElementById` matches an id that exists. Event listeners are attached after the elements exist (script at the end of body, or `DOMContentLoaded`). No references to `localStorage` outside a `try/catch`. No external URL outside the allowlist.
 - **Interaction.** Every button does something. Keyboard shortcuts documented on the page. Export button produces text that round-trips.
+- **Diagrams.** Every `<figure>` with an SVG has a `diagram-outline` comment above it.
 - **Content.** Data the user supplied is pre-filled, not placeholders. Numbers add up. Nothing says "lorem" or "TODO".
 - **Taste.** Fewer than three of the default-AI tells in `matching-your-style.md`.
 
