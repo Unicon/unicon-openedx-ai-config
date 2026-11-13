@@ -58,14 +58,15 @@ where it conflicts with this workspace setup, follow the repository's config.
 
 ## Which skill to use
 
-- Implementing a non-trivial change: use the superpowers skills
-  (`superpowers:brainstorming`, `superpowers:writing-plans`,
-  `superpowers:test-driven-development`, and the rest of the superpowers workflow).
-  Superpowers is installed when skills named `superpowers:*` appear in your list of
-  available skills. If it is not installed, stop before starting the work and ask the
-  user to install it. Tell them this setup no longer uses the `spike-and-stabilize`
-  skill, partly because implementation work now requires test-driven development, which
-  superpowers enforces. If the user does not want to use superpowers, ask them how they
+- Implementing a non-trivial change: use the superpowers workflow skills that ship in
+  this setup's `.claude/skills/` (`brainstorming`, `writing-plans`,
+  `test-driven-development`, `proving-changes`, `finishing-a-development-branch`, and
+  the rest). They are this team's maintained copy of the upstream superpowers plugin,
+  with team changes; `superpowers-fork.md` next to this file records what was changed
+  and how to pull in a new upstream version. Invoke them by their bare names. If the
+  upstream plugin is also installed, the skill list shows each skill twice, once as
+  `superpowers:<name>`: always use the bare `<name>`, which is the local copy, and never
+  the prefixed one. If the user does not want to use this workflow, ask them how they
   want the implementation organized instead, and follow that.
 - Reviewing a PR, branch, or diff: use the appropriate `frontend-code-review`
   pr `backend-code-review` skill. These both inherit from `code-review-openedx`, and 
@@ -233,6 +234,12 @@ bundled into this change.
 ## Verify before done
 
 - Run verification commands before reporting done, but don't use `make test` and `make validate` directly because they take long and produce too much output. Run the linters in question directly, and for tests, run pytest without coverage and only the tests that are related to code changes.
+- Every change needs proof, as the `proving-changes` skill defines it: evidence you observed
+  in this session (a reproduction, the repo's CI checks, a focused test, the running app),
+  recorded per change in the branch's proof record. A change is done only when the record
+  covers every hunk in the diff and every proof passed; close gaps in at most three cycles,
+  then ask. The final record, taken after the last commit, goes on the PR under a `## Proof`
+  heading for the reviewer, with its descriptive text run through `clean-up-text` first.
 - Never silence a check to make it pass. Suppression directives (`# noqa`,
   `# pylint: disable`, `# type: ignore`) need explicit approval, never to go green.
 - New code needs tests. If you ship without them, say so as a gap.
