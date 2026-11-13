@@ -251,6 +251,9 @@ bundled into this change.
     `__tests__/` directory, or named like one (`test_*.py`, `*_test.py`, `conftest.py`,
     `*.test.tsx`, `*.spec.ts`). In a test file, test names, comments, and docstrings stay
     as written.
+- Before a new PR goes to a human reviewer, run the `pre-human-review` skill. It runs an
+  independent AI review in a separate session, has the developer decide each finding, and
+  attaches the review and a fix report to the PR.
 
 ## Architecture
 
