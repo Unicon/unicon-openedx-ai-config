@@ -40,6 +40,30 @@ Scenario: The confirmation reads the same whatever happens underneath
   When the author deletes each
   Then the same confirmation wording is shown for both
 
+Scenario: Removing a competency's last association in a course warns that the course may be closed to that competency
+  Given "5 Whys + Fishbone Deep Dive" is the only content in its course that is associated with the competency "Inference"
+  When the author deletes that association
+    And the confirmation is shown
+  Then its message also says "After this removal, no content in this course is associated with Inference. If learners already have a mastery status for Inference from this course, Inference can't be associated with content in this course again."
+
+Scenario: Removing a Rule Group or rule box that holds a competency's last associations in a course warns that the course may be closed to that competency
+  Given removing a Rule Group or a rule box would leave no content in its course associated with the competency "Inference"
+  When the author deletes that Rule Group or rule box
+    And the confirmation is shown
+  Then its message also says "After this removal, no content in this course is associated with Inference. If learners already have a mastery status for Inference from this course, Inference can't be associated with content in this course again."
+
+Scenario: Removing a Course Group always warns that the course may be closed to that competency
+  Given a course author viewing the rules of the competency "Inference"
+  When they choose Remove from Inference from the ⋮ menu on a Course Group
+    And the confirmation is shown
+  Then its message also says "After this removal, no content in this course is associated with Inference. If learners already have a mastery status for Inference from this course, Inference can't be associated with content in this course again."
+
+Scenario: No course-closing warning is shown while the course keeps other associations with the competency
+  Given two pieces of content in the same course are associated with the competency "Inference"
+  When the author deletes one of those associations
+    And the confirmation is shown
+  Then its message does not include the warning that Inference can't be associated with content in this course again
+
 Scenario: A deletion that fails does not appear to have succeeded
   Given the author has chosen Remove in the confirmation
   When the request fails
@@ -100,6 +124,8 @@ Removing a competency's association with a piece of content on the Competency Ma
 
 This ticket adds the confirmation step. The wording and behavior come from the design spike \#775. The backend behavior it triggers is \#674 (delete one criterion) and \#675 (delete a whole group).
 
+Some removals close a course to a competency for good. When a removal takes the last content in a course that is associated with a competency, and learners already have a mastery status for that competency from that course, the server archives the competency's group for that course instead of deleting it. An archived course group accepts no new associations (https://github.com/openedx/openedx-core/issues/717), and archiving is permanent for MVP, so that competency can't be associated with content in that course again. The confirmation warns the author whenever a removal would leave a course with no content associated with the competency.
+
 **Four ways to delete an association on this page are in scope:** the "X" on a chip in the Browse Courses panel, the "X" on a chip in a rule box's Selected Content list, Remove group or Remove from [competency] in the ⋮ menu, which deletes a whole Rule Group or Course Group (\#709), and Remove rule in the ⋮ menu, which deletes a whole rule box (\#833). A rule box is a display-only grouping of criteria that share one score threshold, not a persisted record, so \#833 deletes it by removing each of its criteria. Deleting an unsaved placeholder Rule Group or rule box removes nothing on the server and shows no confirmation.
 
 <details>
@@ -110,6 +136,8 @@ This section is background and a suggested approach, not the ticket's source of 
 ### In short
 
 **Why one wording covers both outcomes.** The server decides whether to remove the association or archive it, based on whether learner mastery depends on it, and does not report which it did. So the dialog cannot describe the mechanism. It can say the action cannot be undone from this screen and that existing learner mastery is unaffected, both of which are true either way.
+
+**Why the last-association warning is conditional.** The page can tell from the rules it has already loaded whether a removal leaves a course with no content associated with the competency. It cannot tell whether learners have a mastery status there, which is what decides whether the server archives the course group and closes the course to the competency. So the warning is shown based only on what the removal leaves in the course, and its second sentence starts with "If learners already have a mastery status". The warning reads the same whether or not learner mastery depends on the removed content, so the author is still not told which outcome occurred.
 
 **What the frontend sends is unchanged.** Removal on this page goes through the \#674 and \#675 delete endpoints, and the archive-or-delete branch is entirely server-side in those endpoints. This ticket adds a confirmation in front of the existing request and changes nothing about the request itself.
 
@@ -125,8 +153,9 @@ This section is background and a suggested approach, not the ticket's source of 
 - **Also gate \#709's whole-group delete action and \#833's whole-rule-box delete action, the same way.** Same dialog, same wording, same "not yet removed until confirmed" behavior. Do not gate deleting an unsaved placeholder.  
 - **Use Studio's standard delete dialog**, `DeleteModal` in `src/generic/delete-modal/DeleteModal.tsx`, with `title`, `description`, and `btnLabel` set to the \#775 wording above. It wraps Paragon's `AlertModal`, so focus trapping and announcement come for free. Don't use the taxonomy tag list's type-to-confirm dialog (`src/taxonomy/tag-list/DeleteModal.tsx`).  
 - **Do not report which outcome occurred**, and do not add a request to find out whether learner mastery depends on the association. The author is deliberately not told.  
+- **Add the last-association warning from data already on the page.** A removal gets the warning when, after it, the competency's Course Group for that course would hold no associations: the association is the Course Group's only one, the rule box holds all of them, the Rule Group holds all of them, or the Course Group itself is being removed. Compute this from the criteria groups response the page already has (\#681). Do not add a request for it. The wording is "After this removal, no content in this course is associated with [competency]. If learners already have a mastery status for [competency] from this course, [competency] can't be associated with content in this course again." with the competency's name in place of [competency].  
 - **On failure, keep the dialog open and let Remove retry.** Render a Paragon `Alert` with `variant="danger"` at the top of the dialog body, and leave Remove enabled so pressing it again resends the request. Don't close the dialog or show a toast. `DeleteModal` doesn't close itself after `onDeleteSubmit`, so the caller closes it only when the request succeeds. Do not optimistically remove the association from the list before the request succeeds, or a failed delete will look like a successful one until the page is reloaded.  
-- **Tests:** the delete action shows the dialog and sends nothing, from all four entry points; deleting an unsaved placeholder shows no dialog; confirming removes the association or the group; cancelling sends nothing and leaves it listed; the same wording is used regardless of the server's outcome or which entry point triggered it; a failed request keeps the dialog open with the danger Alert and leaves the association listed, and a second Remove retries; focus moves into the dialog and it is keyboard dismissible.  
+- **Tests:** the delete action shows the dialog and sends nothing, from all four entry points; deleting an unsaved placeholder shows no dialog; confirming removes the association or the group; cancelling sends nothing and leaves it listed; the same wording is used regardless of the server's outcome or which entry point triggered it; the last-association warning is shown when the removal leaves the course with no associations for the competency, from each entry point, always for a Course Group, and not when other associations remain; a failed request keeps the dialog open with the danger Alert and leaves the association listed, and a second Remove retries; focus moves into the dialog and it is keyboard dismissible.  
 - **Out of scope:** the edit confirmation (\#785), the design itself (\#775), the server-side archive-versus-delete branch (\#674, \#675), and the Course Outline and Libraries pages, which are \#784.  
 - Context \#775 is the design spike that produces this dialog's wording and behavior.  
 - \#674 and \#675 are the server-side branch this confirmation sits in front of.  
