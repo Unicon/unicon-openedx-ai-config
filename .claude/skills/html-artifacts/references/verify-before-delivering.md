@@ -59,10 +59,22 @@ Claude.ai chat, artifact-only surfaces, or a harness without a shell. Do this re
 - **Script.** Every `getElementById` matches an id that exists. Event listeners are attached after the elements exist (script at the end of body, or `DOMContentLoaded`). No references to `localStorage` outside a `try/catch`. No external URL outside the allowlist.
 - **Interaction.** Every button does something. Keyboard shortcuts documented on the page. Export button produces text that round-trips.
 - **Diagrams.** Every `<figure>` with an SVG has a `diagram-outline` comment above it.
-- **Content.** Data the user supplied is pre-filled, not placeholders. Numbers add up. Nothing says "lorem" or "TODO".
+- **Content.** Data the user supplied is pre-filled, not placeholders. Numbers add up. Nothing says "lorem" or "TODO". The page matches the markdown twin, per the fidelity check above.
 - **Taste.** Fewer than three of the default-AI tells in `matching-your-style.md`.
 
 Then deliver. Say in one line that it was checked by read-through rather than rendered, only if the user is likely to care (a shared deliverable, a demo). Don't apologize for the surface.
+
+## Fidelity to the markdown twin
+
+Every HTML artifact with a markdown twin gets this check, on a browser or not. The markdown is the source of truth: it is what the reader keeps. If the page and the markdown disagree, fix the page. Layout can differ freely; facts cannot.
+
+1. **Byte match.** The markdown embedded for the download button equals the saved `.md` file exactly. With a browser, read the `markdown-source` script's JSON and compare it to the file. Without one, confirm that the same string was used for both.
+2. **Coverage, markdown to page.** List every heading, number, count, severity, name, file path, command, and URL in the `.md`. Each one must appear in the page text, including inside collapsibles, tabs, and diagram labels. With a browser, take the page's text content and search for each item.
+3. **Reverse check, page to markdown.** Every number, verdict, count, and claim in the page must trace to a line in the `.md`. Labels that only describe the layout, such as "Top" or "Next", do not need a source. A figure in the page with no source in the markdown is an error.
+4. **Wording.** Paraphrase is fine. A changed meaning is not: a "must" that became "should", a dropped caveat, or a reversed comparison fails the check.
+5. **Record the result.** Note in the final message whether the check ran and what it found. Say so when it was done by read-through only.
+
+Fix every mismatch and re-run the check. If the markdown itself is wrong, tell the user and leave the `.md` as it was written; do not quietly change it to match the page.
 
 ## When verification finds something you can't fix
 
